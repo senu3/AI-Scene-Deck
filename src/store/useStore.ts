@@ -2,6 +2,12 @@ import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project } from '../types';
 
+export interface SourceFolder {
+  path: string;
+  name: string;
+  structure: FileItem[];
+}
+
 interface AppState {
   // Project state
   projectLoaded: boolean;
@@ -10,8 +16,9 @@ interface AppState {
   trashPath: string | null;
   projectName: string;
 
-  // Folder browser state
-  rootFolder: { path: string; name: string; structure: FileItem[] } | null;
+  // Folder browser state - now supports multiple source folders
+  sourceFolders: SourceFolder[];
+  rootFolder: { path: string; name: string; structure: FileItem[] } | null; // Legacy, kept for compatibility
   expandedFolders: Set<string>;
   favorites: FavoriteFolder[];
 
@@ -41,6 +48,9 @@ interface AppState {
 
   // Actions - Folder browser
   setRootFolder: (folder: { path: string; name: string; structure: FileItem[] } | null) => void;
+  addSourceFolder: (folder: SourceFolder) => void;
+  removeSourceFolder: (path: string) => void;
+  updateSourceFolder: (path: string, structure: FileItem[]) => void;
   toggleFolderExpanded: (path: string) => void;
   addFavorite: (folder: FavoriteFolder) => void;
   removeFavorite: (path: string) => void;
@@ -91,6 +101,7 @@ export const useStore = create<AppState>((set, get) => ({
   trashPath: null,
   projectName: 'Untitled Project',
 
+  sourceFolders: [],
   rootFolder: null,
   expandedFolders: new Set(),
   favorites: [],
@@ -141,13 +152,43 @@ export const useStore = create<AppState>((set, get) => ({
     selectedCutId: null,
     selectionType: null,
     rootFolder: null,
+    sourceFolders: [],
     assetCache: new Map(),
   }),
 
   loadProject: (scenes) => set({ scenes }),
 
   // Folder browser actions
-  setRootFolder: (folder) => set({ rootFolder: folder }),
+  setRootFolder: (folder) => set((state) => {
+    // Also add to sourceFolders if not already present
+    if (folder && !state.sourceFolders.some(f => f.path === folder.path)) {
+      return {
+        rootFolder: folder,
+        sourceFolders: [...state.sourceFolders, folder]
+      };
+    }
+    return { rootFolder: folder };
+  }),
+
+  addSourceFolder: (folder) => set((state) => {
+    // Don't add if already exists
+    if (state.sourceFolders.some(f => f.path === folder.path)) {
+      return state;
+    }
+    return { sourceFolders: [...state.sourceFolders, folder] };
+  }),
+
+  removeSourceFolder: (path) => set((state) => ({
+    sourceFolders: state.sourceFolders.filter(f => f.path !== path),
+    // Also clear rootFolder if it matches
+    rootFolder: state.rootFolder?.path === path ? null : state.rootFolder,
+  })),
+
+  updateSourceFolder: (path, structure) => set((state) => ({
+    sourceFolders: state.sourceFolders.map(f =>
+      f.path === path ? { ...f, structure } : f
+    ),
+  })),
 
   toggleFolderExpanded: (path) => set((state) => {
     const newExpanded = new Set(state.expandedFolders);

@@ -1,5 +1,5 @@
-import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin, useDroppable } from '@dnd-kit/core';
-import { useState, useRef } from 'react';
+import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin, useDroppable, useSensors, useSensor, PointerSensor } from '@dnd-kit/core';
+import { useState, useRef, useCallback } from 'react';
 import { useStore } from './store/useStore';
 import Sidebar from './components/Sidebar';
 import Timeline from './components/Timeline';
@@ -9,6 +9,8 @@ import PreviewModal from './components/PreviewModal';
 import Header from './components/Header';
 import StartupModal from './components/StartupModal';
 import { Trash2 } from 'lucide-react';
+import { v4 as uuidv4 } from 'uuid';
+import type { Asset } from './types';
 import './styles/App.css';
 
 function TrashZone({ isActive }: { isActive: boolean }) {
@@ -30,6 +32,17 @@ function TrashZone({ isActive }: { isActive: boolean }) {
   );
 }
 
+// Helper to detect media type from filename
+function getMediaType(filename: string): 'image' | 'video' | null {
+  const ext = filename.toLowerCase().split('.').pop() || '';
+  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
+  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
+
+  if (imageExts.includes(ext)) return 'image';
+  if (videoExts.includes(ext)) return 'video';
+  return null;
+}
+
 function App() {
   const {
     projectLoaded,
@@ -39,12 +52,24 @@ function App() {
     scenes,
     removeCut,
     trashPath,
+    addCutToScene,
+    selectedSceneId,
   } = useStore();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [isWorkspaceDragOver, setIsWorkspaceDragOver] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
+
+  // Configure drag sensors with distance activation constraint
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px movement before drag starts
+      },
+    })
+  );
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; sceneId?: string; index?: number } | undefined;
@@ -128,6 +153,51 @@ function App() {
     }
   };
 
+  // Handle native file drop from OS
+  const handleWorkspaceDragOver = useCallback((e: React.DragEvent) => {
+    // Check if files are being dragged
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsWorkspaceDragOver(true);
+    }
+  }, []);
+
+  const handleWorkspaceDragLeave = useCallback((e: React.DragEvent) => {
+    // Only hide if leaving the main area (not entering a child)
+    if (e.currentTarget === e.target) {
+      setIsWorkspaceDragOver(false);
+    }
+  }, []);
+
+  const handleWorkspaceDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsWorkspaceDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const targetSceneId = selectedSceneId || scenes[0]?.id;
+
+    if (!targetSceneId) return;
+
+    for (const file of files) {
+      const mediaType = getMediaType(file.name);
+      if (!mediaType) continue; // Skip non-media files
+
+      // Get file path - in Electron we can access the path
+      const filePath = (file as File & { path?: string }).path || file.name;
+
+      const asset: Asset = {
+        id: uuidv4(),
+        name: file.name,
+        path: filePath,
+        type: mediaType,
+      };
+
+      addCutToScene(targetSceneId, asset);
+    }
+  }, [selectedSceneId, scenes, addCutToScene]);
+
   // Show startup modal if no project is loaded
   if (!projectLoaded) {
     return <StartupModal />;
@@ -135,6 +205,7 @@ function App() {
 
   return (
     <DndContext
+      sensors={sensors}
       collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -144,9 +215,21 @@ function App() {
         <Header />
         <div className="app-content">
           <Sidebar />
-          <main className="main-area">
+          <main
+            className={`main-area ${isWorkspaceDragOver ? 'file-drag-over' : ''}`}
+            onDragOver={handleWorkspaceDragOver}
+            onDragLeave={handleWorkspaceDragLeave}
+            onDrop={handleWorkspaceDrop}
+          >
             <Timeline activeId={activeId} activeType={activeType} />
             <PlaybackControls onPreview={() => setShowPreview(true)} />
+            {isWorkspaceDragOver && (
+              <div className="file-drop-overlay">
+                <div className="file-drop-content">
+                  <span>Drop files to add to timeline</span>
+                </div>
+              </div>
+            )}
           </main>
           <DetailsPanel />
         </div>

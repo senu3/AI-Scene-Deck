@@ -1,12 +1,14 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, MoreHorizontal, Circle, Edit2, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import CutCard from './CutCard';
 import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import './Timeline.css';
+
+const DRAG_THRESHOLD = 8; // Pixels before drag starts
 
 interface TimelineProps {
   activeId: string | null;
@@ -112,6 +114,8 @@ function SceneColumn({
   const [editName, setEditName] = useState(sceneName);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const hasDraggedRef = useRef(false);
 
   // Droppable for cuts
   const { setNodeRef: setDroppableRef } = useDroppable({
@@ -193,17 +197,42 @@ function SceneColumn({
     setShowMenu(false);
   };
 
+  // Track mouse movement to distinguish click from drag
+  const handleHeaderMouseDown = useCallback((e: React.MouseEvent) => {
+    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+    hasDraggedRef.current = false;
+  }, []);
+
+  const handleHeaderMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragStartPosRef.current) return;
+    const dx = Math.abs(e.clientX - dragStartPosRef.current.x);
+    const dy = Math.abs(e.clientY - dragStartPosRef.current.y);
+    if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
+      hasDraggedRef.current = true;
+    }
+  }, []);
+
+  const handleHeaderMouseUp = useCallback(() => {
+    if (!hasDraggedRef.current && dragStartPosRef.current) {
+      // It was a click, not a drag
+      onSelect();
+    }
+    dragStartPosRef.current = null;
+  }, [onSelect]);
+
   return (
     <div
       ref={setSceneDropRef}
       className={`scene-column ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${isOver && activeType === 'scene' ? 'drop-target' : ''}`}
-      onClick={onSelect}
     >
       <div
         ref={setDraggableRef}
         className="scene-header"
         {...dragAttributes}
         {...dragListeners}
+        onMouseDown={handleHeaderMouseDown}
+        onMouseMove={handleHeaderMouseMove}
+        onMouseUp={handleHeaderMouseUp}
       >
         <div className="scene-indicator">
           <Circle size={16} />
