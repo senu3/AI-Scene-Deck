@@ -1,0 +1,48 @@
+{
+  "name": "ai-scene-deck",
+  "version": "1.0.0",
+  "description": "AI Scene Manager - Intuitive asset management and slideshow preview tool for AI-generated content",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"wait-on http://localhost:5173 && npm run dev:main\"",
+    "dev:renderer": "vite",
+    "dev:main": "electron .",
+    "build": "tsc && vite build",
+    "build:electron": "tsc -p tsconfig.main.json",
+    "preview": "vite preview",
+    "electron": "electron ."
+  },
+  "keywords": [
+    "electron",
+    "react",
+    "typescript",
+    "ai",
+    "scene-manager",
+    "slideshow",
+    "asset-management"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/uuid": "^9.0.7",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "electron": "^28.0.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.1.0",
+    "@dnd-kit/sortable": "^8.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "lucide-react": "^0.294.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "uuid": "^9.0.1",
+    "zustand": "^4.4.7"
+  }
+}

@@ -1,0 +1,216 @@
+.preview-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.preview-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.preview-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  max-width: 1200px;
+  height: 85vh;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.preview-modal:fullscreen .preview-container {
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  border-radius: 0;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.preview-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.scene-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cut-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn, .close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.action-btn:hover, .close-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.preview-display {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000;
+  overflow: hidden;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  animation: fadeIn 0.3s ease;
+}
+
+.preview-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+}
+
+.preview-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background-color: var(--bg-secondary);
+}
+
+.progress-bar {
+  flex: 1;
+  height: 4px;
+  background-color: var(--bg-tertiary);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: var(--accent-primary);
+  transition: width 0.05s linear;
+}
+
+.progress-info {
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 40px;
+  text-align: right;
+}
+
+.preview-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
+}
+
+.controls-left, .controls-right {
+  flex: 1;
+}
+
+.controls-right {
+  text-align: right;
+}
+
+.index-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.hint-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.controls-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.control-btn:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.control-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.control-btn.primary {
+  width: 56px;
+  height: 56px;
+  background-color: var(--accent-primary);
+  color: white;
+}
+
+.control-btn.primary:hover {
+  background-color: var(--accent-secondary);
+  transform: scale(1.05);
+}
+
+.preview-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.preview-empty .hint {
+  font-size: 13px;
+  color: var(--text-muted);
+}

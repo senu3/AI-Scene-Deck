@@ -1,0 +1,101 @@
+.playback-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 56px;
+  padding: 0 20px;
+  background-color: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
+}
+
+.controls-left {
+  flex: 1;
+}
+
+.timeline-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.stat strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.stat-divider {
+  color: var(--text-muted);
+}
+
+.controls-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.control-btn:hover:not(:disabled) {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-btn.primary {
+  width: 48px;
+  height: 48px;
+  background-color: var(--accent-primary);
+  color: white;
+}
+
+.control-btn.primary:hover:not(:disabled) {
+  background-color: var(--accent-secondary);
+  transform: scale(1.05);
+}
+
+.controls-right {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.15s ease;
+}
+
+.export-btn:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+}
+
+.export-btn svg {
+  color: var(--accent-primary);
+}
