@@ -27,7 +27,6 @@ export default function DetailsPanel() {
     removeCut,
     trashPath,
     addSceneNote,
-    updateSceneNote,
     removeSceneNote,
   } = useStore();
 

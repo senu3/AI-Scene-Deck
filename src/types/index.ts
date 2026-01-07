@@ -23,6 +23,7 @@ export interface ImageMetadata {
   sampler?: string;
   cfg?: number;
   software?: string;
+  fileSize?: number;
 }
 
 export interface Asset {
