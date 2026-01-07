@@ -20,3 +20,38 @@
   overflow: hidden;
   background-color: var(--bg-secondary);
 }
+
+/* Trash Zone */
+.trash-zone {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 32px;
+  background-color: rgba(239, 68, 68, 0.9);
+  border-radius: var(--radius-lg);
+  color: white;
+  font-weight: 500;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.2s ease-out;
+  z-index: 100;
+}
+
+.trash-zone.over {
+  background-color: rgba(239, 68, 68, 1);
+  transform: translateX(-50%) scale(1.05);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}

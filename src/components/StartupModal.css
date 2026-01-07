@@ -1,0 +1,247 @@
+.startup-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.startup-backdrop {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, #1a1d21 0%, #2d3239 100%);
+}
+
+.startup-container {
+  position: relative;
+  width: 480px;
+  max-width: 90vw;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 0.3s ease-out;
+}
+
+.back-btn {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  transition: all 0.15s ease;
+}
+
+.back-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.startup-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.startup-header .logo-icon {
+  color: var(--accent-primary);
+  margin-bottom: 16px;
+}
+
+.startup-header h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.startup-header p {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.startup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.action-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-md);
+  text-align: left;
+  transition: all 0.15s ease;
+}
+
+.action-card:hover {
+  background-color: var(--bg-hover);
+  transform: translateX(4px);
+}
+
+.action-card svg:first-child {
+  color: var(--accent-primary);
+  flex-shrink: 0;
+}
+
+.action-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-title {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.action-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.action-arrow {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.recent-projects {
+  border-top: 1px solid var(--border-color);
+  padding-top: 24px;
+}
+
+.recent-projects h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s ease;
+}
+
+.recent-item:hover {
+  background-color: var(--bg-tertiary);
+}
+
+.recent-name {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.recent-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* New Project Form */
+.new-project-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.form-group input {
+  padding: 12px 14px;
+  font-size: 14px;
+  border-radius: var(--radius-md);
+}
+
+.vault-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.vault-selector input {
+  flex: 1;
+  cursor: pointer;
+}
+
+.vault-selector button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.vault-selector button:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--accent-primary);
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.create-btn {
+  margin-top: 8px;
+  padding: 14px 20px;
+  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  border-radius: var(--radius-md);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.create-btn:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,6 +1,7 @@
-import { useDroppable } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus, MoreHorizontal, Circle } from 'lucide-react';
+import { Plus, MoreHorizontal, Circle, Edit2, Trash2 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import CutCard from './CutCard';
 import type { Asset } from '../types';
@@ -9,9 +10,10 @@ import './Timeline.css';
 
 interface TimelineProps {
   activeId: string | null;
+  activeType: 'cut' | 'scene' | null;
 }
 
-export default function Timeline({ activeId }: TimelineProps) {
+export default function Timeline({ activeId, activeType }: TimelineProps) {
   const { scenes, addScene, selectedSceneId, selectScene, addCutToScene } = useStore();
 
   const handleDrop = (sceneId: string, e: React.DragEvent) => {
@@ -50,6 +52,7 @@ export default function Timeline({ activeId }: TimelineProps) {
             key={scene.id}
             sceneId={scene.id}
             sceneName={scene.name}
+            sceneOrder={scene.order}
             cuts={scene.cuts}
             isSelected={selectedSceneId === scene.id}
             onSelect={() => selectScene(scene.id)}
@@ -57,10 +60,11 @@ export default function Timeline({ activeId }: TimelineProps) {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             activeId={activeId}
+            activeType={activeType}
           />
         ))}
 
-        <button className="add-scene-btn" onClick={addScene}>
+        <button className="add-scene-btn" onClick={() => addScene()}>
           <Plus size={24} />
           <span>Add Scene</span>
         </button>
@@ -72,6 +76,7 @@ export default function Timeline({ activeId }: TimelineProps) {
 interface SceneColumnProps {
   sceneId: string;
   sceneName: string;
+  sceneOrder: number;
   cuts: Array<{
     id: string;
     assetId: string;
@@ -85,11 +90,13 @@ interface SceneColumnProps {
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
   activeId: string | null;
+  activeType: 'cut' | 'scene' | null;
 }
 
 function SceneColumn({
   sceneId,
   sceneName,
+  sceneOrder,
   cuts,
   isSelected,
   onSelect,
@@ -97,8 +104,17 @@ function SceneColumn({
   onDragOver,
   onDragLeave,
   activeId,
+  activeType,
 }: SceneColumnProps) {
-  const { setNodeRef } = useDroppable({
+  const { renameScene, removeScene, scenes } = useStore();
+  const [showMenu, setShowMenu] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(sceneName);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Droppable for cuts
+  const { setNodeRef: setDroppableRef } = useDroppable({
     id: `dropzone-${sceneId}`,
     data: {
       sceneId,
@@ -107,19 +123,144 @@ function SceneColumn({
     },
   });
 
+  // Draggable for scene header
+  const {
+    attributes: dragAttributes,
+    listeners: dragListeners,
+    setNodeRef: setDraggableRef,
+    isDragging,
+  } = useDraggable({
+    id: sceneId,
+    data: {
+      type: 'scene',
+      sceneId,
+      index: sceneOrder,
+    },
+  });
+
+  // Droppable for scene reordering
+  const { setNodeRef: setSceneDropRef, isOver } = useDroppable({
+    id: `scene-drop-${sceneId}`,
+    data: {
+      type: 'scene',
+      sceneId,
+      index: sceneOrder,
+    },
+  });
+
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [isEditing]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false);
+      }
+    };
+
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMenu]);
+
+  const handleRename = () => {
+    if (editName.trim() && editName !== sceneName) {
+      renameScene(sceneId, editName.trim());
+    } else {
+      setEditName(sceneName);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleRename();
+    } else if (e.key === 'Escape') {
+      setEditName(sceneName);
+      setIsEditing(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (scenes.length > 1 && confirm(`Delete "${sceneName}"? All cuts will be removed.`)) {
+      removeScene(sceneId);
+    }
+    setShowMenu(false);
+  };
+
   return (
     <div
-      className={`scene-column ${isSelected ? 'selected' : ''}`}
+      ref={setSceneDropRef}
+      className={`scene-column ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${isOver && activeType === 'scene' ? 'drop-target' : ''}`}
       onClick={onSelect}
     >
-      <div className="scene-header">
+      <div
+        ref={setDraggableRef}
+        className="scene-header"
+        {...dragAttributes}
+        {...dragListeners}
+      >
         <div className="scene-indicator">
           <Circle size={16} />
         </div>
-        <span className="scene-name">{sceneName.toUpperCase()}</span>
-        <button className="scene-menu-btn">
-          <MoreHorizontal size={16} />
-        </button>
+
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            className="scene-name-input"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={handleRename}
+            onKeyDown={handleKeyDown}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="scene-name">{sceneName.toUpperCase()}</span>
+        )}
+
+        <div className="scene-menu-container" ref={menuRef}>
+          <button
+            className="scene-menu-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+          >
+            <MoreHorizontal size={16} />
+          </button>
+
+          {showMenu && (
+            <div className="scene-menu">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                  setShowMenu(false);
+                }}
+              >
+                <Edit2 size={14} />
+                Rename
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
+                className="danger"
+                disabled={scenes.length <= 1}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <SortableContext
@@ -127,7 +268,7 @@ function SceneColumn({
         strategy={verticalListSortingStrategy}
       >
         <div
-          ref={setNodeRef}
+          ref={setDroppableRef}
           className="scene-cuts"
           onDrop={onDrop}
           onDragOver={onDragOver}

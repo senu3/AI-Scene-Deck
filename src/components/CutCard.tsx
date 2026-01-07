@@ -32,6 +32,7 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
   } = useSortable({
     id: cut.id,
     data: {
+      type: 'cut',
       sceneId,
       index,
     },

@@ -22,7 +22,35 @@ export interface FileInfo {
   extension: string;
 }
 
+export interface ImageMetadata {
+  width?: number;
+  height?: number;
+  format?: string;
+  prompt?: string;
+  negativePrompt?: string;
+  model?: string;
+  seed?: number;
+  steps?: number;
+  sampler?: string;
+  cfg?: number;
+  software?: string;
+  fileSize?: number;
+}
+
+export interface VaultInfo {
+  path: string;
+  trashPath: string;
+  configPath: string;
+}
+
+export interface RecentProject {
+  name: string;
+  path: string;
+  date: string;
+}
+
 const electronAPI = {
+  // Folder operations
   selectFolder: (): Promise<FolderSelection | null> =>
     ipcRenderer.invoke('select-folder'),
 
@@ -35,11 +63,50 @@ const electronAPI = {
   readFileAsBase64: (filePath: string): Promise<string | null> =>
     ipcRenderer.invoke('read-file-as-base64', filePath),
 
-  saveProject: (projectData: string): Promise<boolean> =>
-    ipcRenderer.invoke('save-project', projectData),
+  // Image metadata
+  readImageMetadata: (filePath: string): Promise<ImageMetadata | null> =>
+    ipcRenderer.invoke('read-image-metadata', filePath),
 
-  loadProject: (): Promise<unknown> =>
+  // Vault operations
+  selectVault: (): Promise<string | null> =>
+    ipcRenderer.invoke('select-vault'),
+
+  createVault: (vaultPath: string, projectName: string): Promise<VaultInfo | null> =>
+    ipcRenderer.invoke('create-vault', vaultPath, projectName),
+
+  createSceneFolder: (vaultPath: string, sceneName: string): Promise<string | null> =>
+    ipcRenderer.invoke('create-scene-folder', vaultPath, sceneName),
+
+  // File operations
+  moveToVault: (sourcePath: string, destFolder: string, newName?: string): Promise<string | null> =>
+    ipcRenderer.invoke('move-to-vault', sourcePath, destFolder, newName),
+
+  moveToTrash: (filePath: string, trashPath: string): Promise<string | null> =>
+    ipcRenderer.invoke('move-to-trash', filePath, trashPath),
+
+  pathExists: (path: string): Promise<boolean> =>
+    ipcRenderer.invoke('path-exists', path),
+
+  // Project operations
+  saveProject: (projectData: string, projectPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke('save-project', projectData, projectPath),
+
+  loadProject: (): Promise<{ data: unknown; path: string } | null> =>
     ipcRenderer.invoke('load-project'),
+
+  // Recent projects
+  getRecentProjects: (): Promise<RecentProject[]> =>
+    ipcRenderer.invoke('get-recent-projects'),
+
+  saveRecentProjects: (projects: RecentProject[]): Promise<boolean> =>
+    ipcRenderer.invoke('save-recent-projects', projects),
+
+  // Scene notes
+  saveSceneNotes: (scenePath: string, notes: string): Promise<boolean> =>
+    ipcRenderer.invoke('save-scene-notes', scenePath, notes),
+
+  loadSceneNotes: (scenePath: string): Promise<unknown[]> =>
+    ipcRenderer.invoke('load-scene-notes', scenePath),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);
