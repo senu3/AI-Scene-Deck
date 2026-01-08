@@ -1,6 +1,8 @@
 import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin, useDroppable, useSensors, useSensor, PointerSensor } from '@dnd-kit/core';
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
+import { useHistoryStore } from './store/historyStore';
+import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand } from './store/commands';
 import Sidebar from './components/Sidebar';
 import Timeline from './components/Timeline';
 import DetailsPanel from './components/DetailsPanel';
@@ -46,15 +48,14 @@ function getMediaType(filename: string): 'image' | 'video' | null {
 function App() {
   const {
     projectLoaded,
-    moveCutBetweenScenes,
-    reorderCuts,
     reorderScenes,
     scenes,
     removeCut,
     trashPath,
-    addCutToScene,
     selectedSceneId,
   } = useStore();
+
+  const { executeCommand, undo, redo } = useHistoryStore();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
@@ -70,6 +71,50 @@ function App() {
       },
     })
   );
+
+  // Global keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // Check if user is typing in an input field
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Ctrl+Z or Cmd+Z for Undo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        try {
+          await undo();
+        } catch (error) {
+          console.error('Undo failed:', error);
+        }
+      }
+
+      // Ctrl+Shift+Z or Cmd+Shift+Z for Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        e.preventDefault();
+        try {
+          await redo();
+        } catch (error) {
+          console.error('Redo failed:', error);
+        }
+      }
+
+      // Ctrl+Y or Cmd+Y for Redo (alternative)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        try {
+          await redo();
+        } catch (error) {
+          console.error('Redo failed:', error);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; sceneId?: string; index?: number } | undefined;
@@ -141,14 +186,18 @@ function App() {
         const toIndex = overData.type === 'dropzone' ? scene.cuts.length : (overData.index ?? 0);
 
         if (fromIndex !== toIndex) {
-          reorderCuts(fromSceneId, fromIndex, toIndex);
+          executeCommand(new ReorderCutsCommand(fromSceneId, cutId, toIndex, fromIndex)).catch((error) => {
+            console.error('Failed to reorder cuts:', error);
+          });
         }
       } else {
         // Move between scenes
         const toIndex = overData.type === 'dropzone' ?
           (scenes.find(s => s.id === toSceneId)?.cuts.length || 0) :
           (overData.index ?? 0);
-        moveCutBetweenScenes(fromSceneId, toSceneId, cutId, toIndex);
+        executeCommand(new MoveCutBetweenScenesCommand(fromSceneId, toSceneId, cutId, toIndex)).catch((error) => {
+          console.error('Failed to move cut between scenes:', error);
+        });
       }
     }
   };
@@ -194,9 +243,12 @@ function App() {
         type: mediaType,
       };
 
-      addCutToScene(targetSceneId, asset);
+      // Use command for undo/redo support
+      executeCommand(new AddCutCommand(targetSceneId, asset)).catch((error) => {
+        console.error('Failed to add cut:', error);
+      });
     }
-  }, [selectedSceneId, scenes, addCutToScene]);
+  }, [selectedSceneId, scenes, executeCommand]);
 
   // Show startup modal if no project is loaded
   if (!projectLoaded) {

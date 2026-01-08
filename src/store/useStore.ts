@@ -68,11 +68,11 @@ interface AppState {
   removeSceneNote: (sceneId: string, noteId: string) => void;
 
   // Actions - Cuts
-  addCutToScene: (sceneId: string, asset: Asset) => void;
+  addCutToScene: (sceneId: string, asset: Asset) => string; // Returns cutId
   removeCut: (sceneId: string, cutId: string) => Cut | null;
   updateCutDisplayTime: (sceneId: string, cutId: string, time: number) => void;
-  reorderCuts: (sceneId: string, fromIndex: number, toIndex: number) => void;
-  moveCutBetweenScenes: (fromSceneId: string, toSceneId: string, cutId: string, toIndex: number) => void;
+  reorderCuts: (sceneId: string, cutId: string, newIndex: number, fromSceneId: string, oldIndex: number) => void;
+  moveCutToScene: (fromSceneId: string, toSceneId: string, cutId: string, toIndex: number) => void;
 
   // Actions - Selection
   selectScene: (sceneId: string | null) => void;
@@ -302,31 +302,36 @@ export const useStore = create<AppState>((set, get) => ({
   })),
 
   // Cut actions
-  addCutToScene: (sceneId, asset) => set((state) => {
-    const scene = state.scenes.find((s) => s.id === sceneId);
-    if (!scene) return state;
+  addCutToScene: (sceneId, asset) => {
+    const scene = get().scenes.find((s) => s.id === sceneId);
+    if (!scene) return '';
 
+    const cutId = uuidv4();
     const newCut: Cut = {
-      id: uuidv4(),
+      id: cutId,
       assetId: asset.id,
       asset,
       displayTime: 2.0,
       order: scene.cuts.length,
     };
 
-    // Cache the asset
-    const newCache = new Map(state.assetCache);
-    newCache.set(asset.id, asset);
+    set((state) => {
+      // Cache the asset
+      const newCache = new Map(state.assetCache);
+      newCache.set(asset.id, asset);
 
-    return {
-      scenes: state.scenes.map((s) =>
-        s.id === sceneId
-          ? { ...s, cuts: [...s.cuts, newCut] }
-          : s
-      ),
-      assetCache: newCache,
-    };
-  }),
+      return {
+        scenes: state.scenes.map((s) =>
+          s.id === sceneId
+            ? { ...s, cuts: [...s.cuts, newCut] }
+            : s
+        ),
+        assetCache: newCache,
+      };
+    });
+
+    return cutId;
+  },
 
   removeCut: (sceneId, cutId) => {
     const state = get();
@@ -364,13 +369,13 @@ export const useStore = create<AppState>((set, get) => ({
     ),
   })),
 
-  reorderCuts: (sceneId, fromIndex, toIndex) => set((state) => {
+  reorderCuts: (sceneId, _cutId, newIndex, _fromSceneId, oldIndex) => set((state) => {
     const scene = state.scenes.find((s) => s.id === sceneId);
     if (!scene) return state;
 
     const newCuts = [...scene.cuts];
-    const [removed] = newCuts.splice(fromIndex, 1);
-    newCuts.splice(toIndex, 0, removed);
+    const [removed] = newCuts.splice(oldIndex, 1);
+    newCuts.splice(newIndex, 0, removed);
 
     return {
       scenes: state.scenes.map((s) =>
@@ -381,7 +386,7 @@ export const useStore = create<AppState>((set, get) => ({
     };
   }),
 
-  moveCutBetweenScenes: (fromSceneId, toSceneId, cutId, toIndex) => set((state) => {
+  moveCutToScene: (fromSceneId, toSceneId, cutId, toIndex) => set((state) => {
     const fromScene = state.scenes.find((s) => s.id === fromSceneId);
     if (!fromScene) return state;
 

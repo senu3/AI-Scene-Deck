@@ -1,8 +1,9 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, MoreHorizontal, Circle, Edit2, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
+import { useHistoryStore } from '../store/historyStore';
+import { AddCutCommand, AddSceneCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
 import CutCard from './CutCard';
 import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
@@ -16,9 +17,10 @@ interface TimelineProps {
 }
 
 export default function Timeline({ activeId, activeType }: TimelineProps) {
-  const { scenes, addScene, selectedSceneId, selectScene, addCutToScene } = useStore();
+  const { scenes, selectedSceneId, selectScene } = useStore();
+  const { executeCommand } = useHistoryStore();
 
-  const handleDrop = (sceneId: string, e: React.DragEvent) => {
+  const handleDrop = async (sceneId: string, e: React.DragEvent) => {
     e.preventDefault();
     e.currentTarget.classList.remove('drop-active');
 
@@ -30,10 +32,11 @@ export default function Timeline({ activeId, activeType }: TimelineProps) {
         if (!asset.id) {
           asset.id = uuidv4();
         }
-        addCutToScene(sceneId, asset);
+        // Use command for undo/redo support
+        await executeCommand(new AddCutCommand(sceneId, asset));
       }
-    } catch {
-      // Invalid data, ignore
+    } catch (error) {
+      console.error('Failed to add cut:', error);
     }
   };
 
@@ -66,7 +69,12 @@ export default function Timeline({ activeId, activeType }: TimelineProps) {
           />
         ))}
 
-        <button className="add-scene-btn" onClick={() => addScene()}>
+        <button className="add-scene-btn" onClick={() => {
+          const sceneName = `Scene ${scenes.length + 1}`;
+          executeCommand(new AddSceneCommand(sceneName)).catch((error) => {
+            console.error('Failed to add scene:', error);
+          });
+        }}>
           <Plus size={24} />
           <span>Add Scene</span>
         </button>
@@ -108,7 +116,8 @@ function SceneColumn({
   activeId,
   activeType,
 }: SceneColumnProps) {
-  const { renameScene, removeScene, scenes } = useStore();
+  const { scenes } = useStore();
+  const { executeCommand } = useHistoryStore();
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(sceneName);
@@ -174,7 +183,9 @@ function SceneColumn({
 
   const handleRename = () => {
     if (editName.trim() && editName !== sceneName) {
-      renameScene(sceneId, editName.trim());
+      executeCommand(new RenameSceneCommand(sceneId, editName.trim())).catch((error) => {
+        console.error('Failed to rename scene:', error);
+      });
     } else {
       setEditName(sceneName);
     }
@@ -192,7 +203,9 @@ function SceneColumn({
 
   const handleDelete = () => {
     if (scenes.length > 1 && confirm(`Delete "${sceneName}"? All cuts will be removed.`)) {
-      removeScene(sceneId);
+      executeCommand(new RemoveSceneCommand(sceneId)).catch((error) => {
+        console.error('Failed to remove scene:', error);
+      });
     }
     setShowMenu(false);
   };
@@ -292,32 +305,27 @@ function SceneColumn({
         </div>
       </div>
 
-      <SortableContext
-        items={cuts.map(c => c.id)}
-        strategy={verticalListSortingStrategy}
+      <div
+        ref={setDroppableRef}
+        className="scene-cuts"
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
       >
-        <div
-          ref={setDroppableRef}
-          className="scene-cuts"
-          onDrop={onDrop}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-        >
-          {cuts.map((cut, index) => (
-            <CutCard
-              key={cut.id}
-              cut={cut}
-              sceneId={sceneId}
-              index={index}
-              isDragging={activeId === cut.id}
-            />
-          ))}
+        {cuts.map((cut, index) => (
+          <CutCard
+            key={cut.id}
+            cut={cut}
+            sceneId={sceneId}
+            index={index}
+            isDragging={activeId === cut.id}
+          />
+        ))}
 
-          <div className="drop-placeholder">
-            <Plus size={20} />
-          </div>
+        <div className="drop-placeholder">
+          <Plus size={20} />
         </div>
-      </SortableContext>
+      </div>
     </div>
   );
 }

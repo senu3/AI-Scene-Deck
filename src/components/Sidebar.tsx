@@ -13,6 +13,8 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useHistoryStore } from '../store/historyStore';
+import { AddCutCommand } from '../store/commands';
 import type { FileItem, Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import './Sidebar.css';
@@ -389,7 +391,8 @@ interface FileItemComponentProps {
 }
 
 function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCache }: FileItemComponentProps) {
-  const { scenes, addCutToScene, selectedSceneId } = useStore();
+  const { scenes, selectedSceneId } = useStore();
+  const { executeCommand } = useHistoryStore();
   const [thumbnail, setThumbnail] = useState<string | null>(
     thumbnailCache.get(item.path) || null
   );
@@ -417,7 +420,10 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
       thumbnail: thumbnail || undefined,
     };
 
-    addCutToScene(targetSceneId, asset);
+    // Use command for undo/redo support
+    executeCommand(new AddCutCommand(targetSceneId, asset)).catch((error) => {
+      console.error('Failed to add cut:', error);
+    });
   };
 
   const handleDragStart = (e: React.DragEvent) => {

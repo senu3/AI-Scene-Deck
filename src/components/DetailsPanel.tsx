@@ -13,6 +13,8 @@ import {
   Layers,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useHistoryStore } from '../store/historyStore';
+import { UpdateDisplayTimeCommand, RemoveCutCommand } from '../store/commands';
 import type { ImageMetadata } from '../types';
 import './DetailsPanel.css';
 
@@ -23,12 +25,11 @@ export default function DetailsPanel() {
     selectedCutId,
     selectionType,
     getAsset,
-    updateCutDisplayTime,
-    removeCut,
-    trashPath,
     addSceneNote,
     removeSceneNote,
   } = useStore();
+
+  const { executeCommand } = useHistoryStore();
 
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [localDisplayTime, setLocalDisplayTime] = useState('2.0');
@@ -106,20 +107,17 @@ export default function DetailsPanel() {
     setLocalDisplayTime(value);
     const numValue = parseFloat(value);
     if (!isNaN(numValue) && numValue > 0 && cutScene && cut) {
-      updateCutDisplayTime(cutScene.id, cut.id, numValue);
+      executeCommand(new UpdateDisplayTimeCommand(cutScene.id, cut.id, numValue)).catch((error) => {
+        console.error('Failed to update display time:', error);
+      });
     }
   };
 
   const handleRemoveCut = async () => {
     if (cutScene && cut) {
-      if (confirm('Remove this cut from the timeline?')) {
-        const removedCut = removeCut(cutScene.id, cut.id);
-
-        // Move to trash
-        if (removedCut?.asset?.path && trashPath && window.electronAPI) {
-          await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
-        }
-      }
+      executeCommand(new RemoveCutCommand(cutScene.id, cut.id)).catch((error) => {
+        console.error('Failed to remove cut:', error);
+      });
     }
   };
 
@@ -200,7 +198,7 @@ export default function DetailsPanel() {
             </div>
 
             <div className="notes-list">
-              {selectedScene.notes.map((note) => (
+              {selectedScene.notes?.map((note) => (
                 <div key={note.id} className="note-item">
                   <p>{note.content}</p>
                   <button
@@ -211,7 +209,7 @@ export default function DetailsPanel() {
                   </button>
                 </div>
               ))}
-              {selectedScene.notes.length === 0 && (
+              {(!selectedScene.notes || selectedScene.notes.length === 0) && (
                 <p className="no-notes">No notes yet</p>
               )}
             </div>

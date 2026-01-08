@@ -1,9 +1,11 @@
-import { Clapperboard, FolderOpen, Save, MoreVertical } from 'lucide-react';
+import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useHistoryStore } from '../store/historyStore';
 import './Header.css';
 
 export default function Header() {
   const { scenes, loadProject, clearProject } = useStore();
+  const { undo, redo, canUndo, canRedo } = useHistoryStore();
 
   const handleSaveProject = async () => {
     if (!window.electronAPI) {
@@ -41,6 +43,22 @@ export default function Header() {
     }
   };
 
+  const handleUndo = async () => {
+    try {
+      await undo();
+    } catch (error) {
+      console.error('Undo failed:', error);
+    }
+  };
+
+  const handleRedo = async () => {
+    try {
+      await redo();
+    } catch (error) {
+      console.error('Redo failed:', error);
+    }
+  };
+
   return (
     <header className="header">
       <div className="header-left">
@@ -58,6 +76,22 @@ export default function Header() {
       </div>
 
       <div className="header-right">
+        <button
+          className="header-btn"
+          onClick={handleUndo}
+          disabled={!canUndo()}
+          title="Undo (Ctrl+Z)"
+        >
+          <Undo size={18} />
+        </button>
+        <button
+          className="header-btn"
+          onClick={handleRedo}
+          disabled={!canRedo()}
+          title="Redo (Ctrl+Shift+Z)"
+        >
+          <Redo size={18} />
+        </button>
         <button className="header-btn" onClick={handleNewProject} title="New Project">
           <FolderOpen size={18} />
         </button>
