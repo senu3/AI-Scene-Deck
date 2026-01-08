@@ -1,4 +1,5 @@
-import { useDraggable } from '@dnd-kit/core';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useState, useEffect } from 'react';
 import { Film, Image, Clock } from 'lucide-react';
 import { useStore } from '../store/useStore';
@@ -27,7 +28,8 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     listeners,
     setNodeRef,
     transform,
-  } = useDraggable({
+    transition,
+  } = useSortable({
     id: cut.id,
     data: {
       type: 'cut',
@@ -37,7 +39,8 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
   });
 
   const style = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transform: CSS.Transform.toString(transform),
+    transition,
     opacity: isDragging ? 0.5 : 1,
   };
 

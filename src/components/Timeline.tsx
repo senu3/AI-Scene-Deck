@@ -1,4 +1,5 @@
 import { useDroppable } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, MoreHorizontal, Circle, Edit2, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
@@ -243,27 +244,32 @@ function SceneColumn({
         </div>
       </div>
 
-      <div
-        ref={setDroppableRef}
-        className="scene-cuts"
-        onDrop={onDrop}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
+      <SortableContext
+        items={cuts.map(c => c.id)}
+        strategy={verticalListSortingStrategy}
       >
-        {cuts.map((cut, index) => (
-          <CutCard
-            key={cut.id}
-            cut={cut}
-            sceneId={sceneId}
-            index={index}
-            isDragging={activeId === cut.id}
-          />
-        ))}
+        <div
+          ref={setDroppableRef}
+          className="scene-cuts"
+          onDrop={onDrop}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+        >
+          {cuts.map((cut, index) => (
+            <CutCard
+              key={cut.id}
+              cut={cut}
+              sceneId={sceneId}
+              index={index}
+              isDragging={activeId === cut.id}
+            />
+          ))}
 
-        <div className="drop-placeholder">
-          <Plus size={20} />
+          <div className="drop-placeholder">
+            <Plus size={20} />
+          </div>
         </div>
-      </div>
+      </SortableContext>
     </div>
   );
 }
