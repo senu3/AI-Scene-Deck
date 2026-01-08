@@ -1,4 +1,4 @@
-import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin, useDroppable, useSensors, useSensor, PointerSensor } from '@dnd-kit/core';
+import { DndContext, DragOverlay, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin, useDroppable, useSensors, useSensor, PointerSensor } from '@dnd-kit/core';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
@@ -10,6 +10,7 @@ import PlaybackControls from './components/PlaybackControls';
 import PreviewModal from './components/PreviewModal';
 import Header from './components/Header';
 import StartupModal from './components/StartupModal';
+import CutCard from './components/CutCard';
 import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
@@ -48,7 +49,6 @@ function getMediaType(filename: string): 'image' | 'video' | null {
 function App() {
   const {
     projectLoaded,
-    reorderScenes,
     scenes,
     removeCut,
     trashPath,
@@ -62,6 +62,15 @@ function App() {
   const [showPreview, setShowPreview] = useState(false);
   const [isWorkspaceDragOver, setIsWorkspaceDragOver] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
+
+  // State for DragOverlay
+  const [activeCut, setActiveCut] = useState<{
+    id: string;
+    assetId: string;
+    asset?: Asset;
+    displayTime: number;
+    order: number;
+  } | null>(null);
 
   // Configure drag sensors with distance activation constraint
   const sensors = useSensors(
@@ -121,6 +130,15 @@ function App() {
     setActiveId(event.active.id as string);
     setActiveType(data?.type === 'scene' ? 'scene' : 'cut');
     dragDataRef.current = data || {};
+
+    // Store cut data for DragOverlay
+    if (data?.type === 'cut' && data.sceneId) {
+      const scene = scenes.find(s => s.id === data.sceneId);
+      const cut = scene?.cuts.find(c => c.id === event.active.id);
+      if (cut) {
+        setActiveCut(cut);
+      }
+    }
   };
 
   const handleDragOver = (_event: DragOverEvent) => {
@@ -133,6 +151,7 @@ function App() {
 
     setActiveId(null);
     setActiveType(null);
+    setActiveCut(null);
     dragDataRef.current = {};
 
     if (!over) {
@@ -157,16 +176,6 @@ function App() {
       // Move file to trash if we have the API
       if (removedCut?.asset?.path && trashPath && window.electronAPI) {
         await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
-      }
-      return;
-    }
-
-    // Handle scene reordering
-    if (activeData.type === 'scene' && overData?.type === 'scene') {
-      const fromIndex = scenes.findIndex(s => s.id === active.id);
-      const toIndex = scenes.findIndex(s => s.id === over.id);
-      if (fromIndex !== -1 && toIndex !== -1 && fromIndex !== toIndex) {
-        reorderScenes(fromIndex, toIndex);
       }
       return;
     }
@@ -288,6 +297,18 @@ function App() {
         <TrashZone isActive={activeType === 'cut'} />
         {showPreview && <PreviewModal onClose={() => setShowPreview(false)} />}
       </div>
+
+      {/* DragOverlay for cuts - ensures dragged items appear above all other elements */}
+      <DragOverlay>
+        {activeType === 'cut' && activeCut ? (
+          <CutCard
+            cut={activeCut}
+            sceneId="" // Not needed for overlay
+            index={0}  // Not needed for overlay
+            isDragging={true}
+          />
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

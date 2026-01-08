@@ -1,6 +1,6 @@
-import { useDraggable, useDroppable } from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
 import { Plus, MoreHorizontal, Circle, Edit2, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import { AddCutCommand, AddSceneCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
@@ -9,14 +9,12 @@ import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import './Timeline.css';
 
-const DRAG_THRESHOLD = 8; // Pixels before drag starts
-
 interface TimelineProps {
   activeId: string | null;
   activeType: 'cut' | 'scene' | null;
 }
 
-export default function Timeline({ activeId, activeType }: TimelineProps) {
+export default function Timeline({ activeId }: TimelineProps) {
   const { scenes, selectedSceneId, selectScene } = useStore();
   const { executeCommand } = useHistoryStore();
 
@@ -57,7 +55,6 @@ export default function Timeline({ activeId, activeType }: TimelineProps) {
             key={scene.id}
             sceneId={scene.id}
             sceneName={scene.name}
-            sceneOrder={scene.order}
             cuts={scene.cuts}
             isSelected={selectedSceneId === scene.id}
             onSelect={() => selectScene(scene.id)}
@@ -65,7 +62,6 @@ export default function Timeline({ activeId, activeType }: TimelineProps) {
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             activeId={activeId}
-            activeType={activeType}
           />
         ))}
 
@@ -86,7 +82,6 @@ export default function Timeline({ activeId, activeType }: TimelineProps) {
 interface SceneColumnProps {
   sceneId: string;
   sceneName: string;
-  sceneOrder: number;
   cuts: Array<{
     id: string;
     assetId: string;
@@ -100,13 +95,11 @@ interface SceneColumnProps {
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: (e: React.DragEvent) => void;
   activeId: string | null;
-  activeType: 'cut' | 'scene' | null;
 }
 
 function SceneColumn({
   sceneId,
   sceneName,
-  sceneOrder,
   cuts,
   isSelected,
   onSelect,
@@ -114,7 +107,6 @@ function SceneColumn({
   onDragOver,
   onDragLeave,
   activeId,
-  activeType,
 }: SceneColumnProps) {
   const { scenes } = useStore();
   const { executeCommand } = useHistoryStore();
@@ -123,8 +115,6 @@ function SceneColumn({
   const [editName, setEditName] = useState(sceneName);
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
-  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
-  const hasDraggedRef = useRef(false);
 
   // Droppable for cuts
   const { setNodeRef: setDroppableRef } = useDroppable({
@@ -136,30 +126,6 @@ function SceneColumn({
     },
   });
 
-  // Draggable for scene header
-  const {
-    attributes: dragAttributes,
-    listeners: dragListeners,
-    setNodeRef: setDraggableRef,
-    isDragging,
-  } = useDraggable({
-    id: sceneId,
-    data: {
-      type: 'scene',
-      sceneId,
-      index: sceneOrder,
-    },
-  });
-
-  // Droppable for scene reordering
-  const { setNodeRef: setSceneDropRef, isOver } = useDroppable({
-    id: `scene-drop-${sceneId}`,
-    data: {
-      type: 'scene',
-      sceneId,
-      index: sceneOrder,
-    },
-  });
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
@@ -210,42 +176,14 @@ function SceneColumn({
     setShowMenu(false);
   };
 
-  // Track mouse movement to distinguish click from drag
-  const handleHeaderMouseDown = useCallback((e: React.MouseEvent) => {
-    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
-    hasDraggedRef.current = false;
-  }, []);
-
-  const handleHeaderMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!dragStartPosRef.current) return;
-    const dx = Math.abs(e.clientX - dragStartPosRef.current.x);
-    const dy = Math.abs(e.clientY - dragStartPosRef.current.y);
-    if (dx > DRAG_THRESHOLD || dy > DRAG_THRESHOLD) {
-      hasDraggedRef.current = true;
-    }
-  }, []);
-
-  const handleHeaderMouseUp = useCallback(() => {
-    if (!hasDraggedRef.current && dragStartPosRef.current) {
-      // It was a click, not a drag
-      onSelect();
-    }
-    dragStartPosRef.current = null;
-  }, [onSelect]);
 
   return (
     <div
-      ref={setSceneDropRef}
-      className={`scene-column ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${isOver && activeType === 'scene' ? 'drop-target' : ''}`}
+      className={`scene-column ${isSelected ? 'selected' : ''}`}
     >
       <div
-        ref={setDraggableRef}
         className="scene-header"
-        {...dragAttributes}
-        {...dragListeners}
-        onMouseDown={handleHeaderMouseDown}
-        onMouseMove={handleHeaderMouseMove}
-        onMouseUp={handleHeaderMouseUp}
+        onClick={onSelect}
       >
         <div className="scene-indicator">
           <Circle size={16} />

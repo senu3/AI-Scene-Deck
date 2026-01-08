@@ -39,7 +39,6 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 1000 : undefined,
   };
 
   const asset = cut.asset || getAsset(cut.assetId);

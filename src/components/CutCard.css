@@ -21,7 +21,6 @@
 .cut-card.dragging {
   opacity: 0.5;
   cursor: grabbing;
-  z-index: 1000;
 }
 
 .cut-card:active {

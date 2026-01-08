@@ -27,26 +27,13 @@
   border-color: var(--accent-primary);
 }
 
-.scene-column.dragging {
-  opacity: 0.5;
-}
-
-.scene-column.drop-target {
-  border-color: var(--accent-success);
-  background-color: rgba(16, 185, 129, 0.1);
-}
-
 .scene-header {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px;
   border-bottom: 1px solid var(--border-color);
-  cursor: grab;
-}
-
-.scene-header:active {
-  cursor: grabbing;
+  cursor: pointer;
 }
 
 .scene-indicator {
