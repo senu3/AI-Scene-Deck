@@ -451,6 +451,41 @@ export class BatchUpdateDisplayTimeCommand implements Command {
 }
 
 /**
+ * カットペーストコマンド
+ */
+export class PasteCutsCommand implements Command {
+  type = 'PASTE_CUTS';
+  description: string;
+
+  private targetSceneId: string;
+  private targetIndex?: number;
+  private pastedCutIds: string[] = [];
+
+  constructor(targetSceneId: string, targetIndex?: number) {
+    this.targetSceneId = targetSceneId;
+    this.targetIndex = targetIndex;
+    this.description = 'Paste cuts';
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    this.pastedCutIds = store.pasteCuts(this.targetSceneId, this.targetIndex);
+    this.description = `Paste ${this.pastedCutIds.length} cuts`;
+  }
+
+  async undo(): Promise<void> {
+    if (this.pastedCutIds.length === 0) return;
+
+    const store = useStore.getState();
+
+    // 貼り付けたカットを削除
+    for (const cutId of this.pastedCutIds) {
+      store.removeCut(this.targetSceneId, cutId);
+    }
+  }
+}
+
+/**
  * 複数カット一括移動コマンド
  */
 export class MoveCutsToSceneCommand implements Command {

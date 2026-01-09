@@ -8,6 +8,13 @@ export interface SourceFolder {
   structure: FileItem[];
 }
 
+// Clipboard data structure for copy/paste
+interface ClipboardCut {
+  assetId: string;
+  asset: Asset;
+  displayTime: number;
+}
+
 interface AppState {
   // Project state
   projectLoaded: boolean;
@@ -15,6 +22,9 @@ interface AppState {
   vaultPath: string | null;
   trashPath: string | null;
   projectName: string;
+
+  // Clipboard state
+  clipboard: ClipboardCut[];
 
   // Folder browser state - now supports multiple source folders
   sourceFolders: SourceFolder[];
@@ -88,6 +98,11 @@ interface AppState {
   clearCutSelection: () => void;
   isMultiSelected: (cutId: string) => boolean;
 
+  // Clipboard actions
+  copySelectedCuts: () => void;
+  pasteCuts: (targetSceneId: string, targetIndex?: number) => string[];  // Returns new cut IDs
+  canPaste: () => boolean;
+
   // Actions - Playback
   setPlaybackMode: (mode: PlaybackMode) => void;
   setPreviewMode: (mode: PreviewMode) => void;
@@ -112,6 +127,8 @@ export const useStore = create<AppState>((set, get) => ({
   vaultPath: null,
   trashPath: null,
   projectName: 'Untitled Project',
+
+  clipboard: [],
 
   sourceFolders: [],
   rootFolder: null,
@@ -629,6 +646,71 @@ export const useStore = create<AppState>((set, get) => ({
   }),
 
   isMultiSelected: (cutId) => get().selectedCutIds.has(cutId),
+
+  // Clipboard actions
+  copySelectedCuts: () => {
+    const state = get();
+    const selectedCuts = state.getSelectedCuts();
+
+    if (selectedCuts.length === 0) return;
+
+    // Store cut data (without IDs, as new IDs will be generated on paste)
+    const clipboardData: ClipboardCut[] = selectedCuts.map(({ cut }) => ({
+      assetId: cut.assetId,
+      asset: cut.asset!,
+      displayTime: cut.displayTime,
+    }));
+
+    set({ clipboard: clipboardData });
+  },
+
+  pasteCuts: (targetSceneId, targetIndex) => {
+    const state = get();
+    if (state.clipboard.length === 0) return [];
+
+    const targetScene = state.scenes.find(s => s.id === targetSceneId);
+    if (!targetScene) return [];
+
+    const insertIndex = targetIndex ?? targetScene.cuts.length;
+    const newCutIds: string[] = [];
+
+    // Create new cuts with unique IDs
+    const newCuts: Cut[] = state.clipboard.map((clipCut, idx) => {
+      const newId = uuidv4();
+      newCutIds.push(newId);
+      return {
+        id: newId,
+        assetId: clipCut.assetId,
+        asset: clipCut.asset,
+        displayTime: clipCut.displayTime,
+        order: insertIndex + idx,
+      };
+    });
+
+    set((state) => ({
+      scenes: state.scenes.map((s) => {
+        if (s.id === targetSceneId) {
+          const updatedCuts = [...s.cuts];
+          updatedCuts.splice(insertIndex, 0, ...newCuts);
+          return {
+            ...s,
+            cuts: updatedCuts.map((c, idx) => ({ ...c, order: idx })),
+          };
+        }
+        return s;
+      }),
+      // Select the newly pasted cuts
+      selectedCutIds: new Set(newCutIds),
+      selectedCutId: newCutIds[0] || null,
+      lastSelectedCutId: newCutIds[newCutIds.length - 1] || null,
+      selectedSceneId: targetSceneId,
+      selectionType: 'cut',
+    }));
+
+    return newCutIds;
+  },
+
+  canPaste: () => get().clipboard.length > 0,
 
   // Playback actions
   setPlaybackMode: (mode) => set({ playbackMode: mode }),

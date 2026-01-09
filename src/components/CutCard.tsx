@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, useEffect, useRef } from 'react';
-import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft } from 'lucide-react';
+import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Scene } from '../types';
 import './CutCard.css';
@@ -26,8 +26,10 @@ interface ContextMenuProps {
   selectedCount: number;
   scenes: Scene[];
   currentSceneId: string;
+  canPaste: boolean;
   onClose: () => void;
   onCopy: () => void;
+  onPaste: () => void;
   onDelete: () => void;
   onMoveToScene: (sceneId: string) => void;
 }
@@ -39,8 +41,10 @@ function CutContextMenu({
   selectedCount,
   scenes,
   currentSceneId,
+  canPaste,
   onClose,
   onCopy,
+  onPaste,
   onDelete,
   onMoveToScene,
 }: ContextMenuProps) {
@@ -74,6 +78,13 @@ function CutContextMenu({
         <Copy size={14} />
         Copy{isMultiSelect ? ` (${selectedCount})` : ''}
       </button>
+
+      {canPaste && (
+        <button onClick={onPaste}>
+          <Clipboard size={14} />
+          Paste
+        </button>
+      )}
 
       {otherScenes.length > 0 && (
         <div
@@ -124,6 +135,9 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     getSelectedCutIds,
     moveCutsToScene,
     removeCut,
+    copySelectedCuts,
+    canPaste,
+    pasteCuts,
   } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -214,10 +228,13 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
   };
 
   const handleCopy = () => {
-    // For now, just log - will implement clipboard in next phase
-    const cutIds = getSelectedCutIds();
-    console.log('Copy cuts:', cutIds);
-    // TODO: Implement clipboard functionality
+    copySelectedCuts();
+    setContextMenu(null);
+  };
+
+  const handlePaste = () => {
+    // Paste after the current cut's position
+    pasteCuts(sceneId, index + 1);
     setContextMenu(null);
   };
 
@@ -292,8 +309,10 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
         selectedCount={selectedCutIds.size}
         scenes={scenes}
         currentSceneId={sceneId}
+        canPaste={canPaste()}
         onClose={() => setContextMenu(null)}
         onCopy={handleCopy}
+        onPaste={handlePaste}
         onDelete={handleDelete}
         onMoveToScene={handleMoveToScene}
       />

@@ -2,7 +2,7 @@ import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin,
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
-import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand } from './store/commands';
+import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand } from './store/commands';
 import Sidebar from './components/Sidebar';
 import Timeline from './components/Timeline';
 import DetailsPanel from './components/DetailsPanel';
@@ -53,6 +53,8 @@ function App() {
     trashPath,
     selectedSceneId,
     getSelectedCutIds,
+    copySelectedCuts,
+    canPaste,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -110,11 +112,36 @@ function App() {
           console.error('Redo failed:', error);
         }
       }
+
+      // Ctrl+C or Cmd+C for Copy
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        const selectedIds = getSelectedCutIds();
+        if (selectedIds.length > 0) {
+          e.preventDefault();
+          copySelectedCuts();
+        }
+      }
+
+      // Ctrl+V or Cmd+V for Paste
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if (canPaste()) {
+          e.preventDefault();
+          // Paste to currently selected scene or first scene
+          const targetSceneId = selectedSceneId || scenes[0]?.id;
+          if (targetSceneId) {
+            try {
+              await executeCommand(new PasteCutsCommand(targetSceneId));
+            } catch (error) {
+              console.error('Paste failed:', error);
+            }
+          }
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo]);
+  }, [undo, redo, copySelectedCuts, canPaste, selectedSceneId, scenes, executeCommand, getSelectedCutIds]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; sceneId?: string; index?: number } | undefined;
