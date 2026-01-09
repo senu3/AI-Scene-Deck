@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
-import { UpdateDisplayTimeCommand, RemoveCutCommand } from '../store/commands';
+import { UpdateDisplayTimeCommand, RemoveCutCommand, BatchUpdateDisplayTimeCommand } from '../store/commands';
 import type { ImageMetadata } from '../types';
 import './DetailsPanel.css';
 
@@ -35,6 +35,7 @@ export default function DetailsPanel() {
 
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [localDisplayTime, setLocalDisplayTime] = useState('2.0');
+  const [batchDisplayTime, setBatchDisplayTime] = useState('2.0');
   const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
   const [noteText, setNoteText] = useState('');
 
@@ -143,6 +144,37 @@ export default function DetailsPanel() {
     }
   };
 
+  // Batch operations for multi-select
+  const handleBatchDisplayTimeChange = (value: string) => {
+    setBatchDisplayTime(value);
+  };
+
+  const handleApplyBatchDisplayTime = () => {
+    const numValue = parseFloat(batchDisplayTime);
+    if (isNaN(numValue) || numValue <= 0) return;
+
+    const updates = selectedCuts.map(({ scene, cut: c }) => ({
+      sceneId: scene.id,
+      cutId: c.id,
+      newTime: numValue,
+    }));
+
+    if (updates.length > 0) {
+      executeCommand(new BatchUpdateDisplayTimeCommand(updates)).catch((error) => {
+        console.error('Failed to batch update display time:', error);
+      });
+    }
+  };
+
+  const handleBatchDelete = () => {
+    // Delete all selected cuts
+    for (const { scene, cut: c } of selectedCuts) {
+      executeCommand(new RemoveCutCommand(scene.id, c.id)).catch((error) => {
+        console.error('Failed to remove cut:', error);
+      });
+    }
+  };
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return 'Unknown';
     if (bytes < 1024) return `${bytes} B`;
@@ -192,8 +224,39 @@ export default function DetailsPanel() {
             ))}
           </div>
 
+          <div className="multi-select-batch-actions">
+            <div className="batch-action-section">
+              <span className="batch-label">
+                <Clock size={14} />
+                Set Display Time:
+              </span>
+              <div className="batch-time-input-group">
+                <input
+                  type="number"
+                  value={batchDisplayTime}
+                  onChange={(e) => handleBatchDisplayTimeChange(e.target.value)}
+                  step="0.1"
+                  min="0.1"
+                  max="60"
+                  className="time-input"
+                />
+                <span className="time-unit">s</span>
+                <button
+                  className="apply-btn"
+                  onClick={handleApplyBatchDisplayTime}
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+
           <div className="multi-select-actions">
-            <p className="hint">Use Ctrl/Cmd+C to copy, Ctrl/Cmd+V to paste</p>
+            <p className="hint">Ctrl/Cmd+C to copy, Ctrl/Cmd+V to paste, Delete to remove</p>
+            <button className="delete-btn batch" onClick={handleBatchDelete}>
+              <Trash2 size={14} />
+              <span>Delete Selected ({selectedCutIds.size})</span>
+            </button>
           </div>
         </div>
       </aside>

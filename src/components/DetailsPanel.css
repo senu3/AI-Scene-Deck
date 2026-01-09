@@ -118,17 +118,80 @@
   border-radius: var(--radius-sm);
 }
 
+.multi-select-batch-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+}
+
+.batch-action-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.batch-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.batch-time-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-time-input-group .time-input {
+  width: 70px;
+}
+
+.batch-time-input-group .apply-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: var(--accent-success);
+  color: white;
+  border-radius: var(--radius-sm);
+  transition: all 0.15s ease;
+}
+
+.batch-time-input-group .apply-btn:hover {
+  background-color: #059669;
+}
+
 .multi-select-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 12px;
   background-color: var(--bg-secondary);
   border-radius: var(--radius-md);
 }
 
 .multi-select-actions .hint {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
   text-align: center;
   margin: 0;
+}
+
+.delete-btn.batch {
+  background-color: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.delete-btn.batch:hover {
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.5);
 }
 
 /* Scene Stats */

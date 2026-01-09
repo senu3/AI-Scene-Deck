@@ -2,7 +2,7 @@ import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin,
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
-import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand } from './store/commands';
+import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand } from './store/commands';
 import Sidebar from './components/Sidebar';
 import Timeline from './components/Timeline';
 import DetailsPanel from './components/DetailsPanel';
@@ -53,8 +53,10 @@ function App() {
     trashPath,
     selectedSceneId,
     getSelectedCutIds,
+    getSelectedCuts,
     copySelectedCuts,
     canPaste,
+    clearCutSelection,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -137,11 +139,28 @@ function App() {
           }
         }
       }
+
+      // Delete or Backspace to remove selected cuts
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const selectedCuts = getSelectedCuts();
+        if (selectedCuts.length > 0) {
+          e.preventDefault();
+          // Delete all selected cuts
+          for (const { scene, cut } of selectedCuts) {
+            try {
+              await executeCommand(new RemoveCutCommand(scene.id, cut.id));
+            } catch (error) {
+              console.error('Delete failed:', error);
+            }
+          }
+          clearCutSelection();
+        }
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, copySelectedCuts, canPaste, selectedSceneId, scenes, executeCommand, getSelectedCutIds]);
+  }, [undo, redo, copySelectedCuts, canPaste, selectedSceneId, scenes, executeCommand, getSelectedCutIds, getSelectedCuts, clearCutSelection]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; sceneId?: string; index?: number } | undefined;
