@@ -2,7 +2,7 @@ import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin,
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
-import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand } from './store/commands';
+import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand } from './store/commands';
 import Sidebar from './components/Sidebar';
 import Timeline from './components/Timeline';
 import DetailsPanel from './components/DetailsPanel';
@@ -52,6 +52,7 @@ function App() {
     removeCut,
     trashPath,
     selectedSceneId,
+    getSelectedCutIds,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -166,8 +167,21 @@ function App() {
       const toSceneId = overData.sceneId;
       const cutId = active.id as string;
 
-      if (fromSceneId === toSceneId) {
-        // Reorder within same scene
+      // Check if this is a multi-select drag
+      const selectedIds = getSelectedCutIds();
+      const isMultiDrag = selectedIds.length > 1 && selectedIds.includes(cutId);
+
+      if (isMultiDrag) {
+        // Multi-select drag: move all selected cuts together
+        const toIndex = overData.type === 'dropzone' ?
+          (scenes.find(s => s.id === toSceneId)?.cuts.length || 0) :
+          (overData.index ?? 0);
+
+        executeCommand(new MoveCutsToSceneCommand(selectedIds, toSceneId, toIndex)).catch((error) => {
+          console.error('Failed to move cuts:', error);
+        });
+      } else if (fromSceneId === toSceneId) {
+        // Single drag: Reorder within same scene
         const scene = scenes.find(s => s.id === fromSceneId);
         if (!scene) return;
 
@@ -180,7 +194,7 @@ function App() {
           });
         }
       } else {
-        // Move between scenes
+        // Single drag: Move between scenes
         const toIndex = overData.type === 'dropzone' ?
           (scenes.find(s => s.id === toSceneId)?.cuts.length || 0) :
           (overData.index ?? 0);

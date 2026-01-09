@@ -1,9 +1,9 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useState, useEffect } from 'react';
-import { Film, Image, Clock } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import type { Asset } from '../types';
+import type { Asset, Scene } from '../types';
 import './CutCard.css';
 
 interface CutCardProps {
@@ -19,6 +19,99 @@ interface CutCardProps {
   isDragging: boolean;
 }
 
+interface ContextMenuProps {
+  x: number;
+  y: number;
+  isMultiSelect: boolean;
+  selectedCount: number;
+  scenes: Scene[];
+  currentSceneId: string;
+  onClose: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+  onMoveToScene: (sceneId: string) => void;
+}
+
+function CutContextMenu({
+  x,
+  y,
+  isMultiSelect,
+  selectedCount,
+  scenes,
+  currentSceneId,
+  onClose,
+  onCopy,
+  onDelete,
+  onMoveToScene,
+}: ContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose]);
+
+  // Filter out current scene from move options
+  const otherScenes = scenes.filter(s => s.id !== currentSceneId);
+
+  return (
+    <div
+      ref={menuRef}
+      className="cut-context-menu"
+      style={{ left: x, top: y }}
+    >
+      <div className="context-menu-header">
+        {isMultiSelect ? `${selectedCount} cuts selected` : 'Cut options'}
+      </div>
+
+      <button onClick={onCopy}>
+        <Copy size={14} />
+        Copy{isMultiSelect ? ` (${selectedCount})` : ''}
+      </button>
+
+      {otherScenes.length > 0 && (
+        <div
+          className="context-menu-item-with-submenu"
+          onMouseEnter={() => setShowMoveSubmenu(true)}
+          onMouseLeave={() => setShowMoveSubmenu(false)}
+        >
+          <button>
+            <ArrowRightLeft size={14} />
+            Move to Scene
+            <span className="submenu-arrow">▶</span>
+          </button>
+
+          {showMoveSubmenu && (
+            <div className="context-submenu">
+              {otherScenes.map(scene => (
+                <button
+                  key={scene.id}
+                  onClick={() => onMoveToScene(scene.id)}
+                >
+                  {scene.name}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="context-menu-divider" />
+
+      <button onClick={onDelete} className="danger">
+        <Trash2 size={14} />
+        Delete{isMultiSelect ? ` (${selectedCount})` : ''}
+      </button>
+    </div>
+  );
+}
+
 export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProps) {
   const {
     selectedCutId,
@@ -26,9 +119,14 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     selectCut,
     toggleCutSelection,
     selectCutRange,
-    getAsset
+    getAsset,
+    scenes,
+    getSelectedCutIds,
+    moveCutsToScene,
+    removeCut,
   } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const {
     attributes,
@@ -103,7 +201,52 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     return 'var(--accent-primary)';
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // If right-clicking on a non-selected card, select it first
+    if (!selectedCutIds.has(cut.id)) {
+      selectCut(cut.id);
+    }
+
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleCopy = () => {
+    // For now, just log - will implement clipboard in next phase
+    const cutIds = getSelectedCutIds();
+    console.log('Copy cuts:', cutIds);
+    // TODO: Implement clipboard functionality
+    setContextMenu(null);
+  };
+
+  const handleDelete = () => {
+    const cutIds = getSelectedCutIds();
+    // Delete all selected cuts
+    for (const cutId of cutIds) {
+      // Find which scene contains this cut
+      for (const scene of scenes) {
+        if (scene.cuts.some(c => c.id === cutId)) {
+          removeCut(scene.id, cutId);
+          break;
+        }
+      }
+    }
+    setContextMenu(null);
+  };
+
+  const handleMoveToScene = (targetSceneId: string) => {
+    const cutIds = getSelectedCutIds();
+    // Get target scene's cut count for append position
+    const targetScene = scenes.find(s => s.id === targetSceneId);
+    const toIndex = targetScene?.cuts.length || 0;
+    moveCutsToScene(cutIds, targetSceneId, toIndex);
+    setContextMenu(null);
+  };
+
   return (
+    <>
     <div
       ref={setNodeRef}
       style={style}
@@ -111,6 +254,7 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
       {...listeners}
       className={`cut-card ${isSelected ? 'selected' : ''} ${isMultiSelected ? 'multi-selected' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
     >
       <div className="cut-thumbnail-container">
         {thumbnail ? (
@@ -139,5 +283,21 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
         </div>
       </div>
     </div>
+
+    {contextMenu && (
+      <CutContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        isMultiSelect={isMultiSelected}
+        selectedCount={selectedCutIds.size}
+        scenes={scenes}
+        currentSceneId={sceneId}
+        onClose={() => setContextMenu(null)}
+        onCopy={handleCopy}
+        onDelete={handleDelete}
+        onMoveToScene={handleMoveToScene}
+      />
+    )}
+    </>
   );
 }

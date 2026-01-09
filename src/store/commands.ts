@@ -449,3 +449,66 @@ export class BatchUpdateDisplayTimeCommand implements Command {
     });
   }
 }
+
+/**
+ * 複数カット一括移動コマンド
+ */
+export class MoveCutsToSceneCommand implements Command {
+  type = 'MOVE_CUTS_TO_SCENE';
+  description: string;
+
+  private cutIds: string[];
+  private toSceneId: string;
+  private toIndex: number;
+  private originalPositions: Array<{ cutId: string; sceneId: string; index: number }> = [];
+
+  constructor(cutIds: string[], toSceneId: string, toIndex: number) {
+    this.cutIds = cutIds;
+    this.toSceneId = toSceneId;
+    this.toIndex = toIndex;
+    this.description = `Move ${cutIds.length} cuts`;
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+
+    // 元の位置を保存（移動前に取得）
+    this.originalPositions = [];
+    for (const cutId of this.cutIds) {
+      for (const scene of store.scenes) {
+        const index = scene.cuts.findIndex((c) => c.id === cutId);
+        if (index !== -1) {
+          this.originalPositions.push({ cutId, sceneId: scene.id, index });
+          break;
+        }
+      }
+    }
+
+    // 一括移動を実行
+    store.moveCutsToScene(this.cutIds, this.toSceneId, this.toIndex);
+  }
+
+  async undo(): Promise<void> {
+    if (this.originalPositions.length === 0) return;
+
+    const store = useStore.getState();
+
+    // 逆順で元の位置に戻す（インデックスの整合性を保つため）
+    const sortedPositions = [...this.originalPositions].sort((a, b) => b.index - a.index);
+
+    for (const { cutId, sceneId, index } of sortedPositions) {
+      // 現在のシーンから取得
+      let currentSceneId: string | null = null;
+      for (const scene of store.scenes) {
+        if (scene.cuts.some((c) => c.id === cutId)) {
+          currentSceneId = scene.id;
+          break;
+        }
+      }
+
+      if (currentSceneId) {
+        store.moveCutToScene(currentSceneId, sceneId, cutId, index);
+      }
+    }
+  }
+}

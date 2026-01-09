@@ -75,6 +75,7 @@ interface AppState {
   updateCutDisplayTime: (sceneId: string, cutId: string, time: number) => void;
   reorderCuts: (sceneId: string, cutId: string, newIndex: number, fromSceneId: string, oldIndex: number) => void;
   moveCutToScene: (fromSceneId: string, toSceneId: string, cutId: string, toIndex: number) => void;
+  moveCutsToScene: (cutIds: string[], toSceneId: string, toIndex: number) => void;  // Multi-move
 
   // Actions - Selection
   selectScene: (sceneId: string | null) => void;
@@ -430,6 +431,58 @@ export const useStore = create<AppState>((set, get) => ({
         }
         return s;
       }),
+    };
+  }),
+
+  // Move multiple cuts to a scene (preserves relative order)
+  moveCutsToScene: (cutIds, toSceneId, toIndex) => set((state) => {
+    // Collect cuts to move with their current data (preserving order in cutIds)
+    const cutsToMove: Cut[] = [];
+    const cutIdSet = new Set(cutIds);
+
+    // Get cuts in the order specified by cutIds
+    for (const cutId of cutIds) {
+      for (const scene of state.scenes) {
+        const cut = scene.cuts.find((c) => c.id === cutId);
+        if (cut) {
+          cutsToMove.push(cut);
+          break;
+        }
+      }
+    }
+
+    if (cutsToMove.length === 0) return state;
+
+    // Remove cuts from all scenes and add to target scene
+    return {
+      scenes: state.scenes.map((s) => {
+        // Remove any selected cuts from this scene
+        const remainingCuts = s.cuts.filter((c) => !cutIdSet.has(c.id));
+
+        if (s.id === toSceneId) {
+          // Insert all cuts at the target position
+          const newCuts = [...remainingCuts];
+          newCuts.splice(Math.min(toIndex, newCuts.length), 0, ...cutsToMove);
+          return {
+            ...s,
+            cuts: newCuts.map((c, idx) => ({ ...c, order: idx })),
+          };
+        }
+
+        // Other scenes: just remove the cuts
+        if (remainingCuts.length !== s.cuts.length) {
+          return {
+            ...s,
+            cuts: remainingCuts.map((c, idx) => ({ ...c, order: idx })),
+          };
+        }
+
+        return s;
+      }),
+      // Clear selection after move
+      selectedCutIds: new Set<string>(),
+      selectedCutId: null,
+      lastSelectedCutId: null,
     };
   }),
 
