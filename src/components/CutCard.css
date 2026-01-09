@@ -18,6 +18,30 @@
   box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.3);
 }
 
+.cut-card.multi-selected {
+  border-color: var(--accent-success);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+}
+
+.cut-card.multi-selected::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--accent-success);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 15;
+}
+
+.cut-card.multi-selected::before {
+  box-shadow: inset 0 0 0 2px var(--accent-success);
+}
+
 .cut-card.dragging {
   opacity: 0.5;
   cursor: grabbing;

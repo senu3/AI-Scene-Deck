@@ -26,6 +26,8 @@ interface AppState {
   scenes: Scene[];
   selectedSceneId: string | null;
   selectedCutId: string | null;
+  selectedCutIds: Set<string>;  // Multi-select support
+  lastSelectedCutId: string | null;  // For Shift+click range selection
   selectionType: SelectionType;
 
   // Asset cache
@@ -78,6 +80,13 @@ interface AppState {
   selectScene: (sceneId: string | null) => void;
   selectCut: (cutId: string | null) => void;
 
+  // Multi-select actions
+  toggleCutSelection: (cutId: string) => void;  // Ctrl/Cmd + click
+  selectCutRange: (cutId: string) => void;  // Shift + click
+  selectMultipleCuts: (cutIds: string[]) => void;  // Select specific cuts
+  clearCutSelection: () => void;
+  isMultiSelected: (cutId: string) => boolean;
+
   // Actions - Playback
   setPlaybackMode: (mode: PlaybackMode) => void;
   setPreviewMode: (mode: PreviewMode) => void;
@@ -91,6 +100,8 @@ interface AppState {
   getSelectedCut: () => { scene: Scene; cut: Cut } | null;
   getSelectedScene: () => Scene | null;
   getProjectData: () => Project;
+  getSelectedCuts: () => Array<{ scene: Scene; cut: Cut }>;
+  getSelectedCutIds: () => string[];
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -108,6 +119,8 @@ export const useStore = create<AppState>((set, get) => ({
   scenes: [],
   selectedSceneId: null,
   selectedCutId: null,
+  selectedCutIds: new Set(),
+  lastSelectedCutId: null,
   selectionType: null,
   assetCache: new Map(),
   playbackMode: 'stopped',
@@ -137,6 +150,8 @@ export const useStore = create<AppState>((set, get) => ({
       scenes: project.scenes || defaultScenes,
       selectedSceneId: null,
       selectedCutId: null,
+      selectedCutIds: new Set(),
+      lastSelectedCutId: null,
       selectionType: null,
     });
   },
@@ -150,6 +165,8 @@ export const useStore = create<AppState>((set, get) => ({
     scenes: [],
     selectedSceneId: null,
     selectedCutId: null,
+    selectedCutIds: new Set(),
+    lastSelectedCutId: null,
     selectionType: null,
     rootFolder: null,
     sourceFolders: [],
@@ -420,6 +437,8 @@ export const useStore = create<AppState>((set, get) => ({
   selectScene: (sceneId) => set({
     selectedSceneId: sceneId,
     selectedCutId: null,
+    selectedCutIds: new Set(),
+    lastSelectedCutId: null,
     selectionType: sceneId ? 'scene' : null,
   }),
 
@@ -432,12 +451,131 @@ export const useStore = create<AppState>((set, get) => ({
         break;
       }
     }
+    // Single selection clears multi-select
     return {
       selectedCutId: cutId,
       selectedSceneId: sceneId,
+      selectedCutIds: cutId ? new Set([cutId]) : new Set(),
+      lastSelectedCutId: cutId,
       selectionType: cutId ? 'cut' : null,
     };
   }),
+
+  // Multi-select actions
+  toggleCutSelection: (cutId) => set((state) => {
+    const newSelectedIds = new Set(state.selectedCutIds);
+    if (newSelectedIds.has(cutId)) {
+      newSelectedIds.delete(cutId);
+    } else {
+      newSelectedIds.add(cutId);
+    }
+
+    // Find scene for the cut
+    let sceneId: string | null = state.selectedSceneId;
+    for (const scene of state.scenes) {
+      if (scene.cuts.some((c) => c.id === cutId)) {
+        sceneId = scene.id;
+        break;
+      }
+    }
+
+    // If only one item selected, set it as selectedCutId for backwards compatibility
+    const selectedCutId = newSelectedIds.size === 1
+      ? Array.from(newSelectedIds)[0]
+      : (newSelectedIds.size > 0 ? cutId : null);
+
+    return {
+      selectedCutIds: newSelectedIds,
+      selectedCutId,
+      lastSelectedCutId: cutId,
+      selectedSceneId: sceneId,
+      selectionType: newSelectedIds.size > 0 ? 'cut' : null,
+    };
+  }),
+
+  selectCutRange: (cutId) => set((state) => {
+    if (!state.lastSelectedCutId) {
+      // No previous selection, treat as single select
+      let sceneId: string | null = null;
+      for (const scene of state.scenes) {
+        if (scene.cuts.some((c) => c.id === cutId)) {
+          sceneId = scene.id;
+          break;
+        }
+      }
+      return {
+        selectedCutIds: new Set([cutId]),
+        selectedCutId: cutId,
+        lastSelectedCutId: cutId,
+        selectedSceneId: sceneId,
+        selectionType: 'cut',
+      };
+    }
+
+    // Find all cuts in order (across all scenes)
+    const allCuts: Array<{ cutId: string; sceneId: string }> = [];
+    for (const scene of state.scenes) {
+      for (const cut of scene.cuts) {
+        allCuts.push({ cutId: cut.id, sceneId: scene.id });
+      }
+    }
+
+    // Find indices
+    const startIndex = allCuts.findIndex(c => c.cutId === state.lastSelectedCutId);
+    const endIndex = allCuts.findIndex(c => c.cutId === cutId);
+
+    if (startIndex === -1 || endIndex === -1) {
+      return state;
+    }
+
+    // Select range
+    const minIndex = Math.min(startIndex, endIndex);
+    const maxIndex = Math.max(startIndex, endIndex);
+    const rangeIds = allCuts.slice(minIndex, maxIndex + 1).map(c => c.cutId);
+
+    const newSelectedIds = new Set(rangeIds);
+
+    return {
+      selectedCutIds: newSelectedIds,
+      selectedCutId: cutId,
+      selectedSceneId: allCuts[endIndex]?.sceneId || state.selectedSceneId,
+      selectionType: 'cut',
+      // Don't update lastSelectedCutId to allow extending the range
+    };
+  }),
+
+  selectMultipleCuts: (cutIds) => set((state) => {
+    const newSelectedIds = new Set(cutIds);
+    const firstCutId = cutIds[0] || null;
+
+    // Find scene for first cut
+    let sceneId: string | null = null;
+    if (firstCutId) {
+      for (const scene of state.scenes) {
+        if (scene.cuts.some((c) => c.id === firstCutId)) {
+          sceneId = scene.id;
+          break;
+        }
+      }
+    }
+
+    return {
+      selectedCutIds: newSelectedIds,
+      selectedCutId: firstCutId,
+      lastSelectedCutId: firstCutId,
+      selectedSceneId: sceneId,
+      selectionType: cutIds.length > 0 ? 'cut' : null,
+    };
+  }),
+
+  clearCutSelection: () => set({
+    selectedCutIds: new Set(),
+    selectedCutId: null,
+    lastSelectedCutId: null,
+    selectionType: null,
+  }),
+
+  isMultiSelected: (cutId) => get().selectedCutIds.has(cutId),
 
   // Playback actions
   setPlaybackMode: (mode) => set({ playbackMode: mode }),
@@ -484,4 +622,20 @@ export const useStore = create<AppState>((set, get) => ({
       updatedAt: new Date().toISOString(),
     };
   },
+
+  getSelectedCuts: () => {
+    const state = get();
+    const result: Array<{ scene: Scene; cut: Cut }> = [];
+
+    for (const scene of state.scenes) {
+      for (const cut of scene.cuts) {
+        if (state.selectedCutIds.has(cut.id)) {
+          result.push({ scene, cut });
+        }
+      }
+    }
+    return result;
+  },
+
+  getSelectedCutIds: () => Array.from(get().selectedCutIds),
 }));

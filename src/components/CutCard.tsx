@@ -20,7 +20,14 @@ interface CutCardProps {
 }
 
 export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProps) {
-  const { selectedCutId, selectCut, getAsset } = useStore();
+  const {
+    selectedCutId,
+    selectedCutIds,
+    selectCut,
+    toggleCutSelection,
+    selectCutRange,
+    getAsset
+  } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
 
   const {
@@ -45,7 +52,8 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
   };
 
   const asset = cut.asset || getAsset(cut.assetId);
-  const isSelected = selectedCutId === cut.id;
+  const isSelected = selectedCutIds.has(cut.id) || selectedCutId === cut.id;
+  const isMultiSelected = selectedCutIds.size > 1 && selectedCutIds.has(cut.id);
   const isVideo = asset?.type === 'video';
 
   useEffect(() => {
@@ -72,6 +80,20 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Ctrl/Cmd + click: toggle selection
+    if (e.ctrlKey || e.metaKey) {
+      toggleCutSelection(cut.id);
+      return;
+    }
+
+    // Shift + click: range selection
+    if (e.shiftKey) {
+      selectCutRange(cut.id);
+      return;
+    }
+
+    // Normal click: single selection
     selectCut(cut.id);
   };
 
@@ -87,7 +109,7 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
       style={style}
       {...attributes}
       {...listeners}
-      className={`cut-card ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`cut-card ${isSelected ? 'selected' : ''} ${isMultiSelected ? 'multi-selected' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={handleClick}
     >
       <div className="cut-thumbnail-container">

@@ -23,10 +23,12 @@ export default function DetailsPanel() {
     scenes,
     selectedSceneId,
     selectedCutId,
+    selectedCutIds,
     selectionType,
     getAsset,
     addSceneNote,
     removeSceneNote,
+    getSelectedCuts,
   } = useStore();
 
   const { executeCommand } = useHistoryStore();
@@ -57,6 +59,10 @@ export default function DetailsPanel() {
   const cut = selectedCutData?.cut;
   const cutScene = selectedCutData?.scene;
   const asset = cut?.asset || (cut?.assetId ? getAsset(cut.assetId) : undefined);
+
+  // Check for multi-selection
+  const isMultiSelection = selectedCutIds.size > 1;
+  const selectedCuts = isMultiSelection ? getSelectedCuts() : [];
 
   // Load cut display time
   useEffect(() => {
@@ -143,6 +149,56 @@ export default function DetailsPanel() {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  // Show multi-selection details
+  if (isMultiSelection && selectionType === 'cut') {
+    const totalDuration = selectedCuts.reduce((acc, { cut: c }) => acc + c.displayTime, 0);
+    const sceneGroups = new Map<string, number>();
+    selectedCuts.forEach(({ scene }) => {
+      sceneGroups.set(scene.name, (sceneGroups.get(scene.name) || 0) + 1);
+    });
+
+    return (
+      <aside className="details-panel">
+        <div className="details-header">
+          <Settings size={18} />
+          <span>DETAILS</span>
+        </div>
+
+        <div className="details-content">
+          <div className="selected-info multi-select">
+            <span className="selected-label">MULTI-SELECT</span>
+            <span className="selected-value">{selectedCutIds.size} cuts selected</span>
+          </div>
+
+          <div className="multi-select-stats">
+            <div className="stat-item">
+              <Clock size={16} />
+              <span>{totalDuration.toFixed(1)}s total</span>
+            </div>
+            <div className="stat-item">
+              <Layers size={16} />
+              <span>{sceneGroups.size} scene{sceneGroups.size > 1 ? 's' : ''}</span>
+            </div>
+          </div>
+
+          <div className="multi-select-breakdown">
+            <span className="breakdown-label">By Scene:</span>
+            {Array.from(sceneGroups.entries()).map(([sceneName, count]) => (
+              <div key={sceneName} className="breakdown-item">
+                <span>{sceneName}</span>
+                <span className="count">{count} cut{count > 1 ? 's' : ''}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="multi-select-actions">
+            <p className="hint">Use Ctrl/Cmd+C to copy, Ctrl/Cmd+V to paste</p>
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   // Show scene details
   if (selectionType === 'scene' && selectedScene) {
