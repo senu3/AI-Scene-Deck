@@ -87,7 +87,22 @@ export default function StartupModal() {
   const loadRecentProjects = async () => {
     if (window.electronAPI) {
       const projects = await window.electronAPI.getRecentProjects();
-      setRecentProjects(projects);
+
+      // Filter out projects that no longer exist
+      const validProjects: RecentProject[] = [];
+      for (const project of projects) {
+        const exists = await window.electronAPI.pathExists(project.path);
+        if (exists) {
+          validProjects.push(project);
+        }
+      }
+
+      // Update recent projects if any were removed
+      if (validProjects.length !== projects.length) {
+        await window.electronAPI.saveRecentProjects(validProjects);
+      }
+
+      setRecentProjects(validProjects);
     }
   };
 
@@ -136,13 +151,7 @@ export default function StartupModal() {
           structure,
         });
 
-        // Save to recent projects
-        const newRecent: RecentProject = {
-          name: projectName,
-          path: `${vault.path}/project.sdp`,
-          date: new Date().toISOString(),
-        };
-        await window.electronAPI.saveRecentProjects([newRecent, ...recentProjects.slice(0, 9)]);
+        // Note: Recent projects will be updated when the user saves the project for the first time
       } else {
         // Demo mode
         initializeProject({
@@ -210,7 +219,9 @@ export default function StartupModal() {
         date: new Date().toISOString(),
       };
       const filtered = recentProjects.filter(p => p.path !== path);
-      await window.electronAPI.saveRecentProjects([newRecent, ...filtered.slice(0, 9)]);
+      const updated = [newRecent, ...filtered.slice(0, 9)];
+      setRecentProjects(updated);
+      await window.electronAPI.saveRecentProjects(updated);
     }
   };
 
@@ -227,9 +238,9 @@ export default function StartupModal() {
       return;
     }
 
-    // Load the project file directly
+    // Load the project file directly from the specified path
     try {
-      const result = await window.electronAPI.loadProject();
+      const result = await window.electronAPI.loadProjectFromPath(project.path);
       if (result) {
         const { data } = result;
         const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number };
@@ -263,8 +274,18 @@ export default function StartupModal() {
             '\n\nThese files may have been moved or deleted.';
           alert(message);
         }
+
+        // Update recent projects (move to top)
+        const filtered = recentProjects.filter(p => p.path !== project.path);
+        const updated = [
+          { ...project, date: new Date().toISOString() },
+          ...filtered
+        ];
+        setRecentProjects(updated);
+        await window.electronAPI.saveRecentProjects(updated);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to load project:', error);
       alert('Failed to load project');
     }
   };

@@ -112,6 +112,7 @@ interface ElectronAPI {
   // Project operations
   saveProject: (projectData: string, projectPath?: string) => Promise<string | null>;
   loadProject: () => Promise<{ data: unknown; path: string } | null>;
+  loadProjectFromPath: (projectPath: string) => Promise<{ data: unknown; path: string } | null>;
 
   // Recent projects
   getRecentProjects: () => Promise<RecentProject[]>;

@@ -132,6 +132,9 @@ const electronAPI = {
   loadProject: (): Promise<{ data: unknown; path: string } | null> =>
     ipcRenderer.invoke('load-project'),
 
+  loadProjectFromPath: (projectPath: string): Promise<{ data: unknown; path: string } | null> =>
+    ipcRenderer.invoke('load-project-from-path', projectPath),
+
   // Recent projects
   getRecentProjects: (): Promise<RecentProject[]> =>
     ipcRenderer.invoke('get-recent-projects'),

@@ -504,6 +504,22 @@ ipcMain.handle('load-project', async () => {
   }
 });
 
+// Load project from specific path (for recent projects)
+ipcMain.handle('load-project-from-path', async (_, projectPath: string) => {
+  try {
+    if (!fs.existsSync(projectPath)) {
+      return null;
+    }
+    const data = fs.readFileSync(projectPath, 'utf-8');
+    return {
+      data: JSON.parse(data),
+      path: projectPath,
+    };
+  } catch {
+    return null;
+  }
+});
+
 // Check if path exists
 ipcMain.handle('path-exists', async (_, checkPath: string) => {
   return fs.existsSync(checkPath);

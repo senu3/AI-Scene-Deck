@@ -1,4 +1,4 @@
-import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo } from 'lucide-react';
+import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import type { Scene, Asset } from '../types';
@@ -28,7 +28,7 @@ function prepareScenesForSave(scenes: Scene[]): Scene[] {
 }
 
 export default function Header() {
-  const { scenes, vaultPath, loadProject, clearProject } = useStore();
+  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
 
   const handleSaveProject = async () => {
@@ -42,14 +42,25 @@ export default function Header() {
 
     const projectData = JSON.stringify({
       version: 2, // Version 2 uses relative paths
+      name: projectName,
       vaultPath: vaultPath,
       scenes: scenesToSave,
       savedAt: new Date().toISOString(),
     });
 
-    const success = await window.electronAPI.saveProject(projectData);
-    if (success) {
+    const savedPath = await window.electronAPI.saveProject(projectData, vaultPath ? `${vaultPath}/project.sdp` : undefined);
+    if (savedPath) {
       alert('Project saved successfully!');
+
+      // Update recent projects
+      const recentProjects = await window.electronAPI.getRecentProjects();
+      const newRecent = {
+        name: projectName,
+        path: savedPath,
+        date: new Date().toISOString(),
+      };
+      const filtered = recentProjects.filter(p => p.path !== savedPath);
+      await window.electronAPI.saveRecentProjects([newRecent, ...filtered.slice(0, 9)]);
     }
   };
 
@@ -59,15 +70,36 @@ export default function Header() {
       return;
     }
 
-    const data = await window.electronAPI.loadProject();
-    if (data && typeof data === 'object' && 'scenes' in data) {
-      loadProject((data as { scenes: typeof scenes }).scenes);
+    const result = await window.electronAPI.loadProject();
+    if (result) {
+      const { data, path } = result;
+      const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number };
+
+      // Determine vault path
+      const loadedVaultPath = projectData.vaultPath || path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
+
+      initializeProject({
+        name: projectData.name || 'Loaded Project',
+        vaultPath: loadedVaultPath,
+        scenes: projectData.scenes || [],
+      });
+
+      // Update recent projects
+      const recentProjects = await window.electronAPI.getRecentProjects();
+      const newRecent = {
+        name: projectData.name || 'Loaded Project',
+        path,
+        date: new Date().toISOString(),
+      };
+      const filtered = recentProjects.filter((p: any) => p.path !== path);
+      await window.electronAPI.saveRecentProjects([newRecent, ...filtered.slice(0, 9)]);
     }
   };
 
-  const handleNewProject = () => {
-    if (confirm('Create a new project? Any unsaved changes will be lost.')) {
+  const handleCloseProject = () => {
+    if (confirm('Close project? Any unsaved changes will be lost.')) {
       clearProject();
+      setProjectLoaded(false);
     }
   };
 
@@ -98,8 +130,8 @@ export default function Header() {
 
       <div className="header-center">
         <div className="header-title">
-          <FolderOpen size={16} />
-          <span>TIMELINE / WORKSPACE</span>
+          <Clapperboard size={16} />
+          <span>{projectName}</span>
         </div>
       </div>
 
@@ -120,8 +152,8 @@ export default function Header() {
         >
           <Redo size={18} />
         </button>
-        <button className="header-btn" onClick={handleNewProject} title="New Project">
-          <FolderOpen size={18} />
+        <button className="header-btn" onClick={handleCloseProject} title="Close Project">
+          <X size={18} />
         </button>
         <button className="header-btn" onClick={handleLoadProject} title="Open Project">
           <FolderOpen size={18} />
