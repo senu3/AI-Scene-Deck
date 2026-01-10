@@ -1,10 +1,34 @@
 import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
+import type { Scene, Asset } from '../types';
 import './Header.css';
 
+// Convert assets to use relative paths for saving
+function prepareAssetForSave(asset: Asset): Asset {
+  if (asset.vaultRelativePath) {
+    return {
+      ...asset,
+      // Store relative path as the main path for portability
+      path: asset.vaultRelativePath,
+    };
+  }
+  return asset;
+}
+
+// Prepare scenes for saving (convert to relative paths)
+function prepareScenesForSave(scenes: Scene[]): Scene[] {
+  return scenes.map(scene => ({
+    ...scene,
+    cuts: scene.cuts.map(cut => ({
+      ...cut,
+      asset: cut.asset ? prepareAssetForSave(cut.asset) : undefined,
+    })),
+  }));
+}
+
 export default function Header() {
-  const { scenes, loadProject, clearProject } = useStore();
+  const { scenes, vaultPath, loadProject, clearProject } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
 
   const handleSaveProject = async () => {
@@ -13,9 +37,13 @@ export default function Header() {
       return;
     }
 
+    // Prepare scenes with relative paths for portability
+    const scenesToSave = prepareScenesForSave(scenes);
+
     const projectData = JSON.stringify({
-      version: '1.0',
-      scenes: scenes,
+      version: 2, // Version 2 uses relative paths
+      vaultPath: vaultPath,
+      scenes: scenesToSave,
       savedAt: new Date().toISOString(),
     });
 

@@ -13,6 +13,7 @@ import StartupModal from './components/StartupModal';
 import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
+import { importFileToVault } from './utils/assetPath';
 import './styles/App.css';
 
 function TrashZone({ isActive }: { isActive: boolean }) {
@@ -51,6 +52,7 @@ function App() {
     scenes,
     removeCut,
     trashPath,
+    vaultPath,
     selectedSceneId,
     getSelectedCutIds,
     getSelectedCuts,
@@ -284,20 +286,50 @@ function App() {
 
       // Get file path - in Electron we can access the path
       const filePath = (file as File & { path?: string }).path || file.name;
+      const assetId = uuidv4();
 
-      const asset: Asset = {
-        id: uuidv4(),
-        name: file.name,
-        path: filePath,
-        type: mediaType,
-      };
+      let asset: Asset;
+
+      // If vault path is set, import to vault first
+      if (vaultPath) {
+        const importedAsset = await importFileToVault(
+          filePath,
+          vaultPath,
+          assetId,
+          {
+            name: file.name,
+            type: mediaType,
+          }
+        );
+
+        if (importedAsset) {
+          asset = importedAsset;
+        } else {
+          // Fallback to original path if import fails
+          console.warn('Failed to import to vault, using original path');
+          asset = {
+            id: assetId,
+            name: file.name,
+            path: filePath,
+            type: mediaType,
+          };
+        }
+      } else {
+        // No vault set, use original path
+        asset = {
+          id: assetId,
+          name: file.name,
+          path: filePath,
+          type: mediaType,
+        };
+      }
 
       // Use command for undo/redo support
       executeCommand(new AddCutCommand(targetSceneId, asset)).catch((error) => {
         console.error('Failed to add cut:', error);
       });
     }
-  }, [selectedSceneId, scenes, executeCommand]);
+  }, [selectedSceneId, scenes, vaultPath, executeCommand]);
 
   // Show startup modal if no project is loaded
   if (!projectLoaded) {

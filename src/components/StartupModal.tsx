@@ -1,7 +1,70 @@
 import { useState, useEffect } from 'react';
 import { Clapperboard, FolderPlus, FolderOpen, Clock, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import type { Scene, Asset } from '../types';
 import './StartupModal.css';
+
+// Resolve asset paths from relative to absolute
+async function resolveAssetPath(asset: Asset, vaultPath: string): Promise<Asset> {
+  // Check if path looks like a relative vault path
+  if (asset.path.startsWith('assets/')) {
+    const result = await window.electronAPI?.resolveVaultPath(vaultPath, asset.path);
+    if (result?.exists) {
+      return {
+        ...asset,
+        vaultRelativePath: asset.path,
+        path: result.absolutePath || asset.path,
+      };
+    }
+  }
+
+  // Check if asset already has vaultRelativePath
+  if (asset.vaultRelativePath && window.electronAPI) {
+    const result = await window.electronAPI.resolveVaultPath(vaultPath, asset.vaultRelativePath);
+    if (result?.exists) {
+      return {
+        ...asset,
+        path: result.absolutePath || asset.path,
+      };
+    }
+  }
+
+  return asset;
+}
+
+// Resolve all asset paths in scenes
+async function resolveScenesAssets(scenes: Scene[], vaultPath: string): Promise<{ scenes: Scene[]; missingAssets: string[] }> {
+  const resolvedScenes: Scene[] = [];
+  const missingAssets: string[] = [];
+
+  for (const scene of scenes) {
+    const resolvedCuts = await Promise.all(
+      scene.cuts.map(async (cut) => {
+        if (cut.asset) {
+          const resolvedAsset = await resolveAssetPath(cut.asset, vaultPath);
+
+          // Check if asset file exists
+          if (resolvedAsset.path && window.electronAPI) {
+            const exists = await window.electronAPI.pathExists(resolvedAsset.path);
+            if (!exists) {
+              missingAssets.push(resolvedAsset.name || resolvedAsset.path);
+            }
+          }
+
+          return { ...cut, asset: resolvedAsset };
+        }
+        return cut;
+      })
+    );
+
+    resolvedScenes.push({
+      ...scene,
+      cuts: resolvedCuts,
+    });
+  }
+
+  return { scenes: resolvedScenes, missingAssets };
+}
 
 interface RecentProject {
   name: string;
@@ -56,6 +119,9 @@ export default function StartupModal() {
           return;
         }
 
+        // Create assets folder for file-based asset sync
+        await window.electronAPI.ensureAssetsFolder(vault.path);
+
         // Initialize project
         initializeProject({
           name: projectName,
@@ -105,13 +171,37 @@ export default function StartupModal() {
     const result = await window.electronAPI.loadProject();
     if (result) {
       const { data, path } = result;
-      const projectData = data as { name?: string; vaultPath?: string; scenes?: unknown[] };
+      const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number };
+
+      // Determine vault path
+      const vaultPath = projectData.vaultPath || path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
+
+      // Resolve asset paths (v2 uses relative paths)
+      let scenes = projectData.scenes || [];
+      let missingAssets: string[] = [];
+
+      if (projectData.version === 2 || scenes.some(s => s.cuts?.some(c => c.asset?.path?.startsWith('assets/')))) {
+        const result = await resolveScenesAssets(scenes, vaultPath);
+        scenes = result.scenes;
+        missingAssets = result.missingAssets;
+      }
 
       initializeProject({
         name: projectData.name || 'Loaded Project',
-        vaultPath: projectData.vaultPath || path.replace('/project.sdp', ''),
-        scenes: projectData.scenes as ReturnType<typeof useStore.getState>['scenes'],
+        vaultPath: vaultPath,
+        scenes: scenes as ReturnType<typeof useStore.getState>['scenes'],
       });
+
+      // Show warning for missing assets
+      if (missingAssets.length > 0) {
+        const displayAssets = missingAssets.slice(0, 5);
+        const remaining = missingAssets.length - displayAssets.length;
+        const message = `Warning: ${missingAssets.length} asset(s) could not be found:\n\n` +
+          displayAssets.join('\n') +
+          (remaining > 0 ? `\n...and ${remaining} more` : '') +
+          '\n\nThese files may have been moved or deleted.';
+        alert(message);
+      }
 
       // Update recent projects
       const newRecent: RecentProject = {
@@ -142,13 +232,37 @@ export default function StartupModal() {
       const result = await window.electronAPI.loadProject();
       if (result) {
         const { data } = result;
-        const projectData = data as { name?: string; vaultPath?: string; scenes?: unknown[] };
+        const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number };
+
+        // Determine vault path
+        const vaultPath = projectData.vaultPath || project.path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
+
+        // Resolve asset paths (v2 uses relative paths)
+        let scenes = projectData.scenes || [];
+        let missingAssets: string[] = [];
+
+        if (projectData.version === 2 || scenes.some(s => s.cuts?.some(c => c.asset?.path?.startsWith('assets/')))) {
+          const result = await resolveScenesAssets(scenes, vaultPath);
+          scenes = result.scenes;
+          missingAssets = result.missingAssets;
+        }
 
         initializeProject({
           name: projectData.name || project.name,
-          vaultPath: projectData.vaultPath || project.path.replace('/project.sdp', ''),
-          scenes: projectData.scenes as ReturnType<typeof useStore.getState>['scenes'],
+          vaultPath: vaultPath,
+          scenes: scenes as ReturnType<typeof useStore.getState>['scenes'],
         });
+
+        // Show warning for missing assets
+        if (missingAssets.length > 0) {
+          const displayAssets = missingAssets.slice(0, 5);
+          const remaining = missingAssets.length - displayAssets.length;
+          const message = `Warning: ${missingAssets.length} asset(s) could not be found:\n\n` +
+            displayAssets.join('\n') +
+            (remaining > 0 ? `\n...and ${remaining} more` : '') +
+            '\n\nThese files may have been moved or deleted.';
+          alert(message);
+        }
       }
     } catch {
       alert('Failed to load project');

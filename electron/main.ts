@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -558,5 +559,269 @@ ipcMain.handle('load-scene-notes', async (_, scenePath: string) => {
     return [];
   } catch {
     return [];
+  }
+});
+
+// ============================================
+// Vault Asset Sync Handlers
+// ============================================
+
+interface AssetIndexEntry {
+  id: string;
+  hash: string;
+  filename: string;
+  originalName: string;
+  originalPath: string;
+  type: 'image' | 'video';
+  fileSize: number;
+  importedAt: string;
+}
+
+interface AssetIndex {
+  version: number;
+  assets: AssetIndexEntry[];
+}
+
+// Calculate SHA256 hash of a file
+ipcMain.handle('calculate-file-hash', async (_, filePath: string) => {
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+    return hash;
+  } catch (error) {
+    console.error('Failed to calculate file hash:', error);
+    return null;
+  }
+});
+
+// Ensure assets folder exists in vault
+ipcMain.handle('ensure-assets-folder', async (_, vaultPath: string) => {
+  try {
+    const assetsPath = path.join(vaultPath, 'assets');
+    if (!fs.existsSync(assetsPath)) {
+      fs.mkdirSync(assetsPath, { recursive: true });
+    }
+    return assetsPath;
+  } catch (error) {
+    console.error('Failed to create assets folder:', error);
+    return null;
+  }
+});
+
+// Load asset index from vault
+ipcMain.handle('load-asset-index', async (_, vaultPath: string) => {
+  try {
+    const indexPath = path.join(vaultPath, 'assets', '.index.json');
+    if (fs.existsSync(indexPath)) {
+      const data = fs.readFileSync(indexPath, 'utf-8');
+      return JSON.parse(data) as AssetIndex;
+    }
+    return { version: 1, assets: [] } as AssetIndex;
+  } catch (error) {
+    console.error('Failed to load asset index:', error);
+    return { version: 1, assets: [] } as AssetIndex;
+  }
+});
+
+// Save asset index to vault
+ipcMain.handle('save-asset-index', async (_, vaultPath: string, index: AssetIndex) => {
+  try {
+    const assetsPath = path.join(vaultPath, 'assets');
+    if (!fs.existsSync(assetsPath)) {
+      fs.mkdirSync(assetsPath, { recursive: true });
+    }
+    const indexPath = path.join(assetsPath, '.index.json');
+    fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+    return true;
+  } catch (error) {
+    console.error('Failed to save asset index:', error);
+    return false;
+  }
+});
+
+// Import asset to vault with hash-based naming
+ipcMain.handle('import-asset-to-vault', async (_, sourcePath: string, vaultPath: string, assetId: string) => {
+  try {
+    // Calculate hash first
+    const buffer = fs.readFileSync(sourcePath);
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+    const shortHash = hash.substring(0, 12);
+
+    // Determine file type and extension
+    const ext = path.extname(sourcePath).toLowerCase();
+    const mediaType = getMediaType(path.basename(sourcePath));
+    if (!mediaType) {
+      return { success: false, error: 'Unsupported file type' };
+    }
+
+    // Create hash-based filename: img_abc123.png or vid_abc123.mp4
+    const prefix = mediaType === 'image' ? 'img' : 'vid';
+    const newFilename = `${prefix}_${shortHash}${ext}`;
+
+    // Ensure assets folder exists
+    const assetsPath = path.join(vaultPath, 'assets');
+    if (!fs.existsSync(assetsPath)) {
+      fs.mkdirSync(assetsPath, { recursive: true });
+    }
+
+    const destPath = path.join(assetsPath, newFilename);
+    const relativePath = `assets/${newFilename}`;
+
+    // Check if file with same hash already exists
+    if (fs.existsSync(destPath)) {
+      // Verify it's the same file by comparing hashes
+      const existingBuffer = fs.readFileSync(destPath);
+      const existingHash = crypto.createHash('sha256').update(existingBuffer).digest('hex');
+
+      if (existingHash === hash) {
+        // Exact duplicate - return existing path
+        return {
+          success: true,
+          vaultPath: destPath,
+          relativePath,
+          hash,
+          isDuplicate: true,
+        };
+      }
+
+      // Hash collision (very rare) - add suffix
+      let counter = 1;
+      let uniqueFilename = `${prefix}_${shortHash}_${counter}${ext}`;
+      let uniquePath = path.join(assetsPath, uniqueFilename);
+      while (fs.existsSync(uniquePath)) {
+        counter++;
+        uniqueFilename = `${prefix}_${shortHash}_${counter}${ext}`;
+        uniquePath = path.join(assetsPath, uniqueFilename);
+      }
+
+      fs.copyFileSync(sourcePath, uniquePath);
+      return {
+        success: true,
+        vaultPath: uniquePath,
+        relativePath: `assets/${uniqueFilename}`,
+        hash,
+        isDuplicate: false,
+      };
+    }
+
+    // Copy file to vault
+    fs.copyFileSync(sourcePath, destPath);
+
+    // Update asset index
+    const indexPath = path.join(assetsPath, '.index.json');
+    let index: AssetIndex = { version: 1, assets: [] };
+    if (fs.existsSync(indexPath)) {
+      try {
+        index = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+      } catch {
+        // Use default empty index
+      }
+    }
+
+    // Add entry to index
+    const indexEntry: AssetIndexEntry = {
+      id: assetId,
+      hash,
+      filename: newFilename,
+      originalName: path.basename(sourcePath),
+      originalPath: sourcePath,
+      type: mediaType,
+      fileSize: buffer.length,
+      importedAt: new Date().toISOString(),
+    };
+
+    index.assets.push(indexEntry);
+    fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf-8');
+
+    return {
+      success: true,
+      vaultPath: destPath,
+      relativePath,
+      hash,
+      isDuplicate: false,
+    };
+  } catch (error) {
+    console.error('Failed to import asset to vault:', error);
+    return { success: false, error: String(error) };
+  }
+});
+
+// Verify vault assets - check for missing files
+ipcMain.handle('verify-vault-assets', async (_, vaultPath: string) => {
+  try {
+    const assetsPath = path.join(vaultPath, 'assets');
+    const indexPath = path.join(assetsPath, '.index.json');
+
+    if (!fs.existsSync(indexPath)) {
+      return { valid: true, missing: [], orphaned: [] };
+    }
+
+    const index: AssetIndex = JSON.parse(fs.readFileSync(indexPath, 'utf-8'));
+    const missing: string[] = [];
+    const existingFiles = new Set<string>();
+
+    // Check each indexed asset
+    for (const entry of index.assets) {
+      const assetPath = path.join(assetsPath, entry.filename);
+      if (!fs.existsSync(assetPath)) {
+        missing.push(entry.filename);
+      } else {
+        existingFiles.add(entry.filename);
+      }
+    }
+
+    // Find orphaned files (not in index)
+    const orphaned: string[] = [];
+    if (fs.existsSync(assetsPath)) {
+      const files = fs.readdirSync(assetsPath);
+      for (const file of files) {
+        if (file === '.index.json') continue;
+        if (!existingFiles.has(file) && !index.assets.some(a => a.filename === file)) {
+          orphaned.push(file);
+        }
+      }
+    }
+
+    return {
+      valid: missing.length === 0,
+      missing,
+      orphaned,
+    };
+  } catch (error) {
+    console.error('Failed to verify vault assets:', error);
+    return { valid: false, missing: [], orphaned: [], error: String(error) };
+  }
+});
+
+// Resolve relative path to absolute path
+ipcMain.handle('resolve-vault-path', async (_, vaultPath: string, relativePath: string) => {
+  try {
+    const absolutePath = path.join(vaultPath, relativePath);
+    const exists = fs.existsSync(absolutePath);
+    return { absolutePath, exists };
+  } catch (error) {
+    return { absolutePath: null, exists: false, error: String(error) };
+  }
+});
+
+// Get relative path from vault
+ipcMain.handle('get-relative-path', async (_, vaultPath: string, absolutePath: string) => {
+  try {
+    const relativePath = path.relative(vaultPath, absolutePath);
+    // Ensure forward slashes for consistency
+    return relativePath.replace(/\\/g, '/');
+  } catch (error) {
+    return null;
+  }
+});
+
+// Check if path is inside vault
+ipcMain.handle('is-path-in-vault', async (_, vaultPath: string, checkPath: string) => {
+  try {
+    const normalizedVault = path.normalize(vaultPath);
+    const normalizedCheck = path.normalize(checkPath);
+    return normalizedCheck.startsWith(normalizedVault);
+  } catch {
+    return false;
   }
 });

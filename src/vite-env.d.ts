@@ -51,6 +51,44 @@ interface RecentProject {
   date: string;
 }
 
+interface AssetIndexEntry {
+  id: string;
+  hash: string;
+  filename: string;
+  originalName: string;
+  originalPath: string;
+  type: 'image' | 'video';
+  fileSize: number;
+  importedAt: string;
+}
+
+interface AssetIndex {
+  version: number;
+  assets: AssetIndexEntry[];
+}
+
+interface VaultImportResult {
+  success: boolean;
+  vaultPath?: string;
+  relativePath?: string;
+  hash?: string;
+  isDuplicate?: boolean;
+  error?: string;
+}
+
+interface VaultVerifyResult {
+  valid: boolean;
+  missing: string[];
+  orphaned: string[];
+  error?: string;
+}
+
+interface PathResolveResult {
+  absolutePath: string | null;
+  exists: boolean;
+  error?: string;
+}
+
 interface ElectronAPI {
   // Folder operations
   selectFolder: () => Promise<FolderSelection | null>;
@@ -82,6 +120,17 @@ interface ElectronAPI {
   // Scene notes
   saveSceneNotes: (scenePath: string, notes: string) => Promise<boolean>;
   loadSceneNotes: (scenePath: string) => Promise<unknown[]>;
+
+  // Vault asset sync operations
+  calculateFileHash: (filePath: string) => Promise<string | null>;
+  ensureAssetsFolder: (vaultPath: string) => Promise<string | null>;
+  loadAssetIndex: (vaultPath: string) => Promise<AssetIndex>;
+  saveAssetIndex: (vaultPath: string, index: AssetIndex) => Promise<boolean>;
+  importAssetToVault: (sourcePath: string, vaultPath: string, assetId: string) => Promise<VaultImportResult>;
+  verifyVaultAssets: (vaultPath: string) => Promise<VaultVerifyResult>;
+  resolveVaultPath: (vaultPath: string, relativePath: string) => Promise<PathResolveResult>;
+  getRelativePath: (vaultPath: string, absolutePath: string) => Promise<string | null>;
+  isPathInVault: (vaultPath: string, checkPath: string) => Promise<boolean>;
 }
 
 declare global {

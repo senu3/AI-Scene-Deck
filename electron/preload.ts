@@ -43,6 +43,44 @@ export interface VaultInfo {
   configPath: string;
 }
 
+export interface AssetIndexEntry {
+  id: string;
+  hash: string;
+  filename: string;
+  originalName: string;
+  originalPath: string;
+  type: 'image' | 'video';
+  fileSize: number;
+  importedAt: string;
+}
+
+export interface AssetIndex {
+  version: number;
+  assets: AssetIndexEntry[];
+}
+
+export interface VaultImportResult {
+  success: boolean;
+  vaultPath?: string;
+  relativePath?: string;
+  hash?: string;
+  isDuplicate?: boolean;
+  error?: string;
+}
+
+export interface VaultVerifyResult {
+  valid: boolean;
+  missing: string[];
+  orphaned: string[];
+  error?: string;
+}
+
+export interface PathResolveResult {
+  absolutePath: string | null;
+  exists: boolean;
+  error?: string;
+}
+
 export interface RecentProject {
   name: string;
   path: string;
@@ -107,6 +145,34 @@ const electronAPI = {
 
   loadSceneNotes: (scenePath: string): Promise<unknown[]> =>
     ipcRenderer.invoke('load-scene-notes', scenePath),
+
+  // Vault asset sync operations
+  calculateFileHash: (filePath: string): Promise<string | null> =>
+    ipcRenderer.invoke('calculate-file-hash', filePath),
+
+  ensureAssetsFolder: (vaultPath: string): Promise<string | null> =>
+    ipcRenderer.invoke('ensure-assets-folder', vaultPath),
+
+  loadAssetIndex: (vaultPath: string): Promise<AssetIndex> =>
+    ipcRenderer.invoke('load-asset-index', vaultPath),
+
+  saveAssetIndex: (vaultPath: string, index: AssetIndex): Promise<boolean> =>
+    ipcRenderer.invoke('save-asset-index', vaultPath, index),
+
+  importAssetToVault: (sourcePath: string, vaultPath: string, assetId: string): Promise<VaultImportResult> =>
+    ipcRenderer.invoke('import-asset-to-vault', sourcePath, vaultPath, assetId),
+
+  verifyVaultAssets: (vaultPath: string): Promise<VaultVerifyResult> =>
+    ipcRenderer.invoke('verify-vault-assets', vaultPath),
+
+  resolveVaultPath: (vaultPath: string, relativePath: string): Promise<PathResolveResult> =>
+    ipcRenderer.invoke('resolve-vault-path', vaultPath, relativePath),
+
+  getRelativePath: (vaultPath: string, absolutePath: string): Promise<string | null> =>
+    ipcRenderer.invoke('get-relative-path', vaultPath, absolutePath),
+
+  isPathInVault: (vaultPath: string, checkPath: string): Promise<boolean> =>
+    ipcRenderer.invoke('is-path-in-vault', vaultPath, checkPath),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

@@ -17,6 +17,7 @@ import { useHistoryStore } from '../store/historyStore';
 import { AddCutCommand } from '../store/commands';
 import type { FileItem, Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { importFileToVault } from '../utils/assetPath';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -391,12 +392,13 @@ interface FileItemComponentProps {
 }
 
 function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCache }: FileItemComponentProps) {
-  const { scenes, selectedSceneId } = useStore();
+  const { scenes, selectedSceneId, vaultPath } = useStore();
   const { executeCommand } = useHistoryStore();
   const [thumbnail, setThumbnail] = useState<string | null>(
     thumbnailCache.get(item.path) || null
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const handleLoadThumbnail = async () => {
     if (thumbnail || isLoading) return;
@@ -408,31 +410,76 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
     setIsLoading(false);
   };
 
-  const handleAddToTimeline = () => {
+  const handleAddToTimeline = async () => {
     const targetSceneId = selectedSceneId || scenes[0]?.id;
     if (!targetSceneId) return;
+    if (isImporting) return;
 
-    const asset: Asset = {
-      id: uuidv4(),
-      name: item.name,
-      path: item.path,
-      type: mediaType || 'image',
-      thumbnail: thumbnail || undefined,
-    };
+    setIsImporting(true);
 
-    // Use command for undo/redo support
-    executeCommand(new AddCutCommand(targetSceneId, asset)).catch((error) => {
+    try {
+      const assetId = uuidv4();
+      let asset: Asset;
+
+      // If vault path is set, import to vault first
+      if (vaultPath) {
+        const importedAsset = await importFileToVault(
+          item.path,
+          vaultPath,
+          assetId,
+          {
+            name: item.name,
+            type: mediaType || 'image',
+            thumbnail: thumbnail || undefined,
+          }
+        );
+
+        if (importedAsset) {
+          asset = importedAsset;
+        } else {
+          // Fallback to original path if import fails
+          console.warn('Failed to import to vault, using original path');
+          asset = {
+            id: assetId,
+            name: item.name,
+            path: item.path,
+            type: mediaType || 'image',
+            thumbnail: thumbnail || undefined,
+          };
+        }
+      } else {
+        // No vault set, use original path
+        asset = {
+          id: assetId,
+          name: item.name,
+          path: item.path,
+          type: mediaType || 'image',
+          thumbnail: thumbnail || undefined,
+        };
+      }
+
+      // Use command for undo/redo support
+      await executeCommand(new AddCutCommand(targetSceneId, asset));
+    } catch (error) {
       console.error('Failed to add cut:', error);
-    });
+    } finally {
+      setIsImporting(false);
+    }
   };
 
-  const handleDragStart = (e: React.DragEvent) => {
+  const handleDragStart = async (e: React.DragEvent) => {
+    const assetId = uuidv4();
+
+    // Create basic asset for drag data
+    // The actual import will happen on drop
     const asset: Asset = {
-      id: uuidv4(),
+      id: assetId,
       name: item.name,
       path: item.path,
       type: mediaType || 'image',
       thumbnail: thumbnail || undefined,
+      // Mark as pending import
+      originalPath: item.path,
     };
     e.dataTransfer.setData('application/json', JSON.stringify(asset));
     e.dataTransfer.effectAllowed = 'copy';
