@@ -16,6 +16,8 @@ interface PreviewItem {
   thumbnail: string | null;
 }
 
+const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.5, 2];
+
 export default function PreviewModal({ onClose }: PreviewModalProps) {
   const { scenes, previewMode, selectedSceneId, getAsset } = useStore();
   const [items, setItems] = useState<PreviewItem[]>([]);
@@ -23,10 +25,15 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const [hoverTime, setHoverTime] = useState<string | null>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
+  const elapsedRef = useRef<number>(0);
   const modalRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
 
   // Build preview items
   useEffect(() => {
@@ -87,7 +94,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
   }, []);
 
   useEffect(() => {
-    if (!isPlaying || items.length === 0) {
+    if (!isPlaying || items.length === 0 || isDragging) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -98,12 +105,14 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
     const currentItem = items[currentIndex];
     if (!currentItem) return;
 
-    const duration = currentItem.cut.displayTime * 1000;
+    const duration = (currentItem.cut.displayTime * 1000) / playbackSpeed;
+    const remainingDuration = duration * (1 - progress / 100);
     startTimeRef.current = Date.now();
+    elapsedRef.current = (progress / 100) * duration;
 
     // Update progress
     const progressInterval = setInterval(() => {
-      const elapsed = Date.now() - startTimeRef.current;
+      const elapsed = elapsedRef.current + (Date.now() - startTimeRef.current);
       setProgress(Math.min(100, (elapsed / duration) * 100));
     }, 50);
 
@@ -111,7 +120,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
     timerRef.current = setTimeout(() => {
       clearInterval(progressInterval);
       goToNext();
-    }, duration);
+    }, remainingDuration);
 
     return () => {
       clearInterval(progressInterval);
@@ -119,7 +128,19 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [isPlaying, currentIndex, items, goToNext]);
+  }, [isPlaying, currentIndex, items, goToNext, playbackSpeed, isDragging]);
+
+  // Cycle playback speed
+  const cycleSpeed = useCallback((direction: 'up' | 'down') => {
+    setPlaybackSpeed(current => {
+      const currentIdx = PLAYBACK_SPEEDS.indexOf(current);
+      if (direction === 'up') {
+        return PLAYBACK_SPEEDS[Math.min(currentIdx + 1, PLAYBACK_SPEEDS.length - 1)];
+      } else {
+        return PLAYBACK_SPEEDS[Math.max(currentIdx - 1, 0)];
+      }
+    });
+  }, []);
 
   // Keyboard controls
   useEffect(() => {
@@ -138,6 +159,24 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
         case 'ArrowRight':
           goToNext();
           break;
+        case 'ArrowUp':
+        case '.':
+          e.preventDefault();
+          goToNext();
+          break;
+        case 'ArrowDown':
+        case ',':
+          e.preventDefault();
+          goToPrev();
+          break;
+        case '[':
+          e.preventDefault();
+          cycleSpeed('down');
+          break;
+        case ']':
+          e.preventDefault();
+          cycleSpeed('up');
+          break;
         case 'f':
           toggleFullscreen();
           break;
@@ -146,7 +185,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, goToNext, goToPrev]);
+  }, [onClose, goToNext, goToPrev, cycleSpeed]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement && modalRef.current) {
@@ -158,7 +197,114 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
     }
   };
 
+  // Calculate global position from progress percentage
+  const calculateGlobalPositionFromProgress = useCallback((progressPercent: number) => {
+    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    const targetTime = (progressPercent / 100) * totalDuration;
+
+    let accumulatedTime = 0;
+    for (let i = 0; i < items.length; i++) {
+      const itemDuration = items[i].cut.displayTime;
+      if (accumulatedTime + itemDuration > targetTime) {
+        const localProgress = ((targetTime - accumulatedTime) / itemDuration) * 100;
+        return { index: i, localProgress };
+      }
+      accumulatedTime += itemDuration;
+    }
+
+    return { index: items.length - 1, localProgress: 100 };
+  }, [items]);
+
+  // Calculate global progress percentage
+  const calculateGlobalProgress = useCallback(() => {
+    if (items.length === 0) return 0;
+    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    let elapsedDuration = 0;
+    for (let i = 0; i < currentIndex; i++) {
+      elapsedDuration += items[i].cut.displayTime;
+    }
+    elapsedDuration += (progress / 100) * items[currentIndex].cut.displayTime;
+    return (elapsedDuration / totalDuration) * 100;
+  }, [items, currentIndex, progress]);
+
+  // Progress bar click handler
+  const handleProgressBarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!progressBarRef.current || items.length === 0) return;
+
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const progressPercent = (clickX / rect.width) * 100;
+
+    const { index, localProgress } = calculateGlobalPositionFromProgress(progressPercent);
+    setCurrentIndex(index);
+    setProgress(localProgress);
+    elapsedRef.current = (localProgress / 100) * items[index].cut.displayTime * 1000;
+  }, [items, calculateGlobalPositionFromProgress]);
+
+  // Mouse drag handlers for scrubbing
+  const handleProgressBarMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    setIsDragging(true);
+    setIsPlaying(false);
+    handleProgressBarClick(e);
+  }, [handleProgressBarClick]);
+
+  const handleProgressBarMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !progressBarRef.current || items.length === 0) return;
+
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+    const progressPercent = (clickX / rect.width) * 100;
+
+    const { index, localProgress } = calculateGlobalPositionFromProgress(progressPercent);
+    setCurrentIndex(index);
+    setProgress(localProgress);
+    elapsedRef.current = (localProgress / 100) * items[index].cut.displayTime * 1000;
+  }, [isDragging, items, calculateGlobalPositionFromProgress]);
+
+  const handleProgressBarMouseUp = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  // Format time for display
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Progress bar hover handler
+  const handleProgressBarHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!progressBarRef.current || items.length === 0) return;
+
+    const rect = progressBarRef.current.getBoundingClientRect();
+    const hoverX = e.clientX - rect.left;
+    const progressPercent = (hoverX / rect.width) * 100;
+
+    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    const hoverTimeSeconds = (progressPercent / 100) * totalDuration;
+    setHoverTime(formatTime(hoverTimeSeconds));
+  }, [items]);
+
+  const handleProgressBarLeave = useCallback(() => {
+    setHoverTime(null);
+  }, []);
+
+  // Global mouse event handlers for dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleProgressBarMouseMove);
+      window.addEventListener('mouseup', handleProgressBarMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleProgressBarMouseMove);
+        window.removeEventListener('mouseup', handleProgressBarMouseUp);
+      };
+    }
+  }, [isDragging, handleProgressBarMouseMove, handleProgressBarMouseUp]);
+
   const currentItem = items[currentIndex];
+  const globalProgress = calculateGlobalProgress();
+  const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+  const currentTime = (globalProgress / 100) * totalDuration;
 
   if (items.length === 0) {
     return (
@@ -214,11 +360,28 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
         </div>
 
         <div className="preview-progress">
-          <div className="progress-bar">
-            <div className="progress-fill" style={{ width: `${progress}%` }} />
+          <div
+            className="progress-bar scrub-enabled"
+            ref={progressBarRef}
+            onMouseDown={handleProgressBarMouseDown}
+            onMouseMove={handleProgressBarHover}
+            onMouseLeave={handleProgressBarLeave}
+          >
+            <div className="progress-fill" style={{ width: `${globalProgress}%` }} />
+            <div className="progress-handle" style={{ left: `${globalProgress}%` }} />
+            {hoverTime && (
+              <div className="progress-tooltip">
+                {hoverTime}
+              </div>
+            )}
           </div>
           <div className="progress-info">
-            <span>{currentItem?.cut.displayTime.toFixed(1)}s</span>
+            <span className="time-display">
+              {formatTime(currentTime)} / {formatTime(totalDuration)}
+            </span>
+            <span className="speed-display" onClick={() => cycleSpeed('up')} title="Click or press ] to increase, [ to decrease">
+              {playbackSpeed}x
+            </span>
           </div>
         </div>
 
@@ -233,12 +396,14 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
               className="control-btn"
               onClick={goToPrev}
               disabled={currentIndex === 0}
+              title="Previous (← , ↓)"
             >
               <SkipBack size={20} />
             </button>
             <button
               className="control-btn primary"
               onClick={() => setIsPlaying(!isPlaying)}
+              title="Play/Pause (Space)"
             >
               {isPlaying ? <Pause size={24} /> : <Play size={24} />}
             </button>
@@ -246,12 +411,13 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
               className="control-btn"
               onClick={goToNext}
               disabled={currentIndex >= items.length - 1}
+              title="Next (→ . ↑)"
             >
               <SkipForward size={20} />
             </button>
           </div>
           <div className="controls-right">
-            <span className="hint-text">Press Space to play/pause</span>
+            <span className="hint-text">Space: play · [ ]: speed · ←→: navigate</span>
           </div>
         </div>
       </div>
