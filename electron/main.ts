@@ -19,6 +19,7 @@ if (process.defaultApp) {
 // Register custom protocol for local file access
 function registerMediaProtocol() {
   protocol.handle('media', (request) => {
+    // Remove 'media://' prefix
     const url = request.url.substring('media://'.length);
     // Decode URI component to handle spaces and special characters
     const filePath = decodeURIComponent(url);
@@ -32,8 +33,18 @@ function registerMediaProtocol() {
       return new Response('File not found', { status: 404 });
     }
 
-    // Return the file using net.fetch with file:// protocol
-    return net.fetch(`file://${filePath}`);
+    // Convert to proper file URL format
+    // On Windows: C:\path\to\file -> file:///C:/path/to/file
+    // On Unix: /path/to/file -> file:///path/to/file
+    let fileUrl: string;
+    if (process.platform === 'win32') {
+      // Replace backslashes with forward slashes and ensure triple slash
+      fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
+    } else {
+      fileUrl = `file://${filePath}`;
+    }
+
+    return net.fetch(fileUrl);
   });
 }
 
