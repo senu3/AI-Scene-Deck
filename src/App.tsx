@@ -14,6 +14,7 @@ import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
 import { importFileToVault } from './utils/assetPath';
+import { extractVideoMetadata } from './utils/videoUtils';
 import './styles/App.css';
 
 function TrashZone({ isActive }: { isActive: boolean }) {
@@ -288,6 +289,15 @@ function App() {
       const filePath = (file as File & { path?: string }).path || file.name;
       const assetId = uuidv4();
 
+      // Extract video metadata if it's a video
+      let duration: number | undefined;
+      if (mediaType === 'video') {
+        const videoMeta = await extractVideoMetadata(filePath);
+        if (videoMeta) {
+          duration = videoMeta.duration;
+        }
+      }
+
       let asset: Asset;
 
       // If vault path is set, import to vault first
@@ -299,6 +309,7 @@ function App() {
           {
             name: file.name,
             type: mediaType,
+            duration,
           }
         );
 
@@ -312,6 +323,7 @@ function App() {
             name: file.name,
             path: filePath,
             type: mediaType,
+            duration,
           };
         }
       } else {
@@ -321,6 +333,7 @@ function App() {
           name: file.name,
           path: filePath,
           type: mediaType,
+          duration,
         };
       }
 

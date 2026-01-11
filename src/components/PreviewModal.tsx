@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Cut } from '../types';
+import { generateVideoThumbnail } from '../utils/videoUtils';
 import './PreviewModal.css';
 
 interface PreviewModalProps {
@@ -54,7 +55,13 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
 
           if (!thumbnail && asset?.path && window.electronAPI) {
             try {
-              thumbnail = await window.electronAPI.readFileAsBase64(asset.path);
+              if (asset.type === 'video') {
+                // Generate thumbnail for video
+                thumbnail = await generateVideoThumbnail(asset.path);
+              } else {
+                // Load image as base64
+                thumbnail = await window.electronAPI.readFileAsBase64(asset.path);
+              }
             } catch {
               // Failed to load
             }
@@ -346,7 +353,17 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
         </div>
 
         <div className="preview-display">
-          {currentItem?.thumbnail ? (
+          {currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
+            <video
+              key={currentItem.cut.asset.path}
+              src={`media://${encodeURIComponent(currentItem.cut.asset.path)}`}
+              className="preview-image"
+              autoPlay
+              muted
+              loop={false}
+              onEnded={goToNext}
+            />
+          ) : currentItem?.thumbnail ? (
             <img
               src={currentItem.thumbnail}
               alt={`${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`}

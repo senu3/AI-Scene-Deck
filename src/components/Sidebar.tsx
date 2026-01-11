@@ -18,6 +18,7 @@ import { AddCutCommand } from '../store/commands';
 import type { FileItem, Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { importFileToVault } from '../utils/assetPath';
+import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -144,17 +145,31 @@ export default function Sidebar() {
     }
   };
 
-  const loadThumbnail = useCallback(async (filePath: string) => {
+  const loadThumbnail = useCallback(async (filePath: string, mediaType: 'image' | 'video' | null) => {
     if (thumbnailCache.has(filePath)) {
       return thumbnailCache.get(filePath);
     }
 
     if (!window.electronAPI) return null;
 
-    const base64 = await window.electronAPI.readFileAsBase64(filePath);
-    if (base64) {
-      setThumbnailCache(prev => new Map(prev).set(filePath, base64));
-      return base64;
+    try {
+      if (mediaType === 'video') {
+        // Generate video thumbnail
+        const thumbnail = await generateVideoThumbnail(filePath);
+        if (thumbnail) {
+          setThumbnailCache(prev => new Map(prev).set(filePath, thumbnail));
+          return thumbnail;
+        }
+      } else {
+        // Load image as base64
+        const base64 = await window.electronAPI.readFileAsBase64(filePath);
+        if (base64) {
+          setThumbnailCache(prev => new Map(prev).set(filePath, base64));
+          return base64;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load thumbnail:', error);
     }
     return null;
   }, [thumbnailCache]);
@@ -387,7 +402,7 @@ interface FileItemComponentProps {
   item: FileItem;
   depth: number;
   mediaType: 'image' | 'video' | null;
-  loadThumbnail: (path: string) => Promise<string | null | undefined>;
+  loadThumbnail: (path: string, mediaType: 'image' | 'video' | null) => Promise<string | null | undefined>;
   thumbnailCache: Map<string, string>;
 }
 
@@ -403,7 +418,7 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
   const handleLoadThumbnail = async () => {
     if (thumbnail || isLoading) return;
     setIsLoading(true);
-    const result = await loadThumbnail(item.path);
+    const result = await loadThumbnail(item.path, mediaType);
     if (result) {
       setThumbnail(result);
     }
@@ -421,6 +436,15 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
       const assetId = uuidv4();
       let asset: Asset;
 
+      // Extract video metadata if it's a video
+      let duration: number | undefined;
+      if (mediaType === 'video') {
+        const videoMeta = await extractVideoMetadata(item.path);
+        if (videoMeta) {
+          duration = videoMeta.duration;
+        }
+      }
+
       // If vault path is set, import to vault first
       if (vaultPath) {
         const importedAsset = await importFileToVault(
@@ -431,6 +455,7 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
             name: item.name,
             type: mediaType || 'image',
             thumbnail: thumbnail || undefined,
+            duration,
           }
         );
 
@@ -445,6 +470,7 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
             path: item.path,
             type: mediaType || 'image',
             thumbnail: thumbnail || undefined,
+            duration,
           };
         }
       } else {
@@ -455,6 +481,7 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
           path: item.path,
           type: mediaType || 'image',
           thumbnail: thumbnail || undefined,
+          duration,
         };
       }
 

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -6,6 +6,36 @@ import * as crypto from 'crypto';
 let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
+
+// Register media protocol as a standard scheme
+if (process.defaultApp) {
+  if (process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('media', process.execPath, [path.resolve(process.argv[1])]);
+  }
+} else {
+  app.setAsDefaultProtocolClient('media');
+}
+
+// Register custom protocol for local file access
+function registerMediaProtocol() {
+  protocol.handle('media', (request) => {
+    const url = request.url.substring('media://'.length);
+    // Decode URI component to handle spaces and special characters
+    const filePath = decodeURIComponent(url);
+
+    // Security check: ensure the path is absolute and exists
+    if (!path.isAbsolute(filePath)) {
+      return new Response('Invalid path', { status: 400 });
+    }
+
+    if (!fs.existsSync(filePath)) {
+      return new Response('File not found', { status: 404 });
+    }
+
+    // Return the file using net.fetch with file:// protocol
+    return net.fetch(`file://${filePath}`);
+  });
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -35,7 +65,11 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  // Register custom protocol before creating window
+  registerMediaProtocol();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -338,6 +372,23 @@ ipcMain.handle('read-image-metadata', async (_, filePath: string) => {
     return {
       ...metadata,
       fileSize: stats.size,
+    };
+  } catch {
+    return null;
+  }
+});
+
+// Get video metadata (duration, dimensions)
+// Returns the file path so renderer can load it in a video element to extract metadata
+ipcMain.handle('get-video-metadata', async (_, filePath: string) => {
+  try {
+    const stats = fs.statSync(filePath);
+    const ext = path.extname(filePath).toLowerCase();
+
+    return {
+      path: filePath,
+      fileSize: stats.size,
+      format: ext.replace('.', '').toUpperCase(),
     };
   } catch {
     return null;
