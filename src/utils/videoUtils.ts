@@ -28,13 +28,19 @@ export async function extractVideoMetadata(filePath: string): Promise<VideoMetad
       resolve(metadata);
     };
 
-    video.onerror = () => {
+    video.onerror = (e) => {
       console.error('Failed to load video metadata:', filePath);
+      console.error('Video error event:', e);
+      console.error('Video error code:', video.error?.code);
+      console.error('Video error message:', video.error?.message);
+      console.error('Video src:', video.src);
       resolve(null);
     };
 
-    // Load the video file using custom media protocol
-    video.src = `media://${encodeURIComponent(filePath)}`;
+    // Load the video file using file:// protocol (webSecurity: false required)
+    const mediaSrc = `file:///${filePath.replace(/\\/g, '/')}`;
+    console.log('Loading video metadata from:', mediaSrc);
+    video.src = mediaSrc;
   });
 }
 
@@ -76,12 +82,17 @@ export async function generateVideoThumbnail(filePath: string, timeOffset: numbe
       }
     };
 
-    video.onerror = () => {
+    video.onerror = (e) => {
       console.error('Failed to load video for thumbnail:', filePath);
+      console.error('Thumbnail error event:', e);
+      console.error('Video error code:', video.error?.code);
+      console.error('Video error message:', video.error?.message);
       resolve(null);
     };
 
-    // Load the video file using custom media protocol
-    video.src = `media://${encodeURIComponent(filePath)}`;
+    // Load the video file using file:// protocol (webSecurity: false required)
+    const mediaSrc = `file:///${filePath.replace(/\\/g, '/')}`;
+    console.log('Loading video for thumbnail from:', mediaSrc);
+    video.src = mediaSrc;
   });
 }

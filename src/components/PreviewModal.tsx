@@ -356,7 +356,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
           {currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
             <video
               key={currentItem.cut.asset.path}
-              src={`media://${encodeURIComponent(currentItem.cut.asset.path)}`}
+              src={`file:///${currentItem.cut.asset.path.replace(/\\/g, '/')}`}
               className="preview-image"
               autoPlay
               muted

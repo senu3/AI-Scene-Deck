@@ -2,48 +2,57 @@ import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
+import { pathToFileURL } from 'url';
 
 let mainWindow: BrowserWindow | null = null;
 
 const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
 
-// Register media protocol as a standard scheme
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient('media', process.execPath, [path.resolve(process.argv[1])]);
+// Register custom scheme as privileged BEFORE app is ready
+// This MUST be called before app.whenReady()
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'media',
+    privileges: {
+      bypassCSP: true,
+      supportFetchAPI: true,
+      standard: true,
+      secure: true,
+      corsEnabled: false,
+      stream: true
+    }
   }
-} else {
-  app.setAsDefaultProtocolClient('media');
-}
+]);
 
 // Register custom protocol for local file access
 function registerMediaProtocol() {
   protocol.handle('media', (request) => {
+    console.log('[Protocol] Received request:', request.url);
+
     // Remove 'media://' prefix
     const url = request.url.substring('media://'.length);
+    console.log('[Protocol] URL after prefix removal:', url);
+
     // Decode URI component to handle spaces and special characters
     const filePath = decodeURIComponent(url);
+    console.log('[Protocol] Decoded file path:', filePath);
 
     // Security check: ensure the path is absolute and exists
     if (!path.isAbsolute(filePath)) {
+      console.error('[Protocol] Invalid path (not absolute):', filePath);
       return new Response('Invalid path', { status: 400 });
     }
 
     if (!fs.existsSync(filePath)) {
+      console.error('[Protocol] File not found:', filePath);
       return new Response('File not found', { status: 404 });
     }
 
-    // Convert to proper file URL format
-    // On Windows: C:\path\to\file -> file:///C:/path/to/file
-    // On Unix: /path/to/file -> file:///path/to/file
-    let fileUrl: string;
-    if (process.platform === 'win32') {
-      // Replace backslashes with forward slashes and ensure triple slash
-      fileUrl = `file:///${filePath.replace(/\\/g, '/')}`;
-    } else {
-      fileUrl = `file://${filePath}`;
-    }
+    // Convert to proper file URL using Node.js pathToFileURL
+    // This handles Windows paths (C:\...) and Unix paths correctly
+    const fileUrl = pathToFileURL(filePath).toString();
 
+    console.log('[Protocol] Fetching from file URL:', fileUrl);
     return net.fetch(fileUrl);
   });
 }
@@ -59,6 +68,9 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // TEMPORARY: Disable web security for development to allow local file access
+      // TODO: Fix custom protocol implementation before release
+      webSecurity: false,
     },
     titleBarStyle: 'hiddenInset',
     frame: process.platform !== 'darwin',
