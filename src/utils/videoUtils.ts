@@ -7,6 +7,17 @@ export interface VideoMetadata {
 }
 
 /**
+ * Convert a local file path to a media:// protocol URL for use in Electron
+ * This works correctly on both Windows and Linux/Mac
+ */
+export function getMediaUrl(filePath: string): string {
+  // Normalize path separators for Windows
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  // Encode the path for URL safety
+  return `media://${encodeURIComponent(normalizedPath)}`;
+}
+
+/**
  * Extract video metadata (duration, dimensions) by loading it in a video element
  */
 export async function extractVideoMetadata(filePath: string): Promise<VideoMetadata | null> {
@@ -37,8 +48,8 @@ export async function extractVideoMetadata(filePath: string): Promise<VideoMetad
       resolve(null);
     };
 
-    // Load the video file using file:// protocol (webSecurity: false required)
-    const mediaSrc = `file:///${filePath.replace(/\\/g, '/')}`;
+    // Load the video file using custom media:// protocol
+    const mediaSrc = getMediaUrl(filePath);
     console.log('Loading video metadata from:', mediaSrc);
     video.src = mediaSrc;
   });
@@ -90,8 +101,8 @@ export async function generateVideoThumbnail(filePath: string, timeOffset: numbe
       resolve(null);
     };
 
-    // Load the video file using file:// protocol (webSecurity: false required)
-    const mediaSrc = `file:///${filePath.replace(/\\/g, '/')}`;
+    // Load the video file using custom media:// protocol
+    const mediaSrc = getMediaUrl(filePath);
     console.log('Loading video for thumbnail from:', mediaSrc);
     video.src = mediaSrc;
   });

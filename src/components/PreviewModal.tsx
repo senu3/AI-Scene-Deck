@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Cut } from '../types';
-import { generateVideoThumbnail } from '../utils/videoUtils';
+import { generateVideoThumbnail, getMediaUrl } from '../utils/videoUtils';
 import './PreviewModal.css';
 
 interface PreviewModalProps {
@@ -356,7 +356,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
           {currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
             <video
               key={currentItem.cut.asset.path}
-              src={`file:///${currentItem.cut.asset.path.replace(/\\/g, '/')}`}
+              src={getMediaUrl(currentItem.cut.asset.path)}
               className="preview-image"
               autoPlay
               muted
