@@ -18,111 +18,21 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
       standard: true,
       secure: true,
-      corsEnabled: false,
-      stream: true
+      corsEnabled: true,
+      stream: true,
+      allowServiceWorkers: false
     }
   }
 ]);
 
 // Register custom protocol for local file access
 function registerMediaProtocol() {
-  protocol.handle('media', async (request) => {
-    console.log('[Protocol] Received request:', request.url);
-
-    // Remove 'media://' prefix
-    const url = request.url.substring('media://'.length);
-    console.log('[Protocol] URL after prefix removal:', url);
-
-    // Decode URI component to handle spaces and special characters
-    const filePath = decodeURIComponent(url);
-    console.log('[Protocol] Decoded file path:', filePath);
-
-    // Security check: ensure the path is absolute and exists
-    if (!path.isAbsolute(filePath)) {
-      console.error('[Protocol] Invalid path (not absolute):', filePath);
-      return new Response('Invalid path', { status: 400 });
-    }
-
-    if (!fs.existsSync(filePath)) {
-      console.error('[Protocol] File not found:', filePath);
-      return new Response('File not found', { status: 404 });
-    }
-
-    // Get file stats for size
-    const stat = fs.statSync(filePath);
-    const fileSize = stat.size;
-
-    // Determine MIME type
-    const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      '.mp4': 'video/mp4',
-      '.webm': 'video/webm',
-      '.mov': 'video/quicktime',
-      '.avi': 'video/x-msvideo',
-      '.mkv': 'video/x-matroska',
-      '.png': 'image/png',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-    };
-    const mimeType = mimeTypes[ext] || 'application/octet-stream';
-
-    // Check for Range header (required for video seeking)
-    const rangeHeader = request.headers.get('Range');
-    console.log('[Protocol] Range header:', rangeHeader);
-
-    if (rangeHeader) {
-      // Parse Range header (e.g., "bytes=0-1023")
-      const rangeMatch = rangeHeader.match(/bytes=(\d*)-(\d*)/);
-      if (rangeMatch) {
-        const start = rangeMatch[1] ? parseInt(rangeMatch[1], 10) : 0;
-        const end = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : fileSize - 1;
-        const chunkSize = end - start + 1;
-
-        console.log(`[Protocol] Serving range: ${start}-${end}/${fileSize}`);
-
-        // Create a readable stream for the specified range
-        const stream = fs.createReadStream(filePath, { start, end });
-        const readable = new ReadableStream({
-          start(controller) {
-            stream.on('data', (chunk) => controller.enqueue(chunk));
-            stream.on('end', () => controller.close());
-            stream.on('error', (err) => controller.error(err));
-          },
-        });
-
-        return new Response(readable, {
-          status: 206,
-          headers: {
-            'Content-Type': mimeType,
-            'Content-Length': chunkSize.toString(),
-            'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-            'Accept-Ranges': 'bytes',
-          },
-        });
-      }
-    }
-
-    // No Range header - serve the entire file
-    console.log('[Protocol] Serving entire file:', filePath);
-    const stream = fs.createReadStream(filePath);
-    const readable = new ReadableStream({
-      start(controller) {
-        stream.on('data', (chunk) => controller.enqueue(chunk));
-        stream.on('end', () => controller.close());
-        stream.on('error', (err) => controller.error(err));
-      },
-    });
-
-    return new Response(readable, {
-      status: 200,
-      headers: {
-        'Content-Type': mimeType,
-        'Content-Length': fileSize.toString(),
-        'Accept-Ranges': 'bytes',
-      },
-    });
+  protocol.handle('media', (request) => {
+    // Simply replace media:// with file:// and let net.fetch handle the rest
+    // Do NOT use decodeURIComponent - it breaks the URL
+    const fileUrl = request.url.replace('media://', 'file://');
+    console.log('[Protocol] Fetching:', fileUrl);
+    return net.fetch(fileUrl);
   });
 }
 

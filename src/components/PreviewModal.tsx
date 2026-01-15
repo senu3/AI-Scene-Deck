@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { X, Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Cut } from '../types';
-import { generateVideoThumbnail, getMediaUrl } from '../utils/videoUtils';
+import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
 import './PreviewModal.css';
 
 interface PreviewModalProps {
@@ -29,6 +29,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [hoverTime, setHoverTime] = useState<string | null>(null);
+  const [videoObjectUrl, setVideoObjectUrl] = useState<string | null>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -82,6 +83,31 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
 
     buildItems();
   }, [scenes, previewMode, selectedSceneId, getAsset]);
+
+  // Create Object URL for video when current item changes
+  useEffect(() => {
+    const currentItem = items[currentIndex];
+
+    // Clean up previous Object URL
+    if (videoObjectUrl) {
+      URL.revokeObjectURL(videoObjectUrl);
+      setVideoObjectUrl(null);
+    }
+
+    // Create new Object URL if current item is a video
+    if (currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path) {
+      createVideoObjectUrl(currentItem.cut.asset.path).then(url => {
+        setVideoObjectUrl(url);
+      });
+    }
+
+    // Cleanup on unmount or when item changes
+    return () => {
+      if (videoObjectUrl) {
+        URL.revokeObjectURL(videoObjectUrl);
+      }
+    };
+  }, [currentIndex, items]);
 
   // Playback logic
   const goToNext = useCallback(() => {
@@ -354,15 +380,21 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
 
         <div className="preview-display">
           {currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
-            <video
-              key={currentItem.cut.asset.path}
-              src={getMediaUrl(currentItem.cut.asset.path)}
-              className="preview-image"
-              autoPlay
-              muted
-              loop={false}
-              onEnded={goToNext}
-            />
+            videoObjectUrl ? (
+              <video
+                key={videoObjectUrl}
+                src={videoObjectUrl}
+                className="preview-image"
+                autoPlay
+                muted
+                loop={false}
+                onEnded={goToNext}
+              />
+            ) : (
+              <div className="preview-placeholder">
+                <p>Loading video...</p>
+              </div>
+            )
           ) : currentItem?.thumbnail ? (
             <img
               src={currentItem.thumbnail}
