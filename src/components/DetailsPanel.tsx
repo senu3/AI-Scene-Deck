@@ -11,10 +11,12 @@ import {
   StickyNote,
   X,
   Layers,
+  Play,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import { UpdateDisplayTimeCommand, RemoveCutCommand, BatchUpdateDisplayTimeCommand } from '../store/commands';
+import VideoPreviewModal from './VideoPreviewModal';
 import type { ImageMetadata } from '../types';
 import './DetailsPanel.css';
 
@@ -38,6 +40,7 @@ export default function DetailsPanel() {
   const [batchDisplayTime, setBatchDisplayTime] = useState('2.0');
   const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
   const [noteText, setNoteText] = useState('');
+  const [showVideoPreview, setShowVideoPreview] = useState(false);
 
   // Find selected scene
   const selectedScene = selectedSceneId
@@ -94,8 +97,11 @@ export default function DetailsPanel() {
         }
       }
 
-      // Load metadata
-      if (window.electronAPI) {
+      // Load metadata - use asset.metadata if available (for videos)
+      if (asset.metadata) {
+        setMetadata(asset.metadata);
+      } else if (window.electronAPI && asset.type === 'image') {
+        // Only call readImageMetadata for images without existing metadata
         try {
           const meta = await window.electronAPI.readImageMetadata(asset.path);
           if (meta) {
@@ -108,7 +114,7 @@ export default function DetailsPanel() {
     };
 
     loadAssetData();
-  }, [asset?.path, asset?.thumbnail]);
+  }, [asset?.path, asset?.thumbnail, asset?.metadata, asset?.type]);
 
   const handleDisplayTimeChange = (value: string) => {
     setLocalDisplayTime(value);
@@ -357,9 +363,20 @@ export default function DetailsPanel() {
             </span>
           </div>
 
-          <div className="details-preview">
+          <div
+            className={`details-preview ${isVideo ? 'clickable' : ''}`}
+            onClick={isVideo ? () => setShowVideoPreview(true) : undefined}
+            title={isVideo ? 'Click to preview video' : undefined}
+          >
             {thumbnail ? (
-              <img src={thumbnail} alt={asset.name} className="preview-image" />
+              <>
+                <img src={thumbnail} alt={asset.name} className="preview-image" />
+                {isVideo && (
+                  <div className="preview-play-overlay">
+                    <Play size={32} />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="preview-placeholder">
                 {isVideo ? <Film size={48} /> : <FileImage size={48} />}
@@ -372,7 +389,7 @@ export default function DetailsPanel() {
               <span className="info-label">Resolution:</span>
               <span className="info-value">
                 {metadata?.width && metadata?.height
-                  ? `${metadata.width}x${metadata.height}`
+                  ? `${metadata.width}×${metadata.height}`
                   : 'Unknown'}
               </span>
             </div>
@@ -449,6 +466,14 @@ export default function DetailsPanel() {
             </button>
           </div>
         </div>
+
+        {/* Video Preview Modal */}
+        {showVideoPreview && asset && isVideo && (
+          <VideoPreviewModal
+            asset={asset}
+            onClose={() => setShowVideoPreview(false)}
+          />
+        )}
       </aside>
     );
   }

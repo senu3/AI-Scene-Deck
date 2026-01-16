@@ -14,7 +14,7 @@ import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
 import { importFileToVault } from './utils/assetPath';
-import { extractVideoMetadata } from './utils/videoUtils';
+import { extractVideoMetadata, generateVideoThumbnail } from './utils/videoUtils';
 import './styles/App.css';
 
 function TrashZone({ isActive }: { isActive: boolean }) {
@@ -289,16 +289,30 @@ function App() {
       const filePath = (file as File & { path?: string }).path || file.name;
       const assetId = uuidv4();
 
-      // Extract video metadata if it's a video
+      // Extract video metadata and thumbnail if it's a video
       let duration: number | undefined;
+      let thumbnail: string | undefined;
+      let videoWidth: number | undefined;
+      let videoHeight: number | undefined;
+
       if (mediaType === 'video') {
         const videoMeta = await extractVideoMetadata(filePath);
         if (videoMeta) {
           duration = videoMeta.duration;
+          videoWidth = videoMeta.width;
+          videoHeight = videoMeta.height;
+        }
+        // Generate thumbnail from first frame (timeOffset=0)
+        const thumb = await generateVideoThumbnail(filePath, 0);
+        if (thumb) {
+          thumbnail = thumb;
         }
       }
 
       let asset: Asset;
+
+      // Get file size
+      const fileSize = file.size;
 
       // If vault path is set, import to vault first
       if (vaultPath) {
@@ -310,6 +324,9 @@ function App() {
             name: file.name,
             type: mediaType,
             duration,
+            thumbnail,
+            fileSize,
+            metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
           }
         );
 
@@ -324,6 +341,9 @@ function App() {
             path: filePath,
             type: mediaType,
             duration,
+            thumbnail,
+            fileSize,
+            metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
           };
         }
       } else {
@@ -334,11 +354,16 @@ function App() {
           path: filePath,
           type: mediaType,
           duration,
+          thumbnail,
+          fileSize,
+          metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
         };
       }
 
       // Use command for undo/redo support
-      executeCommand(new AddCutCommand(targetSceneId, asset)).catch((error) => {
+      // For videos, set displayTime to video duration
+      const displayTime = mediaType === 'video' && duration ? duration : undefined;
+      executeCommand(new AddCutCommand(targetSceneId, asset, displayTime)).catch((error) => {
         console.error('Failed to add cut:', error);
       });
     }
