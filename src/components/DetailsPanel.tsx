@@ -12,10 +12,12 @@ import {
   X,
   Layers,
   Play,
+  Scissors,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
-import { UpdateDisplayTimeCommand, RemoveCutCommand, BatchUpdateDisplayTimeCommand } from '../store/commands';
+import { UpdateDisplayTimeCommand, RemoveCutCommand, BatchUpdateDisplayTimeCommand, UpdateClipPointsCommand, ClearClipPointsCommand } from '../store/commands';
+import { generateVideoThumbnail } from '../utils/videoUtils';
 import VideoPreviewModal from './VideoPreviewModal';
 import type { ImageMetadata } from '../types';
 import './DetailsPanel.css';
@@ -31,6 +33,7 @@ export default function DetailsPanel() {
     addSceneNote,
     removeSceneNote,
     getSelectedCuts,
+    cacheAsset,
   } = useStore();
 
   const { executeCommand } = useHistoryStore();
@@ -179,6 +182,48 @@ export default function DetailsPanel() {
         console.error('Failed to remove cut:', error);
       });
     }
+  };
+
+  const handleSaveClip = async (inPoint: number, outPoint: number) => {
+    if (cutScene && cut && asset) {
+      // Update existing cut with clip points
+      await executeCommand(new UpdateClipPointsCommand(cutScene.id, cut.id, inPoint, outPoint));
+
+      // Regenerate thumbnail at IN point
+      if (asset.path && asset.type === 'video') {
+        const newThumbnail = await generateVideoThumbnail(asset.path, inPoint);
+        if (newThumbnail) {
+          // Update asset in cache with new thumbnail
+          const updatedAsset = { ...asset, thumbnail: newThumbnail };
+          cacheAsset(updatedAsset);
+          setThumbnail(newThumbnail);
+        }
+      }
+    }
+  };
+
+  const handleClearClip = async () => {
+    if (cutScene && cut && asset) {
+      await executeCommand(new ClearClipPointsCommand(cutScene.id, cut.id));
+
+      // Regenerate thumbnail at time 0
+      if (asset.path && asset.type === 'video') {
+        const newThumbnail = await generateVideoThumbnail(asset.path, 0);
+        if (newThumbnail) {
+          // Update asset in cache with new thumbnail
+          const updatedAsset = { ...asset, thumbnail: newThumbnail };
+          cacheAsset(updatedAsset);
+          setThumbnail(newThumbnail);
+        }
+      }
+    }
+  };
+
+  const formatClipTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    const ms = Math.floor((seconds % 1) * 100);
+    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
   };
 
   const formatFileSize = (bytes?: number) => {
@@ -423,6 +468,41 @@ export default function DetailsPanel() {
             </div>
           </div>
 
+          {/* Clip Info Section (for video clips) */}
+          {isVideo && cut?.isClip && cut.inPoint !== undefined && cut.outPoint !== undefined && (
+            <div className="clip-info-section">
+              <div className="clip-info-header">
+                <Scissors size={14} />
+                <span>Video Clip</span>
+              </div>
+              <div className="clip-info-content">
+                <div className="clip-times">
+                  <span className="clip-time-label">IN:</span>
+                  <span className="clip-time-value">{formatClipTime(cut.inPoint)}</span>
+                  <span className="clip-time-separator">→</span>
+                  <span className="clip-time-label">OUT:</span>
+                  <span className="clip-time-value">{formatClipTime(cut.outPoint)}</span>
+                </div>
+                <div className="clip-actions">
+                  <button
+                    className="clip-edit-btn"
+                    onClick={() => setShowVideoPreview(true)}
+                    title="Edit clip points"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="clip-clear-btn"
+                    onClick={handleClearClip}
+                    title="Clear clip (use full video)"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {metadata?.prompt && (
             <div className="metadata-section">
               <div className="metadata-header">Prompt</div>
@@ -472,6 +552,9 @@ export default function DetailsPanel() {
           <VideoPreviewModal
             asset={asset}
             onClose={() => setShowVideoPreview(false)}
+            initialInPoint={cut?.inPoint}
+            initialOutPoint={cut?.outPoint}
+            onClipSave={handleSaveClip}
           />
         )}
       </aside>

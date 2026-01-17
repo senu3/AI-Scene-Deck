@@ -89,6 +89,20 @@ interface PathResolveResult {
   error?: string;
 }
 
+interface FinalizeClipOptions {
+  sourcePath: string;
+  outputPath: string;
+  inPoint: number;
+  outPoint: number;
+}
+
+interface FinalizeClipResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
 interface ElectronAPI {
   // Folder operations
   selectFolder: () => Promise<FolderSelection | null>;
@@ -135,6 +149,10 @@ interface ElectronAPI {
   resolveVaultPath: (vaultPath: string, relativePath: string) => Promise<PathResolveResult>;
   getRelativePath: (vaultPath: string, absolutePath: string) => Promise<string | null>;
   isPathInVault: (vaultPath: string, checkPath: string) => Promise<boolean>;
+
+  // Video clip finalization
+  showSaveClipDialog: (defaultName: string) => Promise<string | null>;
+  finalizeClip: (options: FinalizeClipOptions) => Promise<FinalizeClipResult>;
 }
 
 declare global {

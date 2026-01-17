@@ -36,6 +36,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
   const elapsedRef = useRef<number>(0);
   const modalRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   // Build preview items
   useEffect(() => {
@@ -125,6 +126,38 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
     setCurrentIndex(prev => Math.max(0, prev - 1));
     setProgress(0);
   }, []);
+
+  // Video clip handlers
+  const handleVideoLoadedMetadata = useCallback(() => {
+    const video = videoRef.current;
+    const currentItem = items[currentIndex];
+    if (!video || !currentItem) return;
+
+    const cut = currentItem.cut;
+    // If this is a clip with inPoint, seek to it
+    if (cut.isClip && cut.inPoint !== undefined) {
+      video.currentTime = cut.inPoint;
+    }
+  }, [items, currentIndex]);
+
+  const handleVideoTimeUpdate = useCallback(() => {
+    const video = videoRef.current;
+    const currentItem = items[currentIndex];
+    if (!video || !currentItem) return;
+
+    const cut = currentItem.cut;
+    // If this is a clip with outPoint, check if we've reached it
+    if (cut.isClip && cut.outPoint !== undefined) {
+      if (video.currentTime >= cut.outPoint) {
+        video.pause();
+        goToNext();
+      }
+    }
+  }, [items, currentIndex, goToNext]);
+
+  const handleVideoEnded = useCallback(() => {
+    goToNext();
+  }, [goToNext]);
 
   useEffect(() => {
     if (!isPlaying || items.length === 0 || isDragging) {
@@ -382,13 +415,16 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
           {currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
             videoObjectUrl ? (
               <video
+                ref={videoRef}
                 key={videoObjectUrl}
                 src={videoObjectUrl}
                 className="preview-image"
                 autoPlay
                 muted
                 loop={false}
-                onEnded={goToNext}
+                onLoadedMetadata={handleVideoLoadedMetadata}
+                onTimeUpdate={handleVideoTimeUpdate}
+                onEnded={handleVideoEnded}
               />
             ) : (
               <div className="preview-placeholder">

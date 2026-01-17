@@ -76,6 +76,17 @@ export interface Cut {
   asset?: Asset;
   displayTime: number;
   order: number;
+  // Video clip fields (for non-destructive trimming)
+  inPoint?: number;   // Start time in seconds
+  outPoint?: number;  // End time in seconds
+  isClip?: boolean;   // True if this cut has custom IN/OUT points
+}
+
+export interface ClipData {
+  sourceAssetId: string;
+  inPoint: number;
+  outPoint: number;
+  duration: number;
 }
 
 export interface SceneNote {

@@ -405,6 +405,101 @@ export class RenameSceneCommand implements Command {
 }
 
 /**
+ * クリップポイント更新コマンド
+ */
+export class UpdateClipPointsCommand implements Command {
+  type = 'UPDATE_CLIP_POINTS';
+  description: string;
+
+  private sceneId: string;
+  private cutId: string;
+  private newInPoint: number;
+  private newOutPoint: number;
+  private oldInPoint?: number;
+  private oldOutPoint?: number;
+  private oldDisplayTime?: number;
+  private wasClip?: boolean;
+
+  constructor(sceneId: string, cutId: string, inPoint: number, outPoint: number) {
+    this.sceneId = sceneId;
+    this.cutId = cutId;
+    this.newInPoint = inPoint;
+    this.newOutPoint = outPoint;
+    const duration = Math.abs(outPoint - inPoint);
+    this.description = `Set clip points: ${inPoint.toFixed(2)}s - ${outPoint.toFixed(2)}s (${duration.toFixed(2)}s)`;
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    const scene = store.scenes.find((s) => s.id === this.sceneId);
+    const cut = scene?.cuts.find((c) => c.id === this.cutId);
+
+    if (cut) {
+      this.oldInPoint = cut.inPoint;
+      this.oldOutPoint = cut.outPoint;
+      this.oldDisplayTime = cut.displayTime;
+      this.wasClip = cut.isClip;
+    }
+
+    store.updateCutClipPoints(this.sceneId, this.cutId, this.newInPoint, this.newOutPoint);
+  }
+
+  async undo(): Promise<void> {
+    const store = useStore.getState();
+
+    if (this.wasClip && this.oldInPoint !== undefined && this.oldOutPoint !== undefined) {
+      // Restore previous clip points
+      store.updateCutClipPoints(this.sceneId, this.cutId, this.oldInPoint, this.oldOutPoint);
+    } else {
+      // Clear clip points (wasn't a clip before)
+      store.clearCutClipPoints(this.sceneId, this.cutId);
+      // Restore original display time
+      if (this.oldDisplayTime !== undefined) {
+        store.updateCutDisplayTime(this.sceneId, this.cutId, this.oldDisplayTime);
+      }
+    }
+  }
+}
+
+/**
+ * クリップポイントクリアコマンド
+ */
+export class ClearClipPointsCommand implements Command {
+  type = 'CLEAR_CLIP_POINTS';
+  description = 'Clear clip points';
+
+  private sceneId: string;
+  private cutId: string;
+  private oldInPoint?: number;
+  private oldOutPoint?: number;
+
+  constructor(sceneId: string, cutId: string) {
+    this.sceneId = sceneId;
+    this.cutId = cutId;
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    const scene = store.scenes.find((s) => s.id === this.sceneId);
+    const cut = scene?.cuts.find((c) => c.id === this.cutId);
+
+    if (cut) {
+      this.oldInPoint = cut.inPoint;
+      this.oldOutPoint = cut.outPoint;
+    }
+
+    store.clearCutClipPoints(this.sceneId, this.cutId);
+  }
+
+  async undo(): Promise<void> {
+    if (this.oldInPoint !== undefined && this.oldOutPoint !== undefined) {
+      const store = useStore.getState();
+      store.updateCutClipPoints(this.sceneId, this.cutId, this.oldInPoint, this.oldOutPoint);
+    }
+  }
+}
+
+/**
  * バッチ表示時間更新コマンド
  */
 export class BatchUpdateDisplayTimeCommand implements Command {

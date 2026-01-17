@@ -81,6 +81,20 @@ export interface PathResolveResult {
   error?: string;
 }
 
+export interface FinalizeClipOptions {
+  sourcePath: string;
+  outputPath: string;
+  inPoint: number;
+  outPoint: number;
+}
+
+export interface FinalizeClipResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
 export interface RecentProject {
   name: string;
   path: string;
@@ -180,6 +194,13 @@ const electronAPI = {
 
   isPathInVault: (vaultPath: string, checkPath: string): Promise<boolean> =>
     ipcRenderer.invoke('is-path-in-vault', vaultPath, checkPath),
+
+  // Video clip finalization
+  showSaveClipDialog: (defaultName: string): Promise<string | null> =>
+    ipcRenderer.invoke('show-save-clip-dialog', defaultName),
+
+  finalizeClip: (options: FinalizeClipOptions): Promise<FinalizeClipResult> =>
+    ipcRenderer.invoke('finalize-clip', options),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

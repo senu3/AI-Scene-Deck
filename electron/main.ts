@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { pathToFileURL } from 'url';
+import { spawn } from 'child_process';
+import ffmpegPath from 'ffmpeg-static';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -893,4 +895,102 @@ ipcMain.handle('is-path-in-vault', async (_, vaultPath: string, checkPath: strin
   } catch {
     return false;
   }
+});
+
+// ============================================
+// Video Clip Finalization (ffmpeg)
+// ============================================
+
+interface FinalizeClipOptions {
+  sourcePath: string;
+  outputPath: string;
+  inPoint: number;
+  outPoint: number;
+}
+
+// Show save dialog for clip export
+ipcMain.handle('show-save-clip-dialog', async (_, defaultName: string) => {
+  const result = await dialog.showSaveDialog(mainWindow!, {
+    title: 'Save Video Clip',
+    defaultPath: defaultName,
+    filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  return result.filePath;
+});
+
+// Finalize video clip using ffmpeg
+ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
+  const { sourcePath, outputPath, inPoint, outPoint } = options;
+
+  // Get ffmpeg path - it can be null if not found
+  const ffmpegBinary = ffmpegPath as string | null;
+  if (!ffmpegBinary) {
+    return { success: false, error: 'ffmpeg not found' };
+  }
+
+  return new Promise<{ success: boolean; outputPath?: string; fileSize?: number; error?: string }>((resolve) => {
+    // Calculate duration
+    const duration = outPoint - inPoint;
+
+    // Build ffmpeg arguments
+    // -ss before -i for fast seeking (input seeking)
+    // -t for duration
+    // -c copy for fast stream copy (no re-encoding)
+    const args = [
+      '-y',                    // Overwrite output file
+      '-ss', inPoint.toString(), // Seek to start position
+      '-i', sourcePath,        // Input file
+      '-t', duration.toString(), // Duration
+      '-c', 'copy',            // Copy streams without re-encoding
+      '-avoid_negative_ts', 'make_zero', // Fix timestamp issues
+      outputPath
+    ];
+
+    console.log('[ffmpeg] Running:', ffmpegBinary, args.join(' '));
+
+    const ffmpegProcess = spawn(ffmpegBinary, args);
+
+    let stderr = '';
+
+    ffmpegProcess.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+      console.log('[ffmpeg]', data.toString());
+    });
+
+    ffmpegProcess.on('close', (code: number | null) => {
+      if (code === 0) {
+        // Verify output file exists
+        if (fs.existsSync(outputPath)) {
+          const stats = fs.statSync(outputPath);
+          resolve({
+            success: true,
+            outputPath,
+            fileSize: stats.size,
+          });
+        } else {
+          resolve({
+            success: false,
+            error: 'Output file was not created',
+          });
+        }
+      } else {
+        resolve({
+          success: false,
+          error: `ffmpeg exited with code ${code}: ${stderr}`,
+        });
+      }
+    });
+
+    ffmpegProcess.on('error', (err: Error) => {
+      resolve({
+        success: false,
+        error: `Failed to start ffmpeg: ${err.message}`,
+      });
+    });
+  });
 });

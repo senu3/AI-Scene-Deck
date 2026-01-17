@@ -13,6 +13,10 @@ interface ClipboardCut {
   assetId: string;
   asset: Asset;
   displayTime: number;
+  // Video clip fields
+  inPoint?: number;
+  outPoint?: number;
+  isClip?: boolean;
 }
 
 interface AppState {
@@ -86,6 +90,10 @@ interface AppState {
   reorderCuts: (sceneId: string, cutId: string, newIndex: number, fromSceneId: string, oldIndex: number) => void;
   moveCutToScene: (fromSceneId: string, toSceneId: string, cutId: string, toIndex: number) => void;
   moveCutsToScene: (cutIds: string[], toSceneId: string, toIndex: number) => void;  // Multi-move
+
+  // Actions - Video Clips
+  updateCutClipPoints: (sceneId: string, cutId: string, inPoint: number, outPoint: number) => void;
+  clearCutClipPoints: (sceneId: string, cutId: string) => void;
 
   // Actions - Selection
   selectScene: (sceneId: string | null) => void;
@@ -404,6 +412,49 @@ export const useStore = create<AppState>((set, get) => ({
     ),
   })),
 
+  // Video clip actions
+  updateCutClipPoints: (sceneId, cutId, inPoint, outPoint) => set((state) => ({
+    scenes: state.scenes.map((s) =>
+      s.id === sceneId
+        ? {
+            ...s,
+            cuts: s.cuts.map((c) =>
+              c.id === cutId
+                ? {
+                    ...c,
+                    inPoint,
+                    outPoint,
+                    isClip: true,
+                    // Update displayTime to match clip duration
+                    displayTime: Math.abs(outPoint - inPoint),
+                  }
+                : c
+            ),
+          }
+        : s
+    ),
+  })),
+
+  clearCutClipPoints: (sceneId, cutId) => set((state) => ({
+    scenes: state.scenes.map((s) =>
+      s.id === sceneId
+        ? {
+            ...s,
+            cuts: s.cuts.map((c) =>
+              c.id === cutId
+                ? {
+                    ...c,
+                    inPoint: undefined,
+                    outPoint: undefined,
+                    isClip: false,
+                  }
+                : c
+            ),
+          }
+        : s
+    ),
+  })),
+
   reorderCuts: (sceneId, _cutId, newIndex, _fromSceneId, oldIndex) => set((state) => {
     const scene = state.scenes.find((s) => s.id === sceneId);
     if (!scene) return state;
@@ -659,6 +710,10 @@ export const useStore = create<AppState>((set, get) => ({
       assetId: cut.assetId,
       asset: cut.asset!,
       displayTime: cut.displayTime,
+      // Include clip points
+      inPoint: cut.inPoint,
+      outPoint: cut.outPoint,
+      isClip: cut.isClip,
     }));
 
     set({ clipboard: clipboardData });
@@ -684,6 +739,10 @@ export const useStore = create<AppState>((set, get) => ({
         asset: clipCut.asset,
         displayTime: clipCut.displayTime,
         order: insertIndex + idx,
+        // Include clip points
+        inPoint: clipCut.inPoint,
+        outPoint: clipCut.outPoint,
+        isClip: clipCut.isClip,
       };
     });
 

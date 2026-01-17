@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { X, Play, Pause, Volume2, VolumeX, Maximize2, SkipBack, SkipForward } from 'lucide-react';
+import { X, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Save } from 'lucide-react';
 import { createVideoObjectUrl } from '../utils/videoUtils';
 import type { Asset } from '../types';
 import './VideoPreviewModal.css';
@@ -7,7 +7,10 @@ import './VideoPreviewModal.css';
 interface VideoPreviewModalProps {
   asset: Asset;
   onClose: () => void;
-  // Future: callbacks for timeline editing
+  // Initial clip points (for editing existing clips)
+  initialInPoint?: number;
+  initialOutPoint?: number;
+  // Callbacks for clip editing
   onInPointSet?: (time: number) => void;
   onOutPointSet?: (time: number) => void;
   onClipSave?: (inPoint: number, outPoint: number) => void;
@@ -18,6 +21,8 @@ const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 export default function VideoPreviewModal({
   asset,
   onClose,
+  initialInPoint,
+  initialOutPoint,
   onInPointSet,
   onOutPointSet,
   onClipSave,
@@ -31,9 +36,9 @@ export default function VideoPreviewModal({
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [volume, setVolume] = useState(1);
 
-  // Future: Timeline editing state
-  const [inPoint, setInPoint] = useState<number | null>(null);
-  const [outPoint, setOutPoint] = useState<number | null>(null);
+  // Timeline editing state - initialize from props if available
+  const [inPoint, setInPoint] = useState<number | null>(initialInPoint ?? null);
+  const [outPoint, setOutPoint] = useState<number | null>(initialOutPoint ?? null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -163,17 +168,49 @@ export default function VideoPreviewModal({
     onOutPointSet?.(currentTime);
   }, [currentTime, onOutPointSet]);
 
+  const handleSaveClip = useCallback(() => {
+    if (inPoint !== null && outPoint !== null) {
+      // Ensure inPoint is less than outPoint
+      const start = Math.min(inPoint, outPoint);
+      const end = Math.max(inPoint, outPoint);
+      onClipSave?.(start, end);
+      onClose();
+    }
+  }, [inPoint, outPoint, onClipSave, onClose]);
+
+  const handleClearPoints = useCallback(() => {
+    setInPoint(null);
+    setOutPoint(null);
+  }, []);
+
   const handleTimeUpdate = useCallback(() => {
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime);
+
+      // If this is an existing clip (both initialInPoint and initialOutPoint set),
+      // stop playback at the OUT point
+      if (initialInPoint !== undefined && initialOutPoint !== undefined) {
+        if (videoRef.current.currentTime >= initialOutPoint) {
+          videoRef.current.pause();
+          setIsPlaying(false);
+          // Seek back to IN point for loop-like behavior
+          videoRef.current.currentTime = initialInPoint;
+        }
+      }
     }
-  }, []);
+  }, [initialInPoint, initialOutPoint]);
 
   const handleLoadedMetadata = useCallback(() => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
+
+      // If this is an existing clip, seek to IN point on load
+      if (initialInPoint !== undefined) {
+        videoRef.current.currentTime = initialInPoint;
+        setCurrentTime(initialInPoint);
+      }
     }
-  }, []);
+  }, [initialInPoint]);
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !videoRef.current) return;
@@ -378,7 +415,7 @@ export default function VideoPreviewModal({
           </div>
 
           <div className="controls-center">
-            {/* Future: IN/OUT point buttons */}
+            {/* IN/OUT point buttons */}
             <button
               className={`control-btn edit-btn ${inPoint !== null ? 'active' : ''}`}
               onClick={handleSetInPoint}
@@ -394,9 +431,28 @@ export default function VideoPreviewModal({
               OUT
             </button>
             {inPoint !== null && outPoint !== null && (
-              <span className="clip-duration">
-                Clip: {formatTime(Math.abs(outPoint - inPoint))}
-              </span>
+              <>
+                <span className="clip-duration">
+                  Clip: {formatTime(Math.abs(outPoint - inPoint))}
+                </span>
+                {onClipSave && (
+                  <button
+                    className="control-btn save-clip-btn"
+                    onClick={handleSaveClip}
+                    title="Save clip points"
+                  >
+                    <Save size={16} />
+                    <span>Save</span>
+                  </button>
+                )}
+                <button
+                  className="control-btn clear-btn"
+                  onClick={handleClearPoints}
+                  title="Clear IN/OUT points"
+                >
+                  Clear
+                </button>
+              </>
             )}
           </div>
 

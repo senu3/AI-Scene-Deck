@@ -47,6 +47,22 @@ function getMediaType(filename: string): 'image' | 'video' | null {
   return null;
 }
 
+// Helper to check if other cuts reference the same asset
+function hasOtherCutsWithSameAsset(
+  scenes: Array<{ cuts: Array<{ id: string; assetId: string }> }>,
+  excludeCutId: string,
+  assetId: string
+): boolean {
+  for (const scene of scenes) {
+    for (const cut of scene.cuts) {
+      if (cut.id !== excludeCutId && cut.assetId === assetId) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function App() {
   const {
     projectLoaded,
@@ -187,10 +203,17 @@ function App() {
     if (!over) {
       // Dropped outside - check if it's a cut being removed
       if (activeData.type === 'cut' && activeData.sceneId) {
-        const removedCut = removeCut(activeData.sceneId, active.id as string);
+        const cutId = active.id as string;
+        const cutToRemove = scenes.flatMap(s => s.cuts).find(c => c.id === cutId);
 
-        // Move file to trash if we have the API
-        if (removedCut?.asset?.path && trashPath && window.electronAPI) {
+        // Only move file to trash if no other cuts reference the same asset
+        const shouldDeleteFile = cutToRemove?.assetId &&
+          !hasOtherCutsWithSameAsset(scenes, cutId, cutToRemove.assetId);
+
+        const removedCut = removeCut(activeData.sceneId, cutId);
+
+        // Move file to trash if we have the API and no other cuts use this asset
+        if (shouldDeleteFile && removedCut?.asset?.path && trashPath && window.electronAPI) {
           await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
         }
       }
@@ -201,10 +224,17 @@ function App() {
 
     // Handle trash drop
     if (overData?.type === 'trash' && activeData.type === 'cut' && activeData.sceneId) {
-      const removedCut = removeCut(activeData.sceneId, active.id as string);
+      const cutId = active.id as string;
+      const cutToRemove = scenes.flatMap(s => s.cuts).find(c => c.id === cutId);
 
-      // Move file to trash if we have the API
-      if (removedCut?.asset?.path && trashPath && window.electronAPI) {
+      // Only move file to trash if no other cuts reference the same asset
+      const shouldDeleteFile = cutToRemove?.assetId &&
+        !hasOtherCutsWithSameAsset(scenes, cutId, cutToRemove.assetId);
+
+      const removedCut = removeCut(activeData.sceneId, cutId);
+
+      // Move file to trash if we have the API and no other cuts use this asset
+      if (shouldDeleteFile && removedCut?.asset?.path && trashPath && window.electronAPI) {
         await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
       }
       return;

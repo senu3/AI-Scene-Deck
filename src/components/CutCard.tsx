@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, useEffect, useRef } from 'react';
-import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard } from 'lucide-react';
+import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Scene } from '../types';
 import './CutCard.css';
@@ -13,6 +13,10 @@ interface CutCardProps {
     asset?: Asset;
     displayTime: number;
     order: number;
+    // Video clip fields
+    inPoint?: number;
+    outPoint?: number;
+    isClip?: boolean;
   };
   sceneId: string;
   index: number;
@@ -27,11 +31,13 @@ interface ContextMenuProps {
   scenes: Scene[];
   currentSceneId: string;
   canPaste: boolean;
+  isClip: boolean;
   onClose: () => void;
   onCopy: () => void;
   onPaste: () => void;
   onDelete: () => void;
   onMoveToScene: (sceneId: string) => void;
+  onFinalizeClip?: () => void;
 }
 
 function CutContextMenu({
@@ -42,11 +48,13 @@ function CutContextMenu({
   scenes,
   currentSceneId,
   canPaste,
+  isClip,
   onClose,
   onCopy,
   onPaste,
   onDelete,
   onMoveToScene,
+  onFinalizeClip,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
@@ -113,6 +121,17 @@ function CutContextMenu({
         </div>
       )}
 
+      {/* Finalize Clip option - only for clips */}
+      {isClip && !isMultiSelect && onFinalizeClip && (
+        <>
+          <div className="context-menu-divider" />
+          <button onClick={onFinalizeClip} className="finalize">
+            <Download size={14} />
+            Finalize Clip (Export MP4)
+          </button>
+        </>
+      )}
+
       <div className="context-menu-divider" />
 
       <button onClick={onDelete} className="danger">
@@ -138,6 +157,7 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     copySelectedCuts,
     canPaste,
     pasteCuts,
+    vaultPath,
   } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -262,6 +282,68 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     setContextMenu(null);
   };
 
+  const handleFinalizeClip = async () => {
+    if (!cut.isClip || cut.inPoint === undefined || cut.outPoint === undefined || !asset?.path) {
+      setContextMenu(null);
+      return;
+    }
+
+    if (!window.electronAPI) {
+      alert('electronAPI not available. Please restart the app.');
+      setContextMenu(null);
+      return;
+    }
+
+    // Check if vault path is set
+    if (!vaultPath) {
+      alert('Vault path not set. Please set up a vault first.');
+      setContextMenu(null);
+      return;
+    }
+
+    // Check if the API methods exist
+    if (typeof window.electronAPI.finalizeClip !== 'function' ||
+        typeof window.electronAPI.ensureAssetsFolder !== 'function') {
+      alert('Finalize Clip feature requires app restart after update.\nPlease restart the Electron app.');
+      setContextMenu(null);
+      return;
+    }
+
+    try {
+      // Ensure assets folder exists
+      const assetsFolder = await window.electronAPI.ensureAssetsFolder(vaultPath);
+      if (!assetsFolder) {
+        alert('Failed to access assets folder in vault.');
+        setContextMenu(null);
+        return;
+      }
+
+      // Generate unique filename: {original_name}_clip_{timestamp}.mp4
+      const baseName = asset.name.replace(/\.[^/.]+$/, ''); // Remove extension
+      const timestamp = Date.now();
+      const clipFileName = `${baseName}_clip_${timestamp}.mp4`;
+      const outputPath = `${assetsFolder}/${clipFileName}`.replace(/\\/g, '/');
+
+      // Finalize the clip (auto-save to vault assets)
+      const result = await window.electronAPI.finalizeClip({
+        sourcePath: asset.path,
+        outputPath,
+        inPoint: cut.inPoint,
+        outPoint: cut.outPoint,
+      });
+
+      if (result.success) {
+        alert(`Clip exported to vault!\n\nFile: ${clipFileName}\nSize: ${(result.fileSize! / 1024 / 1024).toFixed(2)} MB`);
+      } else {
+        alert(`Failed to export clip: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error finalizing clip: ${error}`);
+    }
+
+    setContextMenu(null);
+  };
+
   return (
     <>
     <div
@@ -294,6 +376,13 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
           {isVideo ? 'S:VID' : 'S:IMG'}
         </div>
 
+        {/* Clip indicator for trimmed videos */}
+        {cut.isClip && (
+          <div className="clip-indicator" title={`Clip: ${cut.inPoint?.toFixed(1)}s - ${cut.outPoint?.toFixed(1)}s`}>
+            <Scissors size={12} />
+          </div>
+        )}
+
         <div className="cut-duration">
           <Clock size={10} />
           <span>{cut.displayTime.toFixed(1)}s</span>
@@ -310,11 +399,13 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
         scenes={scenes}
         currentSceneId={sceneId}
         canPaste={canPaste()}
+        isClip={!!cut.isClip}
         onClose={() => setContextMenu(null)}
         onCopy={handleCopy}
         onPaste={handlePaste}
         onDelete={handleDelete}
         onMoveToScene={handleMoveToScene}
+        onFinalizeClip={handleFinalizeClip}
       />
     )}
     </>
