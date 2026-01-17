@@ -108,6 +108,29 @@ export interface ExtractFrameResult {
   error?: string;
 }
 
+export interface SequenceItem {
+  type: 'image' | 'video';
+  path: string;
+  duration: number;
+  inPoint?: number;
+  outPoint?: number;
+}
+
+export interface ExportSequenceOptions {
+  items: SequenceItem[];
+  outputPath: string;
+  width: number;
+  height: number;
+  fps: number;
+}
+
+export interface ExportSequenceResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
 export interface RecentProject {
   name: string;
   path: string;
@@ -218,6 +241,13 @@ const electronAPI = {
   // Video frame extraction
   extractVideoFrame: (options: ExtractFrameOptions): Promise<ExtractFrameResult> =>
     ipcRenderer.invoke('extract-video-frame', options),
+
+  // Sequence export
+  showSaveSequenceDialog: (defaultName: string): Promise<string | null> =>
+    ipcRenderer.invoke('show-save-sequence-dialog', defaultName),
+
+  exportSequence: (options: ExportSequenceOptions): Promise<ExportSequenceResult> =>
+    ipcRenderer.invoke('export-sequence', options),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

@@ -116,6 +116,29 @@ interface ExtractFrameResult {
   error?: string;
 }
 
+interface SequenceItem {
+  type: 'image' | 'video';
+  path: string;
+  duration: number;
+  inPoint?: number;
+  outPoint?: number;
+}
+
+interface ExportSequenceOptions {
+  items: SequenceItem[];
+  outputPath: string;
+  width: number;
+  height: number;
+  fps: number;
+}
+
+interface ExportSequenceResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
 interface ElectronAPI {
   // Folder operations
   selectFolder: () => Promise<FolderSelection | null>;
@@ -169,6 +192,10 @@ interface ElectronAPI {
 
   // Video frame extraction
   extractVideoFrame: (options: ExtractFrameOptions) => Promise<ExtractFrameResult>;
+
+  // Sequence export
+  showSaveSequenceDialog: (defaultName: string) => Promise<string | null>;
+  exportSequence: (options: ExportSequenceOptions) => Promise<ExportSequenceResult>;
 }
 
 declare global {

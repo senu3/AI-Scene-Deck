@@ -4,9 +4,11 @@ import './PlaybackControls.css';
 
 interface PlaybackControlsProps {
   onPreview: () => void;
+  onExport: () => void;
+  isExporting: boolean;
 }
 
-export default function PlaybackControls({ onPreview }: PlaybackControlsProps) {
+export default function PlaybackControls({ onPreview, onExport, isExporting }: PlaybackControlsProps) {
   const { scenes, previewMode, setPreviewMode, selectedSceneId } = useStore();
 
   const totalCuts = scenes.reduce((acc, scene) => acc + scene.cuts.length, 0);
@@ -24,10 +26,6 @@ export default function PlaybackControls({ onPreview }: PlaybackControlsProps) {
       setPreviewMode('scene');
       onPreview();
     }
-  };
-
-  const handleExport = () => {
-    alert('Export feature coming soon! This will allow you to export your timeline as a video file.');
   };
 
   return (
@@ -75,9 +73,13 @@ export default function PlaybackControls({ onPreview }: PlaybackControlsProps) {
       </div>
 
       <div className="controls-right">
-        <button className="export-btn" onClick={handleExport}>
+        <button
+          className="export-btn"
+          onClick={onExport}
+          disabled={isExporting || totalCuts === 0}
+        >
           <Download size={16} />
-          <span>EXPORT VIDEO</span>
+          <span>{isExporting ? 'EXPORTING...' : 'EXPORT VIDEO'}</span>
         </button>
       </div>
     </div>

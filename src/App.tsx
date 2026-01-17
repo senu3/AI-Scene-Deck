@@ -84,6 +84,8 @@ function App() {
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isWorkspaceDragOver, setIsWorkspaceDragOver] = useState(false);
+  const [exportResolution, setExportResolution] = useState({ name: 'FHD', width: 1920, height: 1080 });
+  const [isExporting, setIsExporting] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
 
   // Configure drag sensors with distance activation constraint
@@ -399,6 +401,61 @@ function App() {
     }
   }, [selectedSceneId, scenes, vaultPath, executeCommand]);
 
+  // Export sequence from PlaybackControls
+  const handleExportFromControls = useCallback(async () => {
+    if (!window.electronAPI || isExporting) return;
+
+    setIsExporting(true);
+
+    try {
+      // Build sequence items
+      const sequenceItems = scenes.flatMap(scene =>
+        scene.cuts.map(cut => ({
+          type: cut.asset?.type || 'image' as const,
+          path: cut.asset?.path || '',
+          duration: cut.displayTime,
+          inPoint: cut.isClip ? cut.inPoint : undefined,
+          outPoint: cut.isClip ? cut.outPoint : undefined,
+        }))
+      ).filter(item => item.path);
+
+      if (sequenceItems.length === 0) {
+        alert('No items to export. Add some cuts to the timeline first.');
+        setIsExporting(false);
+        return;
+      }
+
+      // Show save dialog
+      const outputPath = await window.electronAPI.showSaveSequenceDialog('sequence_export.mp4');
+      if (!outputPath) {
+        setIsExporting(false);
+        return;
+      }
+
+      // Use selected resolution (default FHD)
+      const width = exportResolution.width > 0 ? exportResolution.width : 1920;
+      const height = exportResolution.height > 0 ? exportResolution.height : 1080;
+
+      const result = await window.electronAPI.exportSequence({
+        items: sequenceItems,
+        outputPath,
+        width,
+        height,
+        fps: 30,
+      });
+
+      if (result.success) {
+        alert(`Export complete!\nFile: ${result.outputPath}\nSize: ${(result.fileSize! / 1024 / 1024).toFixed(2)} MB`);
+      } else {
+        alert(`Export failed: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Export error: ${String(error)}`);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [scenes, exportResolution, isExporting]);
+
   // Show startup modal if no project is loaded
   if (!projectLoaded) {
     return <StartupModal />;
@@ -423,7 +480,11 @@ function App() {
             onDrop={handleWorkspaceDrop}
           >
             <Timeline activeId={activeId} activeType={activeType} />
-            <PlaybackControls onPreview={() => setShowPreview(true)} />
+            <PlaybackControls
+              onPreview={() => setShowPreview(true)}
+              onExport={handleExportFromControls}
+              isExporting={isExporting}
+            />
             {isWorkspaceDragOver && (
               <div className="file-drop-overlay">
                 <div className="file-drop-content">
@@ -435,7 +496,13 @@ function App() {
           <DetailsPanel />
         </div>
         <TrashZone isActive={activeType === 'cut'} />
-        {showPreview && <PreviewModal onClose={() => setShowPreview(false)} />}
+        {showPreview && (
+          <PreviewModal
+            onClose={() => setShowPreview(false)}
+            exportResolution={exportResolution}
+            onResolutionChange={setExportResolution}
+          />
+        )}
       </div>
     </DndContext>
   );

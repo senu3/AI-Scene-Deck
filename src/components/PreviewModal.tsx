@@ -1,12 +1,20 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { X, Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2 } from 'lucide-react';
+import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
+import { X, Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Repeat, Download } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
 import './PreviewModal.css';
 
+interface ResolutionPresetType {
+  name: string;
+  width: number;
+  height: number;
+}
+
 interface PreviewModalProps {
   onClose: () => void;
+  exportResolution?: ResolutionPresetType;
+  onResolutionChange?: (resolution: ResolutionPresetType) => void;
 }
 
 interface PreviewItem {
@@ -19,7 +27,22 @@ interface PreviewItem {
 
 const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.5, 2];
 
-export default function PreviewModal({ onClose }: PreviewModalProps) {
+// Resolution presets for simulation
+interface ResolutionPreset {
+  name: string;
+  width: number;
+  height: number;
+}
+
+const RESOLUTION_PRESETS: ResolutionPreset[] = [
+  { name: 'Free', width: 0, height: 0 },
+  { name: 'FHD', width: 1920, height: 1080 },
+  { name: 'HD', width: 1280, height: 720 },
+  { name: '4K', width: 3840, height: 2160 },
+  { name: 'SD', width: 640, height: 480 },
+];
+
+export default function PreviewModal({ onClose, exportResolution, onResolutionChange }: PreviewModalProps) {
   const { scenes, previewMode, selectedSceneId, getAsset } = useStore();
   const [items, setItems] = useState<PreviewItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -30,6 +53,11 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [hoverTime, setHoverTime] = useState<string | null>(null);
   const [videoObjectUrl, setVideoObjectUrl] = useState<string | null>(null);
+  const [isLooping, setIsLooping] = useState(false);
+  const [selectedResolution, setSelectedResolution] = useState<ResolutionPreset>(
+    exportResolution ? { ...exportResolution } : RESOLUTION_PRESETS[0]
+  );
+  const [isExporting, setIsExporting] = useState(false);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -37,6 +65,8 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const displayContainerRef = useRef<HTMLDivElement>(null);
+  const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
 
   // Build preview items
   useEffect(() => {
@@ -110,22 +140,79 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
     };
   }, [currentIndex, items]);
 
+  // Calculate display size for resolution simulation
+  // Use useLayoutEffect to get size after DOM updates but before paint
+  useLayoutEffect(() => {
+    const updateDisplaySize = () => {
+      if (!displayContainerRef.current) return;
+
+      const container = displayContainerRef.current;
+      const rect = container.getBoundingClientRect();
+      setDisplaySize({ width: rect.width, height: rect.height });
+    };
+
+    updateDisplaySize();
+    window.addEventListener('resize', updateDisplaySize);
+    return () => window.removeEventListener('resize', updateDisplaySize);
+  }, [selectedResolution]); // Re-calculate when resolution changes
+
+  // Calculate viewport frame for resolution simulation
+  const getViewportStyle = useCallback(() => {
+    // Free mode - no masking
+    if (selectedResolution.width === 0) {
+      return null;
+    }
+
+    const targetWidth = selectedResolution.width;
+    const targetHeight = selectedResolution.height;
+
+    // Use actual container size, or fallback to reasonable defaults
+    const containerWidth = displaySize.width > 0 ? displaySize.width : 800;
+    const containerHeight = displaySize.height > 0 ? displaySize.height : 600;
+
+    // Calculate scale to fit the resolution frame within the container
+    const scaleX = containerWidth / targetWidth;
+    const scaleY = containerHeight / targetHeight;
+    const scale = Math.min(scaleX, scaleY) * 0.9; // 90% to leave some margin
+
+    return {
+      width: targetWidth * scale,
+      height: targetHeight * scale,
+      scale,
+    };
+  }, [selectedResolution, displaySize]);
+
   // Playback logic
   const goToNext = useCallback(() => {
-    setCurrentIndex(prev => {
-      if (prev >= items.length - 1) {
+    if (currentIndex >= items.length - 1) {
+      if (isLooping) {
+        // Loop: go back to the beginning and continue playing
+        setCurrentIndex(0);
+        setProgress(0);
+      } else {
+        // No loop: stop at the end (don't change index, let play button restart)
         setIsPlaying(false);
-        return prev;
       }
-      return prev + 1;
-    });
+      return;
+    }
+    setCurrentIndex(prev => prev + 1);
     setProgress(0);
-  }, [items.length]);
+  }, [currentIndex, items.length, isLooping]);
 
   const goToPrev = useCallback(() => {
     setCurrentIndex(prev => Math.max(0, prev - 1));
     setProgress(0);
   }, []);
+
+  // Handle play/pause with restart from beginning when at end
+  const handlePlayPause = useCallback(() => {
+    if (!isPlaying && currentIndex >= items.length - 1 && progress >= 99) {
+      // At the end, restart from beginning
+      setCurrentIndex(0);
+      setProgress(0);
+    }
+    setIsPlaying(!isPlaying);
+  }, [isPlaying, currentIndex, items.length, progress]);
 
   // Video clip handlers
   const handleVideoLoadedMetadata = useCallback(() => {
@@ -217,7 +304,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
           break;
         case ' ':
           e.preventDefault();
-          setIsPlaying(prev => !prev);
+          handlePlayPause();
           break;
         case 'ArrowLeft':
           goToPrev();
@@ -246,12 +333,15 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
         case 'f':
           toggleFullscreen();
           break;
+        case 'l':
+          setIsLooping(prev => !prev);
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, goToNext, goToPrev, cycleSpeed]);
+  }, [onClose, goToNext, goToPrev, cycleSpeed, handlePlayPause]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement && modalRef.current) {
@@ -262,6 +352,58 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
       setIsFullscreen(false);
     }
   };
+
+  // Export sequence to MP4
+  const handleExport = useCallback(async () => {
+    if (!window.electronAPI || items.length === 0) return;
+
+    setIsExporting(true);
+    setIsPlaying(false);
+
+    try {
+      // Determine export resolution
+      const exportWidth = selectedResolution.width > 0 ? selectedResolution.width : 1920;
+      const exportHeight = selectedResolution.height > 0 ? selectedResolution.height : 1080;
+
+      // Show save dialog
+      const outputPath = await window.electronAPI.showSaveSequenceDialog('sequence_export.mp4');
+      if (!outputPath) {
+        setIsExporting(false);
+        return;
+      }
+
+      // Build sequence items for export
+      const sequenceItems = items.map(item => {
+        const asset = item.cut.asset;
+        return {
+          type: asset?.type || 'image' as const,
+          path: asset?.path || '',
+          duration: item.cut.displayTime,
+          inPoint: item.cut.isClip ? item.cut.inPoint : undefined,
+          outPoint: item.cut.isClip ? item.cut.outPoint : undefined,
+        };
+      }).filter(item => item.path);
+
+      // Export using ffmpeg
+      const result = await window.electronAPI.exportSequence({
+        items: sequenceItems,
+        outputPath,
+        width: exportWidth,
+        height: exportHeight,
+        fps: 30,
+      });
+
+      if (result.success) {
+        alert(`Export complete!\nFile: ${result.outputPath}\nSize: ${(result.fileSize! / 1024 / 1024).toFixed(2)} MB`);
+      } else {
+        alert(`Export failed: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Export error: ${String(error)}`);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [items, selectedResolution]);
 
   // Calculate global position from progress percentage
   const calculateGlobalPositionFromProgress = useCallback((progressPercent: number) => {
@@ -402,6 +544,39 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
             <span className="cut-label">Cut {(currentItem?.cutIndex || 0) + 1}</span>
           </div>
           <div className="preview-actions">
+            <select
+              className="resolution-select"
+              value={selectedResolution.name}
+              onChange={(e) => {
+                const preset = RESOLUTION_PRESETS.find(p => p.name === e.target.value);
+                if (preset) {
+                  setSelectedResolution(preset);
+                  onResolutionChange?.(preset);
+                }
+              }}
+              title="Resolution Simulation"
+            >
+              {RESOLUTION_PRESETS.map(preset => (
+                <option key={preset.name} value={preset.name}>
+                  {preset.name}{preset.width > 0 ? ` (${preset.width}×${preset.height})` : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              className={`action-btn ${isLooping ? 'active' : ''}`}
+              onClick={() => setIsLooping(!isLooping)}
+              title={`Loop (L) - ${isLooping ? 'On' : 'Off'}`}
+            >
+              <Repeat size={18} />
+            </button>
+            <button
+              className="action-btn"
+              onClick={handleExport}
+              disabled={isExporting || items.length === 0}
+              title="Export to MP4"
+            >
+              <Download size={18} />
+            </button>
             <button className="action-btn" onClick={toggleFullscreen}>
               {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
@@ -411,37 +586,59 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
           </div>
         </div>
 
-        <div className="preview-display">
-          {currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
-            videoObjectUrl ? (
-              <video
-                ref={videoRef}
-                key={videoObjectUrl}
-                src={videoObjectUrl}
-                className="preview-image"
-                autoPlay
-                muted
-                loop={false}
-                onLoadedMetadata={handleVideoLoadedMetadata}
-                onTimeUpdate={handleVideoTimeUpdate}
-                onEnded={handleVideoEnded}
+        <div className="preview-display" ref={displayContainerRef}>
+          {(() => {
+            const viewportStyle = getViewportStyle();
+            const content = currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
+              videoObjectUrl ? (
+                <video
+                  ref={videoRef}
+                  key={videoObjectUrl}
+                  src={videoObjectUrl}
+                  className="preview-media"
+                  autoPlay
+                  muted
+                  loop={false}
+                  onLoadedMetadata={handleVideoLoadedMetadata}
+                  onTimeUpdate={handleVideoTimeUpdate}
+                  onEnded={handleVideoEnded}
+                />
+              ) : (
+                <div className="preview-placeholder">
+                  <p>Loading video...</p>
+                </div>
+              )
+            ) : currentItem?.thumbnail ? (
+              <img
+                src={currentItem.thumbnail}
+                alt={`${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`}
+                className="preview-media"
               />
             ) : (
               <div className="preview-placeholder">
-                <p>Loading video...</p>
+                <p>No preview available</p>
               </div>
-            )
-          ) : currentItem?.thumbnail ? (
-            <img
-              src={currentItem.thumbnail}
-              alt={`${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`}
-              className="preview-image"
-            />
-          ) : (
-            <div className="preview-placeholder">
-              <p>No preview available</p>
-            </div>
-          )}
+            );
+
+            if (viewportStyle) {
+              return (
+                <div
+                  className="resolution-viewport"
+                  style={{
+                    width: viewportStyle.width,
+                    height: viewportStyle.height,
+                  }}
+                >
+                  <div className="resolution-label">
+                    {selectedResolution.name} ({selectedResolution.width}×{selectedResolution.height})
+                  </div>
+                  {content}
+                </div>
+              );
+            }
+
+            return content;
+          })()}
         </div>
 
         <div className="preview-progress">
@@ -487,7 +684,7 @@ export default function PreviewModal({ onClose }: PreviewModalProps) {
             </button>
             <button
               className="control-btn primary"
-              onClick={() => setIsPlaying(!isPlaying)}
+              onClick={handlePlayPause}
               title="Play/Pause (Space)"
             >
               {isPlaying ? <Pause size={24} /> : <Play size={24} />}

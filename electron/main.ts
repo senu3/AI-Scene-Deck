@@ -1009,6 +1009,234 @@ interface ExtractFrameResult {
   error?: string;
 }
 
+// ============================================
+// Sequence Export (ffmpeg)
+// ============================================
+
+interface SequenceItem {
+  type: 'image' | 'video';
+  path: string;
+  duration: number;  // Duration in seconds
+  inPoint?: number;  // For video clips
+  outPoint?: number; // For video clips
+}
+
+interface ExportSequenceOptions {
+  items: SequenceItem[];
+  outputPath: string;
+  width: number;
+  height: number;
+  fps: number;
+}
+
+interface ExportSequenceResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
+// Show save dialog for sequence export
+ipcMain.handle('show-save-sequence-dialog', async (_, defaultName: string) => {
+  const result = await dialog.showSaveDialog(mainWindow!, {
+    title: 'Export Sequence as MP4',
+    defaultPath: defaultName,
+    filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
+  });
+
+  if (result.canceled || !result.filePath) {
+    return null;
+  }
+
+  return result.filePath;
+});
+
+// Helper function to run ffmpeg process
+function runFfmpeg(ffmpegBinary: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    console.log('[ffmpeg] Running:', args.join(' '));
+    const proc = spawn(ffmpegBinary, args);
+    let stderr = '';
+    proc.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+    proc.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
+    });
+    proc.on('error', reject);
+  });
+}
+
+// Export sequence to MP4 using ffmpeg
+ipcMain.handle('export-sequence', async (_, options: ExportSequenceOptions): Promise<ExportSequenceResult> => {
+  const { items, outputPath, width, height, fps } = options;
+
+  const ffmpegBinary = ffmpegPath as string | null;
+  if (!ffmpegBinary) {
+    return { success: false, error: 'ffmpeg not found' };
+  }
+
+  // Create a temporary directory for intermediate files
+  const tempDir = app.getPath('temp');
+  const sessionId = Date.now();
+  const tempFiles: string[] = [];
+
+  try {
+    // Step 1: Convert each item to a standardized video segment
+    const segmentFiles: string[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const segmentFile = path.join(tempDir, `segment_${sessionId}_${i}.mp4`);
+      tempFiles.push(segmentFile);
+
+      if (item.type === 'image') {
+        // Convert image to video with specified duration
+        const imageArgs = [
+          '-y',
+          '-loop', '1',
+          '-i', item.path,
+          '-t', item.duration.toString(),
+          '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p`,
+          '-r', fps.toString(),
+          '-c:v', 'libx264',
+          '-preset', 'fast',
+          '-crf', '18',
+          '-pix_fmt', 'yuv420p',
+          segmentFile
+        ];
+
+        await runFfmpeg(ffmpegBinary, imageArgs);
+      } else {
+        // Video: extract segment and re-encode to consistent format
+        const inPoint = item.inPoint ?? 0;
+        const duration = item.outPoint !== undefined
+          ? item.outPoint - inPoint
+          : item.duration;
+
+        const videoArgs = [
+          '-y',
+          '-ss', inPoint.toString(),
+          '-i', item.path,
+          '-t', duration.toString(),
+          '-vf', `scale=${width}:${height}:force_original_aspect_ratio=decrease,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p`,
+          '-r', fps.toString(),
+          '-c:v', 'libx264',
+          '-preset', 'fast',
+          '-crf', '18',
+          '-pix_fmt', 'yuv420p',
+          '-an',  // Remove audio for now (can be added later)
+          segmentFile
+        ];
+
+        await runFfmpeg(ffmpegBinary, videoArgs);
+      }
+
+      segmentFiles.push(segmentFile);
+    }
+
+    // Step 2: Create concat list file
+    const listFile = path.join(tempDir, `concat_${sessionId}.txt`);
+    tempFiles.push(listFile);
+
+    const concatLines = segmentFiles.map(f => `file '${f.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`);
+    fs.writeFileSync(listFile, concatLines.join('\n'), 'utf-8');
+
+    // Step 3: Concatenate all segments
+    const concatArgs = [
+      '-y',
+      '-f', 'concat',
+      '-safe', '0',
+      '-i', listFile,
+      '-c', 'copy',
+      '-movflags', '+faststart',
+      outputPath
+    ];
+
+    console.log('[ffmpeg] Concatenating segments...');
+
+    return new Promise<ExportSequenceResult>((resolve) => {
+      const ffmpegProcess = spawn(ffmpegBinary, concatArgs);
+
+      let stderr = '';
+
+      ffmpegProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+        console.log('[ffmpeg]', data.toString());
+      });
+
+      ffmpegProcess.on('close', (code: number | null) => {
+        // Clean up temp files
+        for (const tempFile of tempFiles) {
+          try {
+            if (fs.existsSync(tempFile)) {
+              fs.unlinkSync(tempFile);
+            }
+          } catch (e) {
+            console.warn('Failed to clean up temp file:', tempFile, e);
+          }
+        }
+
+        if (code === 0) {
+          if (fs.existsSync(outputPath)) {
+            const stats = fs.statSync(outputPath);
+            resolve({
+              success: true,
+              outputPath,
+              fileSize: stats.size,
+            });
+          } else {
+            resolve({
+              success: false,
+              error: 'Output file was not created',
+            });
+          }
+        } else {
+          resolve({
+            success: false,
+            error: `ffmpeg exited with code ${code}: ${stderr}`,
+          });
+        }
+      });
+
+      ffmpegProcess.on('error', (err: Error) => {
+        // Clean up temp files
+        for (const tempFile of tempFiles) {
+          try {
+            if (fs.existsSync(tempFile)) {
+              fs.unlinkSync(tempFile);
+            }
+          } catch (e) {
+            console.warn('Failed to clean up temp file:', tempFile, e);
+          }
+        }
+
+        resolve({
+          success: false,
+          error: `Failed to start ffmpeg: ${err.message}`,
+        });
+      });
+    });
+  } catch (error) {
+    // Clean up temp files on error
+    for (const tempFile of tempFiles) {
+      try {
+        if (fs.existsSync(tempFile)) {
+          fs.unlinkSync(tempFile);
+        }
+      } catch (e) {
+        console.warn('Failed to clean up temp file:', tempFile, e);
+      }
+    }
+
+    return {
+      success: false,
+      error: `Export failed: ${String(error)}`,
+    };
+  }
+});
+
 ipcMain.handle('extract-video-frame', async (_, options: ExtractFrameOptions): Promise<ExtractFrameResult> => {
   const { sourcePath, outputPath, timestamp } = options;
 
