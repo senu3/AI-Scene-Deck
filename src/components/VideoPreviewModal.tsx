@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { X, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Save } from 'lucide-react';
+import { X, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Save, Camera } from 'lucide-react';
 import { createVideoObjectUrl } from '../utils/videoUtils';
 import type { Asset } from '../types';
 import './VideoPreviewModal.css';
@@ -14,6 +14,8 @@ interface VideoPreviewModalProps {
   onInPointSet?: (time: number) => void;
   onOutPointSet?: (time: number) => void;
   onClipSave?: (inPoint: number, outPoint: number) => void;
+  // Callback for frame capture
+  onFrameCapture?: (timestamp: number) => void;
 }
 
 const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
@@ -26,6 +28,7 @@ export default function VideoPreviewModal({
   onInPointSet,
   onOutPointSet,
   onClipSave,
+  onFrameCapture,
 }: VideoPreviewModalProps) {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -182,6 +185,12 @@ export default function VideoPreviewModal({
     setInPoint(null);
     setOutPoint(null);
   }, []);
+
+  const handleCaptureFrame = useCallback(() => {
+    if (onFrameCapture) {
+      onFrameCapture(currentTime);
+    }
+  }, [currentTime, onFrameCapture]);
 
   const handleTimeUpdate = useCallback(() => {
     if (videoRef.current) {
@@ -415,6 +424,18 @@ export default function VideoPreviewModal({
           </div>
 
           <div className="controls-center">
+            {/* Frame capture button */}
+            {onFrameCapture && (
+              <button
+                className="control-btn capture-btn"
+                onClick={handleCaptureFrame}
+                title="Capture current frame as image"
+              >
+                <Camera size={16} />
+                <span>Capture</span>
+              </button>
+            )}
+
             {/* IN/OUT point buttons */}
             <button
               className={`control-btn edit-btn ${inPoint !== null ? 'active' : ''}`}

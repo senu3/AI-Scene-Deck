@@ -103,6 +103,19 @@ interface FinalizeClipResult {
   error?: string;
 }
 
+interface ExtractFrameOptions {
+  sourcePath: string;
+  outputPath: string;
+  timestamp: number;
+}
+
+interface ExtractFrameResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
 interface ElectronAPI {
   // Folder operations
   selectFolder: () => Promise<FolderSelection | null>;
@@ -153,6 +166,9 @@ interface ElectronAPI {
   // Video clip finalization
   showSaveClipDialog: (defaultName: string) => Promise<string | null>;
   finalizeClip: (options: FinalizeClipOptions) => Promise<FinalizeClipResult>;
+
+  // Video frame extraction
+  extractVideoFrame: (options: ExtractFrameOptions) => Promise<ExtractFrameResult>;
 }
 
 declare global {

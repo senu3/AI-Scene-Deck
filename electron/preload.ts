@@ -95,6 +95,19 @@ export interface FinalizeClipResult {
   error?: string;
 }
 
+export interface ExtractFrameOptions {
+  sourcePath: string;
+  outputPath: string;
+  timestamp: number;
+}
+
+export interface ExtractFrameResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
 export interface RecentProject {
   name: string;
   path: string;
@@ -201,6 +214,10 @@ const electronAPI = {
 
   finalizeClip: (options: FinalizeClipOptions): Promise<FinalizeClipResult> =>
     ipcRenderer.invoke('finalize-clip', options),
+
+  // Video frame extraction
+  extractVideoFrame: (options: ExtractFrameOptions): Promise<ExtractFrameResult> =>
+    ipcRenderer.invoke('extract-video-frame', options),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

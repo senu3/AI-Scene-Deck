@@ -153,10 +153,6 @@
   margin-bottom: 8px;
 }
 
-.video-progress-bar:hover {
-  height: 12px;
-}
-
 .progress-fill {
   position: absolute;
   top: 0;
@@ -177,7 +173,12 @@
   border-radius: 50%;
   border: 2px solid white;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  pointer-events: none;
+  pointer-events: auto;
+}
+
+.progress-playhead:hover{
+  width: 16px;
+  height: 16px;
 }
 
 /* Timeline markers for IN/OUT points */
@@ -189,6 +190,7 @@
   transform: translateX(-50%);
   border-radius: 2px;
   z-index: 2;
+  pointer-events: none;
 }
 
 .timeline-marker.in-marker {
@@ -347,6 +349,21 @@
 .control-btn.clear-btn:hover {
   color: var(--accent-danger);
   background: rgba(239, 68, 68, 0.1);
+}
+
+.control-btn.capture-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #8b5cf6;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.control-btn.capture-btn:hover {
+  background: #7c3aed;
 }
 
 /* Future: Editor section placeholder */

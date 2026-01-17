@@ -16,10 +16,11 @@ import {
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
-import { UpdateDisplayTimeCommand, RemoveCutCommand, BatchUpdateDisplayTimeCommand, UpdateClipPointsCommand, ClearClipPointsCommand } from '../store/commands';
+import { UpdateDisplayTimeCommand, RemoveCutCommand, BatchUpdateDisplayTimeCommand, UpdateClipPointsCommand, ClearClipPointsCommand, AddCutCommand } from '../store/commands';
 import { generateVideoThumbnail } from '../utils/videoUtils';
 import VideoPreviewModal from './VideoPreviewModal';
-import type { ImageMetadata } from '../types';
+import type { ImageMetadata, Asset } from '../types';
+import { v4 as uuidv4 } from 'uuid';
 import './DetailsPanel.css';
 
 export default function DetailsPanel() {
@@ -34,6 +35,7 @@ export default function DetailsPanel() {
     removeSceneNote,
     getSelectedCuts,
     cacheAsset,
+    vaultPath,
   } = useStore();
 
   const { executeCommand } = useHistoryStore();
@@ -216,6 +218,72 @@ export default function DetailsPanel() {
           setThumbnail(newThumbnail);
         }
       }
+    }
+  };
+
+  const handleFrameCapture = async (timestamp: number) => {
+    if (!cutScene || !asset?.path || !vaultPath) {
+      alert('Cannot capture frame: missing required data');
+      return;
+    }
+
+    if (!window.electronAPI?.extractVideoFrame || !window.electronAPI?.ensureAssetsFolder) {
+      alert('Frame capture requires app restart after update.');
+      return;
+    }
+
+    try {
+      // Ensure assets folder exists
+      const assetsFolder = await window.electronAPI.ensureAssetsFolder(vaultPath);
+      if (!assetsFolder) {
+        alert('Failed to access assets folder');
+        return;
+      }
+
+      // Generate unique filename: {video_name}_frame_{timestamp}_{uuid}.jpg
+      const baseName = asset.name.replace(/\.[^/.]+$/, '');
+      const timeStr = timestamp.toFixed(2).replace('.', '_');
+      const uniqueId = uuidv4().substring(0, 8);
+      const frameFileName = `${baseName}_frame_${timeStr}_${uniqueId}.jpg`;
+      const outputPath = `${assetsFolder}/${frameFileName}`.replace(/\\/g, '/');
+
+      // Extract frame using ffmpeg
+      const result = await window.electronAPI.extractVideoFrame({
+        sourcePath: asset.path,
+        outputPath,
+        timestamp,
+      });
+
+      if (!result.success) {
+        alert(`Failed to capture frame: ${result.error}`);
+        return;
+      }
+
+      // Read the captured image as base64 for thumbnail
+      const thumbnailBase64 = await window.electronAPI.readFileAsBase64(outputPath);
+
+      // Create new asset for the captured frame
+      const newAssetId = uuidv4();
+      const newAsset: Asset = {
+        id: newAssetId,
+        name: frameFileName,
+        path: outputPath,
+        type: 'image',
+        thumbnail: thumbnailBase64 || undefined,
+        vaultRelativePath: `assets/${frameFileName}`,
+      };
+
+      // Cache the new asset
+      cacheAsset(newAsset);
+
+      // Add new cut with the captured frame
+      await executeCommand(new AddCutCommand(cutScene.id, newAsset));
+
+      // Show success message
+      alert(`Frame captured!\n\nFile: ${frameFileName}`);
+    } catch (error) {
+      console.error('Frame capture failed:', error);
+      alert(`Failed to capture frame: ${error}`);
     }
   };
 
@@ -555,6 +623,7 @@ export default function DetailsPanel() {
             initialInPoint={cut?.inPoint}
             initialOutPoint={cut?.outPoint}
             onClipSave={handleSaveClip}
+            onFrameCapture={handleFrameCapture}
           />
         )}
       </aside>

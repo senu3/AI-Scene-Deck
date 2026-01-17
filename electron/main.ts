@@ -994,3 +994,82 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
     });
   });
 });
+
+// Extract video frame as image using ffmpeg
+interface ExtractFrameOptions {
+  sourcePath: string;
+  outputPath: string;
+  timestamp: number;  // Time in seconds
+}
+
+interface ExtractFrameResult {
+  success: boolean;
+  outputPath?: string;
+  fileSize?: number;
+  error?: string;
+}
+
+ipcMain.handle('extract-video-frame', async (_, options: ExtractFrameOptions): Promise<ExtractFrameResult> => {
+  const { sourcePath, outputPath, timestamp } = options;
+
+  // Get ffmpeg path
+  const ffmpegBinary = ffmpegPath as string | null;
+  if (!ffmpegBinary) {
+    return { success: false, error: 'ffmpeg not found' };
+  }
+
+  return new Promise<ExtractFrameResult>((resolve) => {
+    // Build ffmpeg arguments for frame extraction
+    // -ss for seeking to timestamp
+    // -vframes 1 to extract single frame
+    // -q:v 2 for high quality JPEG (1-31, lower is better)
+    const args = [
+      '-y',                      // Overwrite output file
+      '-ss', timestamp.toString(), // Seek to timestamp
+      '-i', sourcePath,          // Input file
+      '-vframes', '1',           // Extract single frame
+      '-q:v', '2',               // High quality
+      outputPath
+    ];
+
+    console.log('[ffmpeg] Extracting frame:', ffmpegBinary, args.join(' '));
+
+    const ffmpegProcess = spawn(ffmpegBinary, args);
+
+    let stderr = '';
+
+    ffmpegProcess.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    ffmpegProcess.on('close', (code: number | null) => {
+      if (code === 0) {
+        if (fs.existsSync(outputPath)) {
+          const stats = fs.statSync(outputPath);
+          resolve({
+            success: true,
+            outputPath,
+            fileSize: stats.size,
+          });
+        } else {
+          resolve({
+            success: false,
+            error: 'Output file was not created',
+          });
+        }
+      } else {
+        resolve({
+          success: false,
+          error: `ffmpeg exited with code ${code}: ${stderr}`,
+        });
+      }
+    });
+
+    ffmpegProcess.on('error', (err: Error) => {
+      resolve({
+        success: false,
+        error: `Failed to start ffmpeg: ${err.message}`,
+      });
+    });
+  });
+});
