@@ -53,6 +53,10 @@ interface AppState {
   previewMode: PreviewMode;
   currentPreviewIndex: number;
 
+  // Global volume state (shared between modals)
+  globalVolume: number;
+  globalMuted: boolean;
+
   // Actions - Project
   setProjectLoaded: (loaded: boolean) => void;
   setProjectPath: (path: string | null) => void;
@@ -121,6 +125,11 @@ interface AppState {
   setPreviewMode: (mode: PreviewMode) => void;
   setCurrentPreviewIndex: (index: number) => void;
 
+  // Actions - Global volume
+  setGlobalVolume: (volume: number) => void;
+  setGlobalMuted: (muted: boolean) => void;
+  toggleGlobalMute: () => void;
+
   // Actions - Asset cache
   cacheAsset: (asset: Asset) => void;
   getAsset: (assetId: string) => Asset | undefined;
@@ -158,6 +167,8 @@ export const useStore = create<AppState>((set, get) => ({
   playbackMode: 'stopped',
   previewMode: 'all',
   currentPreviewIndex: 0,
+  globalVolume: 1,
+  globalMuted: false,
 
   // Project actions
   setProjectLoaded: (loaded) => set({ projectLoaded: loaded }),
@@ -422,7 +433,7 @@ export const useStore = create<AppState>((set, get) => ({
       id: cutId,
       assetId: asset.id,
       asset,
-      displayTime: 2.0,
+      displayTime: 1.0,
       order: scene.cuts.length,
     };
 
@@ -843,6 +854,11 @@ export const useStore = create<AppState>((set, get) => ({
   setPlaybackMode: (mode) => set({ playbackMode: mode }),
   setPreviewMode: (mode) => set({ previewMode: mode }),
   setCurrentPreviewIndex: (index) => set({ currentPreviewIndex: index }),
+
+  // Global volume actions
+  setGlobalVolume: (volume) => set({ globalVolume: volume, globalMuted: volume === 0 }),
+  setGlobalMuted: (muted) => set({ globalMuted: muted }),
+  toggleGlobalMute: () => set((state) => ({ globalMuted: !state.globalMuted })),
 
   // Asset cache actions
   cacheAsset: (asset) => set((state) => {

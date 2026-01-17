@@ -1,9 +1,20 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
-import { X, Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Repeat, Download } from 'lucide-react';
+import { X, Play, Pause, SkipBack, SkipForward, Download } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
+import { formatTime, cyclePlaybackSpeed } from '../utils/timeUtils';
+import {
+  TimelineMarkers,
+  ClipRangeControls,
+  VolumeControl,
+  PlaybackSpeedControl,
+  TimeDisplay,
+  LoopToggle,
+  FullscreenToggle,
+} from './shared';
 import './PreviewModal.css';
+import './shared/timeline-common.css';
 
 interface ResolutionPresetType {
   name: string;
@@ -25,8 +36,6 @@ interface PreviewItem {
   thumbnail: string | null;
 }
 
-const PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.5, 2];
-
 // Resolution presets for simulation
 interface ResolutionPreset {
   name: string;
@@ -43,7 +52,17 @@ const RESOLUTION_PRESETS: ResolutionPreset[] = [
 ];
 
 export default function PreviewModal({ onClose, exportResolution, onResolutionChange }: PreviewModalProps) {
-  const { scenes, previewMode, selectedSceneId, getAsset } = useStore();
+  const {
+    scenes,
+    previewMode,
+    selectedSceneId,
+    getAsset,
+    globalVolume,
+    globalMuted,
+    setGlobalVolume,
+    toggleGlobalMute,
+  } = useStore();
+
   const [items, setItems] = useState<PreviewItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -58,6 +77,10 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     exportResolution ? { ...exportResolution } : RESOLUTION_PRESETS[0]
   );
   const [isExporting, setIsExporting] = useState(false);
+
+  // IN/OUT point state for export range
+  const [inPoint, setInPoint] = useState<number | null>(null);
+  const [outPoint, setOutPoint] = useState<number | null>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -88,10 +111,8 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
           if (!thumbnail && asset?.path && window.electronAPI) {
             try {
               if (asset.type === 'video') {
-                // Generate thumbnail for video
                 thumbnail = await generateVideoThumbnail(asset.path);
               } else {
-                // Load image as base64
                 thumbnail = await window.electronAPI.readFileAsBase64(asset.path);
               }
             } catch {
@@ -119,20 +140,17 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
   useEffect(() => {
     const currentItem = items[currentIndex];
 
-    // Clean up previous Object URL
     if (videoObjectUrl) {
       URL.revokeObjectURL(videoObjectUrl);
       setVideoObjectUrl(null);
     }
 
-    // Create new Object URL if current item is a video
     if (currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path) {
       createVideoObjectUrl(currentItem.cut.asset.path).then(url => {
         setVideoObjectUrl(url);
       });
     }
 
-    // Cleanup on unmount or when item changes
     return () => {
       if (videoObjectUrl) {
         URL.revokeObjectURL(videoObjectUrl);
@@ -141,11 +159,9 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
   }, [currentIndex, items]);
 
   // Calculate display size for resolution simulation
-  // Use useLayoutEffect to get size after DOM updates but before paint
   useLayoutEffect(() => {
     const updateDisplaySize = () => {
       if (!displayContainerRef.current) return;
-
       const container = displayContainerRef.current;
       const rect = container.getBoundingClientRect();
       setDisplaySize({ width: rect.width, height: rect.height });
@@ -154,26 +170,20 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     updateDisplaySize();
     window.addEventListener('resize', updateDisplaySize);
     return () => window.removeEventListener('resize', updateDisplaySize);
-  }, [selectedResolution]); // Re-calculate when resolution changes
+  }, [selectedResolution]);
 
   // Calculate viewport frame for resolution simulation
   const getViewportStyle = useCallback(() => {
-    // Free mode - no masking
-    if (selectedResolution.width === 0) {
-      return null;
-    }
+    if (selectedResolution.width === 0) return null;
 
     const targetWidth = selectedResolution.width;
     const targetHeight = selectedResolution.height;
-
-    // Use actual container size, or fallback to reasonable defaults
     const containerWidth = displaySize.width > 0 ? displaySize.width : 800;
     const containerHeight = displaySize.height > 0 ? displaySize.height : 600;
 
-    // Calculate scale to fit the resolution frame within the container
     const scaleX = containerWidth / targetWidth;
     const scaleY = containerHeight / targetHeight;
-    const scale = Math.min(scaleX, scaleY) * 0.9; // 90% to leave some margin
+    const scale = Math.min(scaleX, scaleY) * 0.9;
 
     return {
       width: targetWidth * scale,
@@ -186,11 +196,9 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
   const goToNext = useCallback(() => {
     if (currentIndex >= items.length - 1) {
       if (isLooping) {
-        // Loop: go back to the beginning and continue playing
         setCurrentIndex(0);
         setProgress(0);
       } else {
-        // No loop: stop at the end (don't change index, let play button restart)
         setIsPlaying(false);
       }
       return;
@@ -205,14 +213,26 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
   }, []);
 
   // Handle play/pause with restart from beginning when at end
+  // Also pause/play video element
   const handlePlayPause = useCallback(() => {
+    const video = videoRef.current;
+
     if (!isPlaying && currentIndex >= items.length - 1 && progress >= 99) {
-      // At the end, restart from beginning
       setCurrentIndex(0);
       setProgress(0);
     }
+
+    // Control video playback
+    if (video && items[currentIndex]?.cut.asset?.type === 'video') {
+      if (isPlaying) {
+        video.pause();
+      } else {
+        video.play().catch(() => {});
+      }
+    }
+
     setIsPlaying(!isPlaying);
-  }, [isPlaying, currentIndex, items.length, progress]);
+  }, [isPlaying, currentIndex, items, progress]);
 
   // Video clip handlers
   const handleVideoLoadedMetadata = useCallback(() => {
@@ -221,11 +241,15 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     if (!video || !currentItem) return;
 
     const cut = currentItem.cut;
-    // If this is a clip with inPoint, seek to it
     if (cut.isClip && cut.inPoint !== undefined) {
       video.currentTime = cut.inPoint;
     }
-  }, [items, currentIndex]);
+
+    // Apply playback state
+    if (isPlaying) {
+      video.play().catch(() => {});
+    }
+  }, [items, currentIndex, isPlaying]);
 
   const handleVideoTimeUpdate = useCallback(() => {
     const video = videoRef.current;
@@ -233,7 +257,19 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     if (!video || !currentItem) return;
 
     const cut = currentItem.cut;
-    // If this is a clip with outPoint, check if we've reached it
+
+    // Calculate progress within this cut
+    const inPoint = cut.isClip && cut.inPoint !== undefined ? cut.inPoint : 0;
+    const outPoint = cut.isClip && cut.outPoint !== undefined ? cut.outPoint : video.duration;
+    const clipDuration = outPoint - inPoint;
+
+    if (clipDuration > 0) {
+      const elapsed = video.currentTime - inPoint;
+      const newProgress = Math.min(100, Math.max(0, (elapsed / clipDuration) * 100));
+      setProgress(newProgress);
+    }
+
+    // Check if we've reached the out point
     if (cut.isClip && cut.outPoint !== undefined) {
       if (video.currentTime >= cut.outPoint) {
         video.pause();
@@ -245,6 +281,19 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
   const handleVideoEnded = useCallback(() => {
     goToNext();
   }, [goToNext]);
+
+  // Control video when isPlaying changes
+  useEffect(() => {
+    const video = videoRef.current;
+    const currentItem = items[currentIndex];
+    if (!video || currentItem?.cut.asset?.type !== 'video') return;
+
+    if (isPlaying) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  }, [isPlaying, currentIndex, items]);
 
   useEffect(() => {
     if (!isPlaying || items.length === 0 || isDragging) {
@@ -258,18 +307,21 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     const currentItem = items[currentIndex];
     if (!currentItem) return;
 
+    // Skip timer for videos - they have their own playback
+    if (currentItem.cut.asset?.type === 'video') {
+      return;
+    }
+
     const duration = (currentItem.cut.displayTime * 1000) / playbackSpeed;
     const remainingDuration = duration * (1 - progress / 100);
     startTimeRef.current = Date.now();
     elapsedRef.current = (progress / 100) * duration;
 
-    // Update progress
     const progressInterval = setInterval(() => {
       const elapsed = elapsedRef.current + (Date.now() - startTimeRef.current);
       setProgress(Math.min(100, (elapsed / duration) * 100));
     }, 50);
 
-    // Advance to next
     timerRef.current = setTimeout(() => {
       clearInterval(progressInterval);
       goToNext();
@@ -281,18 +333,37 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
         clearTimeout(timerRef.current);
       }
     };
-  }, [isPlaying, currentIndex, items, goToNext, playbackSpeed, isDragging]);
+  }, [isPlaying, currentIndex, items, goToNext, playbackSpeed, isDragging, progress]);
 
   // Cycle playback speed
   const cycleSpeed = useCallback((direction: 'up' | 'down') => {
-    setPlaybackSpeed(current => {
-      const currentIdx = PLAYBACK_SPEEDS.indexOf(current);
-      if (direction === 'up') {
-        return PLAYBACK_SPEEDS[Math.min(currentIdx + 1, PLAYBACK_SPEEDS.length - 1)];
-      } else {
-        return PLAYBACK_SPEEDS[Math.max(currentIdx - 1, 0)];
-      }
-    });
+    setPlaybackSpeed(current => cyclePlaybackSpeed(current, direction));
+  }, []);
+
+  // IN/OUT point handlers
+  const handleSetInPoint = useCallback(() => {
+    if (items.length === 0) return;
+    let elapsedDuration = 0;
+    for (let i = 0; i < currentIndex; i++) {
+      elapsedDuration += items[i].cut.displayTime;
+    }
+    elapsedDuration += (progress / 100) * items[currentIndex].cut.displayTime;
+    setInPoint(elapsedDuration);
+  }, [items, currentIndex, progress]);
+
+  const handleSetOutPoint = useCallback(() => {
+    if (items.length === 0) return;
+    let elapsedDuration = 0;
+    for (let i = 0; i < currentIndex; i++) {
+      elapsedDuration += items[i].cut.displayTime;
+    }
+    elapsedDuration += (progress / 100) * items[currentIndex].cut.displayTime;
+    setOutPoint(elapsedDuration);
+  }, [items, currentIndex, progress]);
+
+  const handleClearPoints = useCallback(() => {
+    setInPoint(null);
+    setOutPoint(null);
   }, []);
 
   // Keyboard controls
@@ -336,12 +407,21 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
         case 'l':
           setIsLooping(prev => !prev);
           break;
+        case 'i':
+          handleSetInPoint();
+          break;
+        case 'o':
+          handleSetOutPoint();
+          break;
+        case 'm':
+          toggleGlobalMute();
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, goToNext, goToPrev, cycleSpeed, handlePlayPause]);
+  }, [onClose, goToNext, goToPrev, cycleSpeed, handlePlayPause, handleSetInPoint, handleSetOutPoint, toggleGlobalMute]);
 
   const toggleFullscreen = () => {
     if (!document.fullscreenElement && modalRef.current) {
@@ -353,26 +433,23 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     }
   };
 
-  // Export sequence to MP4
-  const handleExport = useCallback(async () => {
+  // Export full sequence (no range)
+  const handleExportFull = useCallback(async () => {
     if (!window.electronAPI || items.length === 0) return;
 
     setIsExporting(true);
     setIsPlaying(false);
 
     try {
-      // Determine export resolution
       const exportWidth = selectedResolution.width > 0 ? selectedResolution.width : 1920;
       const exportHeight = selectedResolution.height > 0 ? selectedResolution.height : 1080;
 
-      // Show save dialog
       const outputPath = await window.electronAPI.showSaveSequenceDialog('sequence_export.mp4');
       if (!outputPath) {
         setIsExporting(false);
         return;
       }
 
-      // Build sequence items for export
       const sequenceItems = items.map(item => {
         const asset = item.cut.asset;
         return {
@@ -384,7 +461,6 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
         };
       }).filter(item => item.path);
 
-      // Export using ffmpeg
       const result = await window.electronAPI.exportSequence({
         items: sequenceItems,
         outputPath,
@@ -404,6 +480,96 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
       setIsExporting(false);
     }
   }, [items, selectedResolution]);
+
+  // Export with IN/OUT range (Save button)
+  const handleExportRange = useCallback(async () => {
+    if (!window.electronAPI || items.length === 0) return;
+    if (inPoint === null || outPoint === null) return;
+
+    setIsExporting(true);
+    setIsPlaying(false);
+
+    try {
+      const exportWidth = selectedResolution.width > 0 ? selectedResolution.width : 1920;
+      const exportHeight = selectedResolution.height > 0 ? selectedResolution.height : 1080;
+
+      const outputPath = await window.electronAPI.showSaveSequenceDialog('sequence_export.mp4');
+      if (!outputPath) {
+        setIsExporting(false);
+        return;
+      }
+
+      const rangeStart = Math.min(inPoint, outPoint);
+      const rangeEnd = Math.max(inPoint, outPoint);
+
+      const sequenceItems: Array<{
+        type: 'image' | 'video';
+        path: string;
+        duration: number;
+        inPoint?: number;
+        outPoint?: number;
+      }> = [];
+
+      let accumulatedTime = 0;
+      for (const item of items) {
+        const asset = item.cut.asset;
+        if (!asset?.path) continue;
+
+        const itemStart = accumulatedTime;
+        const itemEnd = accumulatedTime + item.cut.displayTime;
+        accumulatedTime = itemEnd;
+
+        if (itemEnd <= rangeStart || itemStart >= rangeEnd) continue;
+
+        const clipStart = Math.max(0, rangeStart - itemStart);
+        const clipEnd = Math.min(item.cut.displayTime, rangeEnd - itemStart);
+        const clipDuration = clipEnd - clipStart;
+
+        if (clipDuration <= 0) continue;
+
+        if (asset.type === 'video') {
+          const originalInPoint = item.cut.isClip && item.cut.inPoint !== undefined ? item.cut.inPoint : 0;
+          sequenceItems.push({
+            type: 'video',
+            path: asset.path,
+            duration: clipDuration,
+            inPoint: originalInPoint + clipStart,
+            outPoint: originalInPoint + clipEnd,
+          });
+        } else {
+          sequenceItems.push({
+            type: 'image',
+            path: asset.path,
+            duration: clipDuration,
+          });
+        }
+      }
+
+      if (sequenceItems.length === 0) {
+        alert('No items in the selected range');
+        setIsExporting(false);
+        return;
+      }
+
+      const result = await window.electronAPI.exportSequence({
+        items: sequenceItems,
+        outputPath,
+        width: exportWidth,
+        height: exportHeight,
+        fps: 30,
+      });
+
+      if (result.success) {
+        alert(`Export complete! (${formatTime(rangeStart)} - ${formatTime(rangeEnd)})\nFile: ${result.outputPath}\nSize: ${(result.fileSize! / 1024 / 1024).toFixed(2)} MB`);
+      } else {
+        alert(`Export failed: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Export error: ${String(error)}`);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [items, selectedResolution, inPoint, outPoint]);
 
   // Calculate global position from progress percentage
   const calculateGlobalPositionFromProgress = useCallback((progressPercent: number) => {
@@ -435,7 +601,7 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     return (elapsedDuration / totalDuration) * 100;
   }, [items, currentIndex, progress]);
 
-  // Progress bar click handler
+  // Progress bar handlers
   const handleProgressBarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || items.length === 0) return;
 
@@ -449,7 +615,6 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     elapsedRef.current = (localProgress / 100) * items[index].cut.displayTime * 1000;
   }, [items, calculateGlobalPositionFromProgress]);
 
-  // Mouse drag handlers for scrubbing
   const handleProgressBarMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     setIsDragging(true);
     setIsPlaying(false);
@@ -473,14 +638,6 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     setIsDragging(false);
   }, []);
 
-  // Format time for display
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Progress bar hover handler
   const handleProgressBarHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || items.length === 0) return;
 
@@ -497,7 +654,6 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     setHoverTime(null);
   }, []);
 
-  // Global mouse event handlers for dragging
   useEffect(() => {
     if (isDragging) {
       window.addEventListener('mousemove', handleProgressBarMouseMove);
@@ -509,10 +665,21 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     }
   }, [isDragging, handleProgressBarMouseMove, handleProgressBarMouseUp]);
 
+  // Apply global volume to video element
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = globalVolume;
+      videoRef.current.muted = globalMuted;
+    }
+  }, [globalVolume, globalMuted]);
+
   const currentItem = items[currentIndex];
   const globalProgress = calculateGlobalProgress();
   const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
   const currentTime = (globalProgress / 100) * totalDuration;
+
+  // Check if range is set for Save button
+  const hasRange = inPoint !== null && outPoint !== null;
 
   if (items.length === 0) {
     return (
@@ -538,12 +705,18 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
     <div className="preview-modal" ref={modalRef}>
       <div className="preview-backdrop" onClick={onClose} />
       <div className="preview-container">
+        {/* Header: Left=index, Center=scene/cut info, Right=resolution/download/close */}
         <div className="preview-header">
-          <div className="preview-info">
+          <div className="header-left">
+            <span className="index-info">
+              {currentIndex + 1} / {items.length}
+            </span>
+          </div>
+          <div className="header-center">
             <span className="scene-label">{currentItem?.sceneName}</span>
             <span className="cut-label">Cut {(currentItem?.cutIndex || 0) + 1}</span>
           </div>
-          <div className="preview-actions">
+          <div className="header-right">
             <select
               className="resolution-select"
               value={selectedResolution.name}
@@ -563,22 +736,12 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
               ))}
             </select>
             <button
-              className={`action-btn ${isLooping ? 'active' : ''}`}
-              onClick={() => setIsLooping(!isLooping)}
-              title={`Loop (L) - ${isLooping ? 'On' : 'Off'}`}
-            >
-              <Repeat size={18} />
-            </button>
-            <button
               className="action-btn"
-              onClick={handleExport}
+              onClick={handleExportFull}
               disabled={isExporting || items.length === 0}
-              title="Export to MP4"
+              title="Export full sequence to MP4"
             >
               <Download size={18} />
-            </button>
-            <button className="action-btn" onClick={toggleFullscreen}>
-              {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
             <button className="close-btn" onClick={onClose}>
               <X size={20} />
@@ -586,6 +749,7 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
           </div>
         </div>
 
+        {/* Display area */}
         <div className="preview-display" ref={displayContainerRef}>
           {(() => {
             const viewportStyle = getViewportStyle();
@@ -596,8 +760,8 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
                   key={videoObjectUrl}
                   src={videoObjectUrl}
                   className="preview-media"
-                  autoPlay
-                  muted
+                  autoPlay={isPlaying}
+                  muted={globalMuted}
                   loop={false}
                   onLoadedMetadata={handleVideoLoadedMetadata}
                   onTimeUpdate={handleVideoTimeUpdate}
@@ -641,6 +805,7 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
           })()}
         </div>
 
+        {/* Progress bar with time display */}
         <div className="preview-progress">
           <div
             className="progress-bar scrub-enabled"
@@ -649,6 +814,12 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
             onMouseMove={handleProgressBarHover}
             onMouseLeave={handleProgressBarLeave}
           >
+            <TimelineMarkers
+              inPoint={inPoint}
+              outPoint={outPoint}
+              duration={totalDuration}
+              showMilliseconds={false}
+            />
             <div className="progress-fill" style={{ width: `${globalProgress}%` }} />
             <div className="progress-handle" style={{ left: `${globalProgress}%` }} />
             {hoverTime && (
@@ -658,20 +829,20 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
             )}
           </div>
           <div className="progress-info">
-            <span className="time-display">
-              {formatTime(currentTime)} / {formatTime(totalDuration)}
-            </span>
-            <span className="speed-display" onClick={() => cycleSpeed('up')} title="Click or press ] to increase, [ to decrease">
-              {playbackSpeed}x
-            </span>
+            <TimeDisplay currentTime={currentTime} totalDuration={totalDuration} />
+            <PlaybackSpeedControl speed={playbackSpeed} onSpeedChange={setPlaybackSpeed} />
           </div>
         </div>
 
+        {/* Controls: Left=volume, Center=nav, Right=IN/OUT+loop+fullscreen */}
         <div className="preview-controls">
           <div className="controls-left">
-            <span className="index-info">
-              {currentIndex + 1} / {items.length}
-            </span>
+            <VolumeControl
+              volume={globalVolume}
+              isMuted={globalMuted}
+              onVolumeChange={setGlobalVolume}
+              onMuteToggle={toggleGlobalMute}
+            />
           </div>
           <div className="controls-center">
             <button
@@ -699,7 +870,18 @@ export default function PreviewModal({ onClose, exportResolution, onResolutionCh
             </button>
           </div>
           <div className="controls-right">
-            <span className="hint-text">Space: play · [ ]: speed · ←→: navigate</span>
+            <ClipRangeControls
+              inPoint={inPoint}
+              outPoint={outPoint}
+              onSetInPoint={handleSetInPoint}
+              onSetOutPoint={handleSetOutPoint}
+              onClear={handleClearPoints}
+              onSave={hasRange ? handleExportRange : undefined}
+              showSaveButton={hasRange}
+              showMilliseconds={false}
+            />
+            <LoopToggle isLooping={isLooping} onToggle={() => setIsLooping(!isLooping)} />
+            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
           </div>
         </div>
       </div>

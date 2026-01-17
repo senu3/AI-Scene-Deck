@@ -1,8 +1,20 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import { X, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Save, Camera } from 'lucide-react';
+import { X, Play, Pause, SkipBack, SkipForward } from 'lucide-react';
+import { useStore } from '../store/useStore';
 import { createVideoObjectUrl } from '../utils/videoUtils';
+import { cyclePlaybackSpeed } from '../utils/timeUtils';
+import {
+  TimelineMarkers,
+  ClipRangeControls,
+  VolumeControl,
+  PlaybackSpeedControl,
+  TimeDisplay,
+  LoopToggle,
+  FullscreenToggle,
+} from './shared';
 import type { Asset } from '../types';
 import './VideoPreviewModal.css';
+import './shared/timeline-common.css';
 
 interface VideoPreviewModalProps {
   asset: Asset;
@@ -14,11 +26,9 @@ interface VideoPreviewModalProps {
   onInPointSet?: (time: number) => void;
   onOutPointSet?: (time: number) => void;
   onClipSave?: (inPoint: number, outPoint: number) => void;
-  // Callback for frame capture
+  // Callback for frame capture (IN only + Save triggers this)
   onFrameCapture?: (timestamp: number) => void;
 }
-
-const PLAYBACK_SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
 export default function VideoPreviewModal({
   asset,
@@ -30,14 +40,21 @@ export default function VideoPreviewModal({
   onClipSave,
   onFrameCapture,
 }: VideoPreviewModalProps) {
+  const {
+    globalVolume,
+    globalMuted,
+    setGlobalVolume,
+    toggleGlobalMute,
+  } = useStore();
+
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [volume, setVolume] = useState(1);
+  const [isLooping, setIsLooping] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Timeline editing state - initialize from props if available
   const [inPoint, setInPoint] = useState<number | null>(initialInPoint ?? null);
@@ -103,23 +120,13 @@ export default function VideoPreviewModal({
           e.preventDefault();
           skip(5);
           break;
-        case 'ArrowUp':
-          e.preventDefault();
-          adjustVolume(0.1);
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          adjustVolume(-0.1);
-          break;
         case 'm':
-          setIsMuted(prev => !prev);
+          toggleGlobalMute();
           break;
         case 'i':
-          // Set IN point
           handleSetInPoint();
           break;
         case 'o':
-          // Set OUT point
           handleSetOutPoint();
           break;
         case '[':
@@ -128,12 +135,18 @@ export default function VideoPreviewModal({
         case ']':
           cycleSpeed(1);
           break;
+        case 'l':
+          setIsLooping(prev => !prev);
+          break;
+        case 'f':
+          toggleFullscreen();
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTime, playbackSpeed]);
+  }, [currentTime, playbackSpeed, toggleGlobalMute]);
 
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;
@@ -151,15 +164,19 @@ export default function VideoPreviewModal({
     videoRef.current.currentTime = Math.max(0, Math.min(duration, videoRef.current.currentTime + seconds));
   }, [duration]);
 
-  const adjustVolume = useCallback((delta: number) => {
-    setVolume(prev => Math.max(0, Math.min(1, prev + delta)));
+  const cycleSpeed = useCallback((direction: number) => {
+    setPlaybackSpeed(current => cyclePlaybackSpeed(current, direction));
   }, []);
 
-  const cycleSpeed = useCallback((direction: number) => {
-    const currentIndex = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
-    const newIndex = Math.max(0, Math.min(PLAYBACK_SPEEDS.length - 1, currentIndex + direction));
-    setPlaybackSpeed(PLAYBACK_SPEEDS[newIndex]);
-  }, [playbackSpeed]);
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement && modalRef.current) {
+      modalRef.current.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  }, []);
 
   const handleSetInPoint = useCallback(() => {
     setInPoint(currentTime);
@@ -171,26 +188,24 @@ export default function VideoPreviewModal({
     onOutPointSet?.(currentTime);
   }, [currentTime, onOutPointSet]);
 
-  const handleSaveClip = useCallback(() => {
+  // Save handler: if both IN and OUT are set, save clip; if only IN is set, capture frame
+  const handleSave = useCallback(() => {
     if (inPoint !== null && outPoint !== null) {
-      // Ensure inPoint is less than outPoint
+      // Both points set - save as clip
       const start = Math.min(inPoint, outPoint);
       const end = Math.max(inPoint, outPoint);
       onClipSave?.(start, end);
       onClose();
+    } else if (inPoint !== null && outPoint === null) {
+      // Only IN point set - capture frame at IN point
+      onFrameCapture?.(inPoint);
     }
-  }, [inPoint, outPoint, onClipSave, onClose]);
+  }, [inPoint, outPoint, onClipSave, onFrameCapture, onClose]);
 
   const handleClearPoints = useCallback(() => {
     setInPoint(null);
     setOutPoint(null);
   }, []);
-
-  const handleCaptureFrame = useCallback(() => {
-    if (onFrameCapture) {
-      onFrameCapture(currentTime);
-    }
-  }, [currentTime, onFrameCapture]);
 
   const handleTimeUpdate = useCallback(() => {
     if (videoRef.current) {
@@ -200,26 +215,37 @@ export default function VideoPreviewModal({
       // stop playback at the OUT point
       if (initialInPoint !== undefined && initialOutPoint !== undefined) {
         if (videoRef.current.currentTime >= initialOutPoint) {
-          videoRef.current.pause();
-          setIsPlaying(false);
-          // Seek back to IN point for loop-like behavior
-          videoRef.current.currentTime = initialInPoint;
+          if (isLooping) {
+            videoRef.current.currentTime = initialInPoint;
+          } else {
+            videoRef.current.pause();
+            setIsPlaying(false);
+            videoRef.current.currentTime = initialInPoint;
+          }
         }
       }
     }
-  }, [initialInPoint, initialOutPoint]);
+  }, [initialInPoint, initialOutPoint, isLooping]);
 
   const handleLoadedMetadata = useCallback(() => {
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
 
-      // If this is an existing clip, seek to IN point on load
       if (initialInPoint !== undefined) {
         videoRef.current.currentTime = initialInPoint;
         setCurrentTime(initialInPoint);
       }
     }
   }, [initialInPoint]);
+
+  const handleVideoEnded = useCallback(() => {
+    if (isLooping && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play();
+    } else {
+      setIsPlaying(false);
+    }
+  }, [isLooping]);
 
   const handleProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressRef.current || !videoRef.current) return;
@@ -232,12 +258,6 @@ export default function VideoPreviewModal({
     setCurrentTime(newTime);
   }, [duration]);
 
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    setIsMuted(newVolume === 0);
-  }, []);
-
   // Apply playback speed
   useEffect(() => {
     if (videoRef.current) {
@@ -245,24 +265,19 @@ export default function VideoPreviewModal({
     }
   }, [playbackSpeed]);
 
-  // Apply volume
+  // Apply global volume
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.volume = volume;
-      videoRef.current.muted = isMuted;
+      videoRef.current.volume = globalVolume;
+      videoRef.current.muted = globalMuted;
     }
-  }, [volume, isMuted]);
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 100);
-    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
-  };
+  }, [globalVolume, globalMuted]);
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
-  const inPointPercent = inPoint !== null && duration > 0 ? (inPoint / duration) * 100 : null;
-  const outPointPercent = outPoint !== null && duration > 0 ? (outPoint / duration) * 100 : null;
+
+  // Determine if Save button should show and its behavior
+  const hasInPoint = inPoint !== null;
+  const showSaveButton = hasInPoint && (onClipSave || onFrameCapture);
 
   return (
     <div className="video-preview-overlay" onClick={onClose}>
@@ -303,7 +318,7 @@ export default function VideoPreviewModal({
               onLoadedMetadata={handleLoadedMetadata}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
-              onEnded={() => setIsPlaying(false)}
+              onEnded={handleVideoEnded}
             />
           ) : (
             <div className="video-error">
@@ -319,63 +334,36 @@ export default function VideoPreviewModal({
           )}
         </div>
 
-        {/* Timeline / Progress */}
+        {/* Timeline / Progress - matching PreviewModal layout */}
         <div className="video-timeline-section">
-          {/* Progress bar */}
           <div
             className="video-progress-bar"
             ref={progressRef}
             onClick={handleProgressClick}
           >
-            {/* IN/OUT point markers (future feature) */}
-            {inPointPercent !== null && (
-              <div
-                className="timeline-marker in-marker"
-                style={{ left: `${inPointPercent}%` }}
-                title={`IN: ${formatTime(inPoint!)}`}
-              />
-            )}
-            {outPointPercent !== null && (
-              <div
-                className="timeline-marker out-marker"
-                style={{ left: `${outPointPercent}%` }}
-                title={`OUT: ${formatTime(outPoint!)}`}
-              />
-            )}
-
-            {/* Selected region (future feature) */}
-            {inPointPercent !== null && outPointPercent !== null && (
-              <div
-                className="timeline-selection"
-                style={{
-                  left: `${Math.min(inPointPercent, outPointPercent)}%`,
-                  width: `${Math.abs(outPointPercent - inPointPercent)}%`
-                }}
-              />
-            )}
-
-            {/* Progress fill */}
+            <TimelineMarkers
+              inPoint={inPoint}
+              outPoint={outPoint}
+              duration={duration}
+              showMilliseconds={true}
+            />
             <div
               className="progress-fill"
               style={{ width: `${progressPercent}%` }}
             />
-
-            {/* Playhead */}
             <div
               className="progress-playhead"
               style={{ left: `${progressPercent}%` }}
             />
           </div>
-
-          {/* Time display */}
-          <div className="video-time-display">
-            <span className="current-time">{formatTime(currentTime)}</span>
-            <span className="time-separator">/</span>
-            <span className="total-time">{formatTime(duration)}</span>
+          {/* Time display and speed on the right, matching PreviewModal */}
+          <div className="progress-info">
+            <TimeDisplay currentTime={currentTime} totalDuration={duration} showMilliseconds={true} />
+            <PlaybackSpeedControl speed={playbackSpeed} onSpeedChange={setPlaybackSpeed} />
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Controls - matching PreviewModal layout */}
         <div className="video-controls">
           <div className="controls-left">
             {/* Play/Pause */}
@@ -403,104 +391,35 @@ export default function VideoPreviewModal({
               <SkipForward size={18} />
             </button>
 
-            {/* Volume */}
-            <button
-              className="control-btn"
-              onClick={() => setIsMuted(!isMuted)}
-              title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
-            >
-              {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
-            </button>
-            <input
-              type="range"
-              className="volume-slider"
-              min="0"
-              max="1"
-              step="0.05"
-              value={isMuted ? 0 : volume}
-              onChange={handleVolumeChange}
-              title="Volume (↑/↓)"
+            {/* Volume - using global store */}
+            <VolumeControl
+              volume={globalVolume}
+              isMuted={globalMuted}
+              onVolumeChange={setGlobalVolume}
+              onMuteToggle={toggleGlobalMute}
             />
           </div>
 
           <div className="controls-center">
-            {/* Frame capture button */}
-            {onFrameCapture && (
-              <button
-                className="control-btn capture-btn"
-                onClick={handleCaptureFrame}
-                title="Capture current frame as image"
-              >
-                <Camera size={16} />
-                <span>Capture</span>
-              </button>
-            )}
-
-            {/* IN/OUT point buttons */}
-            <button
-              className={`control-btn edit-btn ${inPoint !== null ? 'active' : ''}`}
-              onClick={handleSetInPoint}
-              title="Set IN point (I)"
-            >
-              IN
-            </button>
-            <button
-              className={`control-btn edit-btn ${outPoint !== null ? 'active' : ''}`}
-              onClick={handleSetOutPoint}
-              title="Set OUT point (O)"
-            >
-              OUT
-            </button>
-            {inPoint !== null && outPoint !== null && (
-              <>
-                <span className="clip-duration">
-                  Clip: {formatTime(Math.abs(outPoint - inPoint))}
-                </span>
-                {onClipSave && (
-                  <button
-                    className="control-btn save-clip-btn"
-                    onClick={handleSaveClip}
-                    title="Save clip points"
-                  >
-                    <Save size={16} />
-                    <span>Save</span>
-                  </button>
-                )}
-                <button
-                  className="control-btn clear-btn"
-                  onClick={handleClearPoints}
-                  title="Clear IN/OUT points"
-                >
-                  Clear
-                </button>
-              </>
-            )}
+            {/* Navigation placeholder for alignment */}
           </div>
 
           <div className="controls-right">
-            {/* Playback speed */}
-            <button
-              className="control-btn speed-btn"
-              onClick={() => cycleSpeed(1)}
-              title="Playback speed ([/])"
-            >
-              {playbackSpeed}x
-            </button>
+            {/* IN/OUT controls with conditional Save button */}
+            <ClipRangeControls
+              inPoint={inPoint}
+              outPoint={outPoint}
+              onSetInPoint={handleSetInPoint}
+              onSetOutPoint={handleSetOutPoint}
+              onClear={handleClearPoints}
+              onSave={showSaveButton ? handleSave : undefined}
+              showSaveButton={!!showSaveButton}
+              showMilliseconds={true}
+            />
+            <LoopToggle isLooping={isLooping} onToggle={() => setIsLooping(!isLooping)} />
+            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
           </div>
         </div>
-
-        {/* Future: Extended timeline editor section */}
-        {/* <div className="video-editor-section">
-          <VideoTimeline
-            duration={duration}
-            currentTime={currentTime}
-            inPoint={inPoint}
-            outPoint={outPoint}
-            onSeek={(time) => { videoRef.current.currentTime = time; }}
-            onInPointChange={setInPoint}
-            onOutPointChange={setOutPoint}
-          />
-        </div> */}
       </div>
     </div>
   );

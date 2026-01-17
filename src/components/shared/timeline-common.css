@@ -1,0 +1,231 @@
+/* Timeline Markers - IN/OUT points */
+.timeline-marker {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 4px;
+  transform: translateX(-50%);
+  border-radius: 2px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.timeline-marker.in-marker {
+  background: #4CAF50;
+}
+
+.timeline-marker.out-marker {
+  background: #f44336;
+}
+
+/* Timeline Selection Region */
+.timeline-selection {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(100, 180, 255, 0.3);
+  pointer-events: none;
+}
+
+/* Clip Range Controls Container */
+.clip-range-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Clip Duration Display */
+.clip-duration {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+/* Edit Buttons (IN/OUT) */
+.control-btn.edit-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.control-btn.edit-btn:hover {
+  background: var(--bg-hover);
+}
+
+.control-btn.edit-btn.active {
+  background: var(--accent-primary, var(--accent-color));
+  color: white;
+}
+
+/* Save Clip Button */
+.control-btn.save-clip-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #10b981;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.control-btn.save-clip-btn:hover {
+  background: #059669;
+}
+
+/* Clear Button */
+.control-btn.clear-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.control-btn.clear-btn:hover {
+  color: var(--accent-danger, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Volume Control Container */
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Volume Button */
+.control-btn.volume-btn {
+  background: var(--bg-tertiary);
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.control-btn.volume-btn:hover {
+  background: var(--bg-hover);
+}
+
+/* Volume Slider */
+.volume-slider {
+  width: 80px;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-primary);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: var(--accent-primary, var(--accent-color));
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: var(--accent-primary, var(--accent-color));
+  border-radius: 50%;
+  cursor: pointer;
+  border: none;
+}
+
+/* Time Display */
+.time-display {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+}
+
+/* Speed Display */
+.speed-display {
+  padding: 2px 6px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.speed-display:hover {
+  background-color: var(--accent-primary, var(--accent-color));
+  color: white;
+}
+
+/* Icon Button (Loop, Fullscreen, etc.) */
+.control-btn.icon-btn {
+  background: var(--bg-tertiary);
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.control-btn.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.control-btn.icon-btn.active {
+  background: var(--accent-primary, var(--accent-color));
+  color: white;
+}
+
+/* Progress Info Container */
+.progress-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  min-width: 120px;
+  justify-content: flex-end;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .volume-slider {
+    width: 60px;
+  }
+
+  .clip-range-controls {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+}

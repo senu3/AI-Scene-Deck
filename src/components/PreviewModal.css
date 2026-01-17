@@ -42,10 +42,24 @@
   border-bottom: 1px solid var(--border-color);
 }
 
-.preview-info {
+.header-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.header-center {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.header-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .scene-label {
@@ -56,12 +70,6 @@
 .cut-label {
   font-size: 13px;
   color: var(--text-secondary);
-}
-
-.preview-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .action-btn, .close-btn {
