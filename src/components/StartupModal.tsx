@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Clapperboard, FolderPlus, FolderOpen, Clock, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import type { Scene, Asset } from '../types';
+import type { Scene, Asset, SourcePanelState } from '../types';
 import './StartupModal.css';
 
 // Resolve asset paths from relative to absolute
@@ -73,7 +73,7 @@ interface RecentProject {
 }
 
 export default function StartupModal() {
-  const { initializeProject, setRootFolder } = useStore();
+  const { initializeProject, setRootFolder, initializeSourcePanel } = useStore();
   const [step, setStep] = useState<'choice' | 'new-project'>('choice');
   const [projectName, setProjectName] = useState('');
   const [vaultPath, setVaultPath] = useState('');
@@ -151,6 +151,9 @@ export default function StartupModal() {
           structure,
         });
 
+        // Initialize source panel with default vault assets folder
+        await initializeSourcePanel(undefined, vault.path);
+
         // Note: Recent projects will be updated when the user saves the project for the first time
       } else {
         // Demo mode
@@ -180,7 +183,7 @@ export default function StartupModal() {
     const result = await window.electronAPI.loadProject();
     if (result) {
       const { data, path } = result;
-      const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number };
+      const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number; sourcePanel?: SourcePanelState };
 
       // Determine vault path
       const vaultPath = projectData.vaultPath || path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
@@ -200,6 +203,9 @@ export default function StartupModal() {
         vaultPath: vaultPath,
         scenes: scenes as ReturnType<typeof useStore.getState>['scenes'],
       });
+
+      // Initialize source panel state
+      await initializeSourcePanel(projectData.sourcePanel, vaultPath);
 
       // Show warning for missing assets
       if (missingAssets.length > 0) {
@@ -243,7 +249,7 @@ export default function StartupModal() {
       const result = await window.electronAPI.loadProjectFromPath(project.path);
       if (result) {
         const { data } = result;
-        const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number };
+        const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number; sourcePanel?: SourcePanelState };
 
         // Determine vault path
         const vaultPath = projectData.vaultPath || project.path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
@@ -263,6 +269,9 @@ export default function StartupModal() {
           vaultPath: vaultPath,
           scenes: scenes as ReturnType<typeof useStore.getState>['scenes'],
         });
+
+        // Initialize source panel state
+        await initializeSourcePanel(projectData.sourcePanel, vaultPath);
 
         // Show warning for missing assets
         if (missingAssets.length > 0) {

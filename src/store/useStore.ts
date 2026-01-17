@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project } from '../types';
+import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState } from '../types';
 
 export interface SourceFolder {
   path: string;
@@ -35,6 +35,7 @@ interface AppState {
   rootFolder: { path: string; name: string; structure: FileItem[] } | null; // Legacy, kept for compatibility
   expandedFolders: Set<string>;
   favorites: FavoriteFolder[];
+  sourceViewMode: SourceViewMode;
 
   // Timeline state
   scenes: Scene[];
@@ -68,8 +69,12 @@ interface AppState {
   removeSourceFolder: (path: string) => void;
   updateSourceFolder: (path: string, structure: FileItem[]) => void;
   toggleFolderExpanded: (path: string) => void;
+  setExpandedFolders: (paths: string[]) => void;
   addFavorite: (folder: FavoriteFolder) => void;
   removeFavorite: (path: string) => void;
+  setSourceViewMode: (mode: SourceViewMode) => void;
+  initializeSourcePanel: (state: SourcePanelState | undefined, vaultPath: string | null) => void;
+  getSourcePanelState: () => SourcePanelState;
 
   // Actions - Timeline
   addScene: (name?: string) => string;
@@ -142,6 +147,7 @@ export const useStore = create<AppState>((set, get) => ({
   rootFolder: null,
   expandedFolders: new Set(),
   favorites: [],
+  sourceViewMode: 'list' as SourceViewMode,
   scenes: [],
   selectedSceneId: null,
   selectedCutId: null,
@@ -243,6 +249,8 @@ export const useStore = create<AppState>((set, get) => ({
     return { expandedFolders: newExpanded };
   }),
 
+  setExpandedFolders: (paths) => set({ expandedFolders: new Set(paths) }),
+
   addFavorite: (folder) => set((state) => ({
     favorites: [...state.favorites, folder],
   })),
@@ -250,6 +258,66 @@ export const useStore = create<AppState>((set, get) => ({
   removeFavorite: (path) => set((state) => ({
     favorites: state.favorites.filter((f) => f.path !== path),
   })),
+
+  setSourceViewMode: (mode) => set({ sourceViewMode: mode }),
+
+  initializeSourcePanel: async (state, vaultPath) => {
+    if (state) {
+      // Restore from project state
+      const folders: SourceFolder[] = [];
+      for (const folderState of state.folders) {
+        // Load folder contents
+        if (window.electronAPI) {
+          try {
+            const structure = await window.electronAPI.getFolderContents(folderState.path);
+            folders.push({
+              path: folderState.path,
+              name: folderState.name,
+              structure,
+            });
+          } catch {
+            // Folder may not exist anymore, skip
+          }
+        }
+      }
+      set({
+        sourceFolders: folders,
+        expandedFolders: new Set(state.expandedPaths),
+        sourceViewMode: state.viewMode || 'list',
+      });
+    } else if (vaultPath) {
+      // Default: add vault assets folder
+      const assetsPath = `${vaultPath}/assets`.replace(/\\/g, '/');
+      if (window.electronAPI) {
+        try {
+          const exists = await window.electronAPI.pathExists(assetsPath);
+          if (exists) {
+            const structure = await window.electronAPI.getFolderContents(assetsPath);
+            set({
+              sourceFolders: [{
+                path: assetsPath,
+                name: 'assets',
+                structure,
+              }],
+              expandedFolders: new Set([assetsPath]),
+              sourceViewMode: 'list',
+            });
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
+    }
+  },
+
+  getSourcePanelState: () => {
+    const state = get();
+    return {
+      folders: state.sourceFolders.map(f => ({ path: f.path, name: f.name })),
+      expandedPaths: Array.from(state.expandedFolders),
+      viewMode: state.sourceViewMode,
+    };
+  },
 
   // Timeline actions
   addScene: (name?: string) => {
@@ -814,6 +882,8 @@ export const useStore = create<AppState>((set, get) => ({
       scenes: state.scenes,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      version: 3,
+      sourcePanel: state.getSourcePanelState(),
     };
   },
 

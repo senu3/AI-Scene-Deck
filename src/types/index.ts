@@ -105,6 +105,22 @@ export interface Scene {
   folderPath?: string; // Path to scene folder in vault
 }
 
+// Source panel view mode
+export type SourceViewMode = 'list' | 'grid';
+
+// Source folder stored in project
+export interface SourceFolderState {
+  path: string;
+  name: string;
+}
+
+// Source panel state stored in project
+export interface SourcePanelState {
+  folders: SourceFolderState[];
+  expandedPaths: string[];
+  viewMode: SourceViewMode;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -113,6 +129,8 @@ export interface Project {
   createdAt: string;
   updatedAt: string;
   version?: number;  // 1 = absolute paths, 2 = relative paths with vault sync
+  // Source panel state (v3+)
+  sourcePanel?: SourcePanelState;
 }
 
 export interface FavoriteFolder {

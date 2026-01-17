@@ -1,7 +1,7 @@
 import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
-import type { Scene, Asset } from '../types';
+import type { Scene, Asset, SourcePanelState } from '../types';
 import './Header.css';
 
 // Convert assets to use relative paths for saving
@@ -28,7 +28,7 @@ function prepareScenesForSave(scenes: Scene[]): Scene[] {
 }
 
 export default function Header() {
-  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject } = useStore();
+  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
 
   const handleSaveProject = async () => {
@@ -40,11 +40,15 @@ export default function Header() {
     // Prepare scenes with relative paths for portability
     const scenesToSave = prepareScenesForSave(scenes);
 
+    // Get source panel state for saving
+    const sourcePanelState = getSourcePanelState();
+
     const projectData = JSON.stringify({
-      version: 2, // Version 2 uses relative paths
+      version: 3, // Version 3 includes source panel state
       name: projectName,
       vaultPath: vaultPath,
       scenes: scenesToSave,
+      sourcePanel: sourcePanelState,
       savedAt: new Date().toISOString(),
     });
 
@@ -73,7 +77,7 @@ export default function Header() {
     const result = await window.electronAPI.loadProject();
     if (result) {
       const { data, path } = result;
-      const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number };
+      const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number; sourcePanel?: SourcePanelState };
 
       // Determine vault path
       const loadedVaultPath = projectData.vaultPath || path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
@@ -83,6 +87,9 @@ export default function Header() {
         vaultPath: loadedVaultPath,
         scenes: projectData.scenes || [],
       });
+
+      // Initialize source panel state
+      await initializeSourcePanel(projectData.sourcePanel, loadedVaultPath);
 
       // Update recent projects
       const recentProjects = await window.electronAPI.getRecentProjects();

@@ -11,6 +11,8 @@ import {
   Film,
   RefreshCw,
   X,
+  List,
+  Grid,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
@@ -32,6 +34,8 @@ export default function Sidebar() {
     favorites,
     addFavorite,
     removeFavorite,
+    sourceViewMode,
+    setSourceViewMode,
   } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -242,7 +246,7 @@ export default function Sidebar() {
             </button>
           </div>
           {isExpanded && item.children && (
-            <div className="folder-children">
+            <div className={`folder-children ${sourceViewMode === 'grid' ? 'grid-view' : ''}`}>
               {item.children.map(child => renderFileItem(child, depth + 1))}
             </div>
           )}
@@ -258,6 +262,7 @@ export default function Sidebar() {
         mediaType={mediaType}
         loadThumbnail={loadThumbnail}
         thumbnailCache={thumbnailCache}
+        viewMode={sourceViewMode}
       />
     );
   };
@@ -289,11 +294,25 @@ export default function Sidebar() {
         <div className="section-header">
           <span>Source</span>
           <div className="section-actions">
+            <button
+              className={`action-btn ${sourceViewMode === 'list' ? 'active' : ''}`}
+              onClick={() => setSourceViewMode('list')}
+              title="List View"
+            >
+              <List size={16} />
+            </button>
+            <button
+              className={`action-btn ${sourceViewMode === 'grid' ? 'active' : ''}`}
+              onClick={() => setSourceViewMode('grid')}
+              title="Grid View"
+            >
+              <Grid size={16} />
+            </button>
             <button className="action-btn" onClick={handleRefreshAll} title="Refresh All">
-              <RefreshCw size={14} />
+              <RefreshCw size={16} />
             </button>
             <button className="action-btn" onClick={handleSelectFolder} title="Add Folder">
-              <FolderPlus size={14} />
+              <FolderPlus size={16} />
             </button>
           </div>
         </div>
@@ -330,7 +349,7 @@ export default function Sidebar() {
                     </button>
                   </div>
                   {expandedFolders.has(sourceFolder.path) && (
-                    <div className="folder-children">
+                    <div className={`folder-children ${sourceViewMode === 'grid' ? 'grid-view' : ''}`}>
                       {displayItems.map(item => renderFileItem(item))}
                     </div>
                   )}
@@ -404,9 +423,10 @@ interface FileItemComponentProps {
   mediaType: 'image' | 'video' | null;
   loadThumbnail: (path: string, mediaType: 'image' | 'video' | null) => Promise<string | null | undefined>;
   thumbnailCache: Map<string, string>;
+  viewMode: 'list' | 'grid';
 }
 
-function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCache }: FileItemComponentProps) {
+function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCache, viewMode }: FileItemComponentProps) {
   const { scenes, selectedSceneId, vaultPath } = useStore();
   const { executeCommand } = useHistoryStore();
   const [thumbnail, setThumbnail] = useState<string | null>(
@@ -414,6 +434,21 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Auto-load thumbnail when component mounts (if not already cached)
+  useEffect(() => {
+    if (!thumbnail && !isLoading && mediaType) {
+      const loadThumbnailAsync = async () => {
+        setIsLoading(true);
+        const result = await loadThumbnail(item.path, mediaType);
+        if (result) {
+          setThumbnail(result);
+        }
+        setIsLoading(false);
+      };
+      loadThumbnailAsync();
+    }
+  }, [item.path, mediaType, thumbnail, isLoading, loadThumbnail]);
 
   const handleLoadThumbnail = async () => {
     if (thumbnail || isLoading) return;
@@ -511,6 +546,35 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
     e.dataTransfer.setData('application/json', JSON.stringify(asset));
     e.dataTransfer.effectAllowed = 'copy';
   };
+
+  if (viewMode === 'grid') {
+    return (
+      <div
+        className="file-item-grid"
+        draggable
+        onDragStart={handleDragStart}
+        onMouseEnter={handleLoadThumbnail}
+        onDoubleClick={handleAddToTimeline}
+        title={item.name}
+      >
+        <div className="grid-thumbnail-container">
+          {thumbnail ? (
+            <img src={thumbnail} alt={item.name} className="grid-thumbnail" />
+          ) : (
+            <div className="grid-thumbnail placeholder">
+              {isLoading ? '...' : mediaType === 'video' ? <Film size={24} /> : <Image size={24} />}
+            </div>
+          )}
+          {mediaType === 'video' && (
+            <div className="grid-video-badge">
+              <Film size={10} />
+            </div>
+          )}
+        </div>
+        <span className="grid-file-name">{item.name}</span>
+      </div>
+    );
+  }
 
   return (
     <div
