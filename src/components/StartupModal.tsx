@@ -2,7 +2,17 @@ import { useState, useEffect } from 'react';
 import { Clapperboard, FolderPlus, FolderOpen, Clock, ChevronRight, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Scene, Asset, SourcePanelState } from '../types';
+import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from './MissingAssetRecoveryModal';
+import { importFileToVault } from '../utils/assetPath';
+import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
 import './StartupModal.css';
+
+// Helper to detect media type from filename
+function getMediaType(filename: string): 'image' | 'video' {
+  const ext = filename.toLowerCase().split('.').pop() || '';
+  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
+  return videoExts.includes(ext) ? 'video' : 'image';
+}
 
 // Resolve asset paths from relative to absolute
 async function resolveAssetPath(asset: Asset, vaultPath: string): Promise<Asset> {
@@ -33,9 +43,9 @@ async function resolveAssetPath(asset: Asset, vaultPath: string): Promise<Asset>
 }
 
 // Resolve all asset paths in scenes
-async function resolveScenesAssets(scenes: Scene[], vaultPath: string): Promise<{ scenes: Scene[]; missingAssets: string[] }> {
+async function resolveScenesAssets(scenes: Scene[], vaultPath: string): Promise<{ scenes: Scene[]; missingAssets: MissingAssetInfo[] }> {
   const resolvedScenes: Scene[] = [];
-  const missingAssets: string[] = [];
+  const missingAssets: MissingAssetInfo[] = [];
 
   for (const scene of scenes) {
     const resolvedCuts = await Promise.all(
@@ -47,7 +57,12 @@ async function resolveScenesAssets(scenes: Scene[], vaultPath: string): Promise<
           if (resolvedAsset.path && window.electronAPI) {
             const exists = await window.electronAPI.pathExists(resolvedAsset.path);
             if (!exists) {
-              missingAssets.push(resolvedAsset.name || resolvedAsset.path);
+              missingAssets.push({
+                name: resolvedAsset.name || resolvedAsset.path,
+                cutId: cut.id,
+                sceneId: scene.id,
+                asset: resolvedAsset,
+              });
             }
           }
 
@@ -72,6 +87,15 @@ interface RecentProject {
   date: string;
 }
 
+// Pending project data for recovery dialog
+interface PendingProject {
+  name: string;
+  vaultPath: string;
+  scenes: Scene[];
+  sourcePanelState?: SourcePanelState;
+  projectPath: string;
+}
+
 export default function StartupModal() {
   const { initializeProject, setRootFolder, initializeSourcePanel } = useStore();
   const [step, setStep] = useState<'choice' | 'new-project'>('choice');
@@ -79,6 +103,11 @@ export default function StartupModal() {
   const [vaultPath, setVaultPath] = useState('');
   const [recentProjects, setRecentProjects] = useState<RecentProject[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Recovery dialog state
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [missingAssets, setMissingAssets] = useState<MissingAssetInfo[]>([]);
+  const [pendingProject, setPendingProject] = useState<PendingProject | null>(null);
 
   useEffect(() => {
     loadRecentProjects();
@@ -186,49 +215,175 @@ export default function StartupModal() {
       const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number; sourcePanel?: SourcePanelState };
 
       // Determine vault path
-      const vaultPath = projectData.vaultPath || path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
+      const loadedVaultPath = projectData.vaultPath || path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
 
-      // Resolve asset paths (v2 uses relative paths)
+      // Resolve asset paths (v2+ uses relative paths)
       let scenes = projectData.scenes || [];
-      let missingAssets: string[] = [];
+      let foundMissingAssets: MissingAssetInfo[] = [];
 
-      if (projectData.version === 2 || scenes.some(s => s.cuts?.some(c => c.asset?.path?.startsWith('assets/')))) {
-        const result = await resolveScenesAssets(scenes, vaultPath);
-        scenes = result.scenes;
-        missingAssets = result.missingAssets;
+      if (projectData.version === 2 || projectData.version === 3 || scenes.some(s => s.cuts?.some(c => c.asset?.path?.startsWith('assets/')))) {
+        const resolved = await resolveScenesAssets(scenes, loadedVaultPath);
+        scenes = resolved.scenes;
+        foundMissingAssets = resolved.missingAssets;
       }
 
-      initializeProject({
+      // If there are missing assets, show recovery dialog
+      if (foundMissingAssets.length > 0) {
+        setMissingAssets(foundMissingAssets);
+        setPendingProject({
+          name: projectData.name || 'Loaded Project',
+          vaultPath: loadedVaultPath,
+          scenes,
+          sourcePanelState: projectData.sourcePanel,
+          projectPath: path,
+        });
+        setShowRecoveryDialog(true);
+        return;
+      }
+
+      // No missing assets, proceed directly
+      await finalizeProjectLoad({
         name: projectData.name || 'Loaded Project',
-        vaultPath: vaultPath,
-        scenes: scenes as ReturnType<typeof useStore.getState>['scenes'],
+        vaultPath: loadedVaultPath,
+        scenes,
+        sourcePanelState: projectData.sourcePanel,
+        projectPath: path,
       });
-
-      // Initialize source panel state
-      await initializeSourcePanel(projectData.sourcePanel, vaultPath);
-
-      // Show warning for missing assets
-      if (missingAssets.length > 0) {
-        const displayAssets = missingAssets.slice(0, 5);
-        const remaining = missingAssets.length - displayAssets.length;
-        const message = `Warning: ${missingAssets.length} asset(s) could not be found:\n\n` +
-          displayAssets.join('\n') +
-          (remaining > 0 ? `\n...and ${remaining} more` : '') +
-          '\n\nThese files may have been moved or deleted.';
-        alert(message);
-      }
-
-      // Update recent projects
-      const newRecent: RecentProject = {
-        name: projectData.name || 'Loaded Project',
-        path,
-        date: new Date().toISOString(),
-      };
-      const filtered = recentProjects.filter(p => p.path !== path);
-      const updated = [newRecent, ...filtered.slice(0, 9)];
-      setRecentProjects(updated);
-      await window.electronAPI.saveRecentProjects(updated);
     }
+  };
+
+  // Finalize project loading after recovery decisions (if any)
+  const finalizeProjectLoad = async (project: PendingProject, recoveryDecisions?: RecoveryDecision[]) => {
+    let finalScenes = project.scenes;
+
+    // Apply recovery decisions
+    if (recoveryDecisions && recoveryDecisions.length > 0) {
+      for (const decision of recoveryDecisions) {
+        if (decision.action === 'delete') {
+          // Remove the cut from scenes
+          finalScenes = finalScenes.map(scene => {
+            if (scene.id === decision.sceneId) {
+              return {
+                ...scene,
+                cuts: scene.cuts.filter(cut => cut.id !== decision.cutId),
+              };
+            }
+            return scene;
+          });
+        } else if (decision.action === 'relink' && decision.newPath) {
+          // Update the cut's asset path with new thumbnail and metadata
+          finalScenes = await Promise.all(finalScenes.map(async scene => {
+            if (scene.id === decision.sceneId) {
+              const updatedCuts = await Promise.all(scene.cuts.map(async cut => {
+                if (cut.id === decision.cutId && cut.asset) {
+                  const newPath = decision.newPath!;
+                  const newName = newPath.split(/[/\\]/).pop() || cut.asset.name;
+                  const newType = getMediaType(newName);
+
+                  // Get new thumbnail and metadata
+                  let thumbnail: string | undefined;
+                  let duration: number | undefined;
+                  let metadata: { width?: number; height?: number } | undefined;
+
+                  if (newType === 'video') {
+                    // Extract video metadata and thumbnail
+                    const videoMeta = await extractVideoMetadata(newPath);
+                    if (videoMeta) {
+                      duration = videoMeta.duration;
+                      metadata = { width: videoMeta.width, height: videoMeta.height };
+                    }
+                    const thumb = await generateVideoThumbnail(newPath, 0);
+                    if (thumb) {
+                      thumbnail = thumb;
+                    }
+                  } else {
+                    // Load image as base64 for thumbnail
+                    if (window.electronAPI) {
+                      const base64 = await window.electronAPI.readFileAsBase64(newPath);
+                      if (base64) {
+                        thumbnail = base64;
+                      }
+                    }
+                  }
+
+                  // Import the new file to vault
+                  const importedAsset = await importFileToVault(
+                    newPath,
+                    project.vaultPath,
+                    cut.asset.id,
+                    {
+                      name: newName,
+                      type: newType,
+                      thumbnail,
+                      duration,
+                      metadata,
+                    }
+                  );
+
+                  if (importedAsset) {
+                    return {
+                      ...cut,
+                      asset: { ...importedAsset, thumbnail, duration, metadata },
+                      // Update displayTime for videos
+                      displayTime: newType === 'video' && duration ? duration : cut.displayTime,
+                    };
+                  }
+
+                  // Fallback: just update the path with new info
+                  return {
+                    ...cut,
+                    asset: { ...cut.asset, path: newPath, name: newName, type: newType, thumbnail, duration, metadata },
+                    displayTime: newType === 'video' && duration ? duration : cut.displayTime,
+                  };
+                }
+                return cut;
+              }));
+              return { ...scene, cuts: updatedCuts };
+            }
+            return scene;
+          }));
+        }
+        // For 'skip', we don't modify anything
+      }
+    }
+
+    initializeProject({
+      name: project.name,
+      vaultPath: project.vaultPath,
+      scenes: finalScenes as ReturnType<typeof useStore.getState>['scenes'],
+    });
+
+    // Initialize source panel state
+    await initializeSourcePanel(project.sourcePanelState, project.vaultPath);
+
+    // Update recent projects
+    const newRecent: RecentProject = {
+      name: project.name,
+      path: project.projectPath,
+      date: new Date().toISOString(),
+    };
+    const filtered = recentProjects.filter(p => p.path !== project.projectPath);
+    const updated = [newRecent, ...filtered.slice(0, 9)];
+    setRecentProjects(updated);
+    await window.electronAPI?.saveRecentProjects(updated);
+
+    // Clear recovery state
+    setShowRecoveryDialog(false);
+    setPendingProject(null);
+    setMissingAssets([]);
+  };
+
+  // Handle recovery dialog completion
+  const handleRecoveryComplete = async (decisions: RecoveryDecision[]) => {
+    if (!pendingProject) return;
+    await finalizeProjectLoad(pendingProject, decisions);
+  };
+
+  // Handle recovery dialog cancel
+  const handleRecoveryCancel = () => {
+    setShowRecoveryDialog(false);
+    setPendingProject(null);
+    setMissingAssets([]);
   };
 
   const handleOpenRecent = async (project: RecentProject) => {
@@ -252,46 +407,40 @@ export default function StartupModal() {
         const projectData = data as { name?: string; vaultPath?: string; scenes?: Scene[]; version?: number; sourcePanel?: SourcePanelState };
 
         // Determine vault path
-        const vaultPath = projectData.vaultPath || project.path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
+        const loadedVaultPath = projectData.vaultPath || project.path.replace(/[/\\]project\.sdp$/, '').replace(/[/\\][^/\\]+\.sdp$/, '');
 
-        // Resolve asset paths (v2 uses relative paths)
+        // Resolve asset paths (v2+ uses relative paths)
         let scenes = projectData.scenes || [];
-        let missingAssets: string[] = [];
+        let foundMissingAssets: MissingAssetInfo[] = [];
 
-        if (projectData.version === 2 || scenes.some(s => s.cuts?.some(c => c.asset?.path?.startsWith('assets/')))) {
-          const result = await resolveScenesAssets(scenes, vaultPath);
-          scenes = result.scenes;
-          missingAssets = result.missingAssets;
+        if (projectData.version === 2 || projectData.version === 3 || scenes.some(s => s.cuts?.some(c => c.asset?.path?.startsWith('assets/')))) {
+          const resolved = await resolveScenesAssets(scenes, loadedVaultPath);
+          scenes = resolved.scenes;
+          foundMissingAssets = resolved.missingAssets;
         }
 
-        initializeProject({
+        // If there are missing assets, show recovery dialog
+        if (foundMissingAssets.length > 0) {
+          setMissingAssets(foundMissingAssets);
+          setPendingProject({
+            name: projectData.name || project.name,
+            vaultPath: loadedVaultPath,
+            scenes,
+            sourcePanelState: projectData.sourcePanel,
+            projectPath: project.path,
+          });
+          setShowRecoveryDialog(true);
+          return;
+        }
+
+        // No missing assets, proceed directly
+        await finalizeProjectLoad({
           name: projectData.name || project.name,
-          vaultPath: vaultPath,
-          scenes: scenes as ReturnType<typeof useStore.getState>['scenes'],
+          vaultPath: loadedVaultPath,
+          scenes,
+          sourcePanelState: projectData.sourcePanel,
+          projectPath: project.path,
         });
-
-        // Initialize source panel state
-        await initializeSourcePanel(projectData.sourcePanel, vaultPath);
-
-        // Show warning for missing assets
-        if (missingAssets.length > 0) {
-          const displayAssets = missingAssets.slice(0, 5);
-          const remaining = missingAssets.length - displayAssets.length;
-          const message = `Warning: ${missingAssets.length} asset(s) could not be found:\n\n` +
-            displayAssets.join('\n') +
-            (remaining > 0 ? `\n...and ${remaining} more` : '') +
-            '\n\nThese files may have been moved or deleted.';
-          alert(message);
-        }
-
-        // Update recent projects (move to top)
-        const filtered = recentProjects.filter(p => p.path !== project.path);
-        const updated = [
-          { ...project, date: new Date().toISOString() },
-          ...filtered
-        ];
-        setRecentProjects(updated);
-        await window.electronAPI.saveRecentProjects(updated);
       }
     } catch (error) {
       console.error('Failed to load project:', error);
@@ -421,6 +570,16 @@ export default function StartupModal() {
           </div>
         )}
       </div>
+
+      {/* Missing Asset Recovery Dialog */}
+      {showRecoveryDialog && pendingProject && (
+        <MissingAssetRecoveryModal
+          missingAssets={missingAssets}
+          vaultPath={pendingProject.vaultPath}
+          onComplete={handleRecoveryComplete}
+          onCancel={handleRecoveryCancel}
+        />
+      )}
     </div>
   );
 }

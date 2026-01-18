@@ -580,6 +580,30 @@ ipcMain.handle('path-exists', async (_, checkPath: string) => {
   return fs.existsSync(checkPath);
 });
 
+// Show open file dialog for selecting a single file
+interface OpenFileDialogOptions {
+  title?: string;
+  filters?: { name: string; extensions: string[] }[];
+  defaultPath?: string;
+}
+
+ipcMain.handle('show-open-file-dialog', async (_, options: OpenFileDialogOptions) => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    title: options.title || 'Select File',
+    properties: ['openFile'],
+    filters: options.filters || [
+      { name: 'Media Files', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov', 'avi', 'mkv'] }
+    ],
+    defaultPath: options.defaultPath,
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0];
+});
+
 // Get recent projects (from app data)
 ipcMain.handle('get-recent-projects', async () => {
   try {

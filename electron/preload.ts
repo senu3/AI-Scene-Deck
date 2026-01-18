@@ -137,6 +137,12 @@ export interface RecentProject {
   date: string;
 }
 
+export interface OpenFileDialogOptions {
+  title?: string;
+  filters?: { name: string; extensions: string[] }[];
+  defaultPath?: string;
+}
+
 const electronAPI = {
   // Folder operations
   selectFolder: (): Promise<FolderSelection | null> =>
@@ -178,6 +184,10 @@ const electronAPI = {
 
   pathExists: (path: string): Promise<boolean> =>
     ipcRenderer.invoke('path-exists', path),
+
+  // File dialog
+  showOpenFileDialog: (options?: OpenFileDialogOptions): Promise<string | null> =>
+    ipcRenderer.invoke('show-open-file-dialog', options || {}),
 
   // Project operations
   saveProject: (projectData: string, projectPath?: string): Promise<string | null> =>

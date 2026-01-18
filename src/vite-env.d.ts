@@ -162,6 +162,9 @@ interface ElectronAPI {
   moveToTrash: (filePath: string, trashPath: string) => Promise<string | null>;
   pathExists: (path: string) => Promise<boolean>;
 
+  // File dialog
+  showOpenFileDialog: (options?: { title?: string; filters?: { name: string; extensions: string[] }[]; defaultPath?: string }) => Promise<string | null>;
+
   // Project operations
   saveProject: (projectData: string, projectPath?: string) => Promise<string | null>;
   loadProject: () => Promise<{ data: unknown; path: string } | null>;
