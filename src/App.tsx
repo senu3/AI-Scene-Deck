@@ -2,12 +2,13 @@ import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin,
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
-import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand } from './store/commands';
+import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand, UpdateClipPointsCommand } from './store/commands';
 import Sidebar from './components/Sidebar';
 import Timeline from './components/Timeline';
 import DetailsPanel from './components/DetailsPanel';
 import PlaybackControls from './components/PlaybackControls';
 import PreviewModal from './components/PreviewModal';
+import VideoPreviewModal from './components/VideoPreviewModal';
 import Header from './components/Header';
 import StartupModal from './components/StartupModal';
 import { Trash2 } from 'lucide-react';
@@ -76,6 +77,9 @@ function App() {
     copySelectedCuts,
     canPaste,
     clearCutSelection,
+    videoPreviewCutId,
+    closeVideoPreview,
+    cacheAsset,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -308,6 +312,14 @@ function App() {
     e.stopPropagation();
     setIsWorkspaceDragOver(false);
 
+    // Check if this is an internal drag (from Sidebar) - if so, skip file processing
+    // Internal drags use application/json data and are handled by Timeline's drop handler
+    const jsonData = e.dataTransfer.getData('application/json');
+    if (jsonData) {
+      // This is an internal drag from Sidebar, let Timeline handle it
+      return;
+    }
+
     const files = Array.from(e.dataTransfer.files);
     const targetSceneId = selectedSceneId || scenes[0]?.id;
 
@@ -315,10 +327,13 @@ function App() {
 
     for (const file of files) {
       const mediaType = getMediaType(file.name);
+      // Skip files without a valid path (browser-generated thumbnails, etc.)
+      const filePath = (file as File & { path?: string }).path;
+      if (!filePath) {
+        console.warn('Skipping file without path:', file.name);
+        continue;
+      }
       if (!mediaType) continue; // Skip non-media files
-
-      // Get file path - in Electron we can access the path
-      const filePath = (file as File & { path?: string }).path || file.name;
       const assetId = uuidv4();
 
       // Extract video metadata and thumbnail if it's a video
@@ -456,6 +471,98 @@ function App() {
     }
   }, [scenes, exportResolution, isExporting]);
 
+  // Find cut data for video preview modal
+  const videoPreviewData = useCallback(() => {
+    if (!videoPreviewCutId) return null;
+    for (const scene of scenes) {
+      const cut = scene.cuts.find(c => c.id === videoPreviewCutId);
+      if (cut && cut.asset && cut.asset.type === 'video') {
+        return { scene, cut, asset: cut.asset };
+      }
+    }
+    return null;
+  }, [videoPreviewCutId, scenes]);
+
+  const previewData = videoPreviewData();
+
+  // Handle clip save from video preview modal
+  const handleVideoPreviewClipSave = useCallback(async (inPoint: number, outPoint: number) => {
+    if (!previewData) return;
+    const { scene, cut, asset } = previewData;
+
+    // Update cut with clip points
+    await executeCommand(new UpdateClipPointsCommand(scene.id, cut.id, inPoint, outPoint));
+
+    // Regenerate thumbnail at IN point
+    if (asset.path) {
+      const newThumbnail = await generateVideoThumbnail(asset.path, inPoint);
+      if (newThumbnail) {
+        const updatedAsset = { ...asset, thumbnail: newThumbnail };
+        cacheAsset(updatedAsset);
+      }
+    }
+  }, [previewData, executeCommand, cacheAsset]);
+
+  // Handle frame capture from video preview modal
+  const handleVideoPreviewFrameCapture = useCallback(async (timestamp: number) => {
+    if (!previewData || !vaultPath) {
+      alert('Cannot capture frame: missing required data');
+      return;
+    }
+
+    const { scene, asset } = previewData;
+
+    if (!window.electronAPI?.extractVideoFrame || !window.electronAPI?.ensureAssetsFolder) {
+      alert('Frame capture requires app restart after update.');
+      return;
+    }
+
+    try {
+      const assetsFolder = await window.electronAPI.ensureAssetsFolder(vaultPath);
+      if (!assetsFolder) {
+        alert('Failed to access assets folder');
+        return;
+      }
+
+      const baseName = asset.name.replace(/\.[^/.]+$/, '');
+      const timeStr = timestamp.toFixed(2).replace('.', '_');
+      const uniqueId = uuidv4().substring(0, 8);
+      const frameFileName = `${baseName}_frame_${timeStr}_${uniqueId}.png`;
+      const outputPath = `${assetsFolder}/${frameFileName}`.replace(/\\/g, '/');
+
+      const result = await window.electronAPI.extractVideoFrame({
+        sourcePath: asset.path,
+        outputPath,
+        timestamp,
+      });
+
+      if (!result.success) {
+        alert(`Failed to capture frame: ${result.error}`);
+        return;
+      }
+
+      const thumbnailBase64 = await window.electronAPI.readFileAsBase64(outputPath);
+
+      const newAssetId = uuidv4();
+      const newAsset: Asset = {
+        id: newAssetId,
+        name: frameFileName,
+        path: outputPath,
+        type: 'image',
+        thumbnail: thumbnailBase64 || undefined,
+        vaultRelativePath: `assets/${frameFileName}`,
+      };
+
+      cacheAsset(newAsset);
+      await executeCommand(new AddCutCommand(scene.id, newAsset));
+
+      alert(`Frame captured!\n\nFile: ${frameFileName}`);
+    } catch (error) {
+      console.error('Frame capture failed:', error);
+      alert(`Failed to capture frame: ${error}`);
+    }
+  }, [previewData, vaultPath, cacheAsset, executeCommand]);
+
   // Show startup modal if no project is loaded
   if (!projectLoaded) {
     return <StartupModal />;
@@ -501,6 +608,16 @@ function App() {
             onClose={() => setShowPreview(false)}
             exportResolution={exportResolution}
             onResolutionChange={setExportResolution}
+          />
+        )}
+        {previewData && (
+          <VideoPreviewModal
+            asset={previewData.asset}
+            onClose={closeVideoPreview}
+            initialInPoint={previewData.cut.inPoint}
+            initialOutPoint={previewData.cut.outPoint}
+            onClipSave={handleVideoPreviewClipSave}
+            onFrameCapture={handleVideoPreviewFrameCapture}
           />
         )}
       </div>

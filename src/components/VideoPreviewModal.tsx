@@ -99,6 +99,21 @@ export default function VideoPreviewModal({
     };
   }, [videoUrl]);
 
+  // Frame stepping (assuming 30fps, 1 frame ≈ 0.0333s)
+  const FRAME_DURATION = 1 / 30;
+
+  const stepFrame = useCallback((direction: number) => {
+    if (!videoRef.current) return;
+    // Pause video when stepping frames
+    if (isPlaying) {
+      videoRef.current.pause();
+      setIsPlaying(false);
+    }
+    const newTime = videoRef.current.currentTime + (direction * FRAME_DURATION);
+    videoRef.current.currentTime = Math.max(0, Math.min(duration, newTime));
+    setCurrentTime(videoRef.current.currentTime);
+  }, [duration, isPlaying]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -141,12 +156,20 @@ export default function VideoPreviewModal({
         case 'f':
           toggleFullscreen();
           break;
+        case ',':
+          e.preventDefault();
+          stepFrame(-1); // Previous frame
+          break;
+        case '.':
+          e.preventDefault();
+          stepFrame(1); // Next frame
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTime, playbackSpeed, toggleGlobalMute]);
+  }, [currentTime, playbackSpeed, toggleGlobalMute, stepFrame]);
 
   const togglePlay = useCallback(() => {
     if (!videoRef.current) return;

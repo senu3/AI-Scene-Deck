@@ -158,6 +158,7 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     canPaste,
     pasteCuts,
     vaultPath,
+    openVideoPreview,
   } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -227,6 +228,14 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
 
     // Normal click: single selection
     selectCut(cut.id);
+  };
+
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Only open video preview for video assets
+    if (isVideo && asset) {
+      openVideoPreview(cut.id);
+    }
   };
 
   const getBadgeColor = () => {
@@ -353,6 +362,7 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
       {...listeners}
       className={`cut-card ${isSelected ? 'selected' : ''} ${isMultiSelected ? 'multi-selected' : ''} ${isDragging ? 'dragging' : ''}`}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
     >
       <div className="cut-thumbnail-container">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 import {
   Settings,
   Sparkles,
@@ -13,15 +13,22 @@ import {
   Layers,
   Play,
   Scissors,
-} from 'lucide-react';
-import { useStore } from '../store/useStore';
-import { useHistoryStore } from '../store/historyStore';
-import { UpdateDisplayTimeCommand, RemoveCutCommand, BatchUpdateDisplayTimeCommand, UpdateClipPointsCommand, ClearClipPointsCommand, AddCutCommand } from '../store/commands';
-import { generateVideoThumbnail } from '../utils/videoUtils';
-import VideoPreviewModal from './VideoPreviewModal';
-import type { ImageMetadata, Asset } from '../types';
-import { v4 as uuidv4 } from 'uuid';
-import './DetailsPanel.css';
+} from "lucide-react";
+import { useStore } from "../store/useStore";
+import { useHistoryStore } from "../store/historyStore";
+import {
+  UpdateDisplayTimeCommand,
+  RemoveCutCommand,
+  BatchUpdateDisplayTimeCommand,
+  UpdateClipPointsCommand,
+  ClearClipPointsCommand,
+  AddCutCommand,
+} from "../store/commands";
+import { generateVideoThumbnail } from "../utils/videoUtils";
+import VideoPreviewModal from "./VideoPreviewModal";
+import type { ImageMetadata, Asset } from "../types";
+import { v4 as uuidv4 } from "uuid";
+import "./DetailsPanel.css";
 
 export default function DetailsPanel() {
   const {
@@ -41,10 +48,10 @@ export default function DetailsPanel() {
   const { executeCommand } = useHistoryStore();
 
   const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const [localDisplayTime, setLocalDisplayTime] = useState('2.0');
-  const [batchDisplayTime, setBatchDisplayTime] = useState('2.0');
+  const [localDisplayTime, setLocalDisplayTime] = useState("2.0");
+  const [batchDisplayTime, setBatchDisplayTime] = useState("2.0");
   const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
-  const [noteText, setNoteText] = useState('');
+  const [noteText, setNoteText] = useState("");
   const [showVideoPreview, setShowVideoPreview] = useState(false);
 
   // Find selected scene
@@ -67,7 +74,8 @@ export default function DetailsPanel() {
 
   const cut = selectedCutData?.cut;
   const cutScene = selectedCutData?.scene;
-  const asset = cut?.asset || (cut?.assetId ? getAsset(cut.assetId) : undefined);
+  const asset =
+    cut?.asset || (cut?.assetId ? getAsset(cut.assetId) : undefined);
 
   // Check for multi-selection
   const isMultiSelection = selectedCutIds.size > 1;
@@ -105,7 +113,7 @@ export default function DetailsPanel() {
       // Load metadata - use asset.metadata if available (for videos)
       if (asset.metadata) {
         setMetadata(asset.metadata);
-      } else if (window.electronAPI && asset.type === 'image') {
+      } else if (window.electronAPI && asset.type === "image") {
         // Only call readImageMetadata for images without existing metadata
         try {
           const meta = await window.electronAPI.readImageMetadata(asset.path);
@@ -125,27 +133,31 @@ export default function DetailsPanel() {
     setLocalDisplayTime(value);
     const numValue = parseFloat(value);
     if (!isNaN(numValue) && numValue > 0 && cutScene && cut) {
-      executeCommand(new UpdateDisplayTimeCommand(cutScene.id, cut.id, numValue)).catch((error) => {
-        console.error('Failed to update display time:', error);
+      executeCommand(
+        new UpdateDisplayTimeCommand(cutScene.id, cut.id, numValue),
+      ).catch((error) => {
+        console.error("Failed to update display time:", error);
       });
     }
   };
 
   const handleRemoveCut = async () => {
     if (cutScene && cut) {
-      executeCommand(new RemoveCutCommand(cutScene.id, cut.id)).catch((error) => {
-        console.error('Failed to remove cut:', error);
-      });
+      executeCommand(new RemoveCutCommand(cutScene.id, cut.id)).catch(
+        (error) => {
+          console.error("Failed to remove cut:", error);
+        },
+      );
     }
   };
 
   const handleAddNote = () => {
     if (selectedScene && noteText.trim()) {
       addSceneNote(selectedScene.id, {
-        type: 'text',
+        type: "text",
         content: noteText.trim(),
       });
-      setNoteText('');
+      setNoteText("");
     }
   };
 
@@ -171,9 +183,11 @@ export default function DetailsPanel() {
     }));
 
     if (updates.length > 0) {
-      executeCommand(new BatchUpdateDisplayTimeCommand(updates)).catch((error) => {
-        console.error('Failed to batch update display time:', error);
-      });
+      executeCommand(new BatchUpdateDisplayTimeCommand(updates)).catch(
+        (error) => {
+          console.error("Failed to batch update display time:", error);
+        },
+      );
     }
   };
 
@@ -181,7 +195,7 @@ export default function DetailsPanel() {
     // Delete all selected cuts
     for (const { scene, cut: c } of selectedCuts) {
       executeCommand(new RemoveCutCommand(scene.id, c.id)).catch((error) => {
-        console.error('Failed to remove cut:', error);
+        console.error("Failed to remove cut:", error);
       });
     }
   };
@@ -189,10 +203,12 @@ export default function DetailsPanel() {
   const handleSaveClip = async (inPoint: number, outPoint: number) => {
     if (cutScene && cut && asset) {
       // Update existing cut with clip points
-      await executeCommand(new UpdateClipPointsCommand(cutScene.id, cut.id, inPoint, outPoint));
+      await executeCommand(
+        new UpdateClipPointsCommand(cutScene.id, cut.id, inPoint, outPoint),
+      );
 
       // Regenerate thumbnail at IN point
-      if (asset.path && asset.type === 'video') {
+      if (asset.path && asset.type === "video") {
         const newThumbnail = await generateVideoThumbnail(asset.path, inPoint);
         if (newThumbnail) {
           // Update asset in cache with new thumbnail
@@ -209,7 +225,7 @@ export default function DetailsPanel() {
       await executeCommand(new ClearClipPointsCommand(cutScene.id, cut.id));
 
       // Regenerate thumbnail at time 0
-      if (asset.path && asset.type === 'video') {
+      if (asset.path && asset.type === "video") {
         const newThumbnail = await generateVideoThumbnail(asset.path, 0);
         if (newThumbnail) {
           // Update asset in cache with new thumbnail
@@ -223,29 +239,33 @@ export default function DetailsPanel() {
 
   const handleFrameCapture = async (timestamp: number) => {
     if (!cutScene || !asset?.path || !vaultPath) {
-      alert('Cannot capture frame: missing required data');
+      alert("Cannot capture frame: missing required data");
       return;
     }
 
-    if (!window.electronAPI?.extractVideoFrame || !window.electronAPI?.ensureAssetsFolder) {
-      alert('Frame capture requires app restart after update.');
+    if (
+      !window.electronAPI?.extractVideoFrame ||
+      !window.electronAPI?.ensureAssetsFolder
+    ) {
+      alert("Frame capture requires app restart after update.");
       return;
     }
 
     try {
       // Ensure assets folder exists
-      const assetsFolder = await window.electronAPI.ensureAssetsFolder(vaultPath);
+      const assetsFolder =
+        await window.electronAPI.ensureAssetsFolder(vaultPath);
       if (!assetsFolder) {
-        alert('Failed to access assets folder');
+        alert("Failed to access assets folder");
         return;
       }
 
-      // Generate unique filename: {video_name}_frame_{timestamp}_{uuid}.jpg
-      const baseName = asset.name.replace(/\.[^/.]+$/, '');
-      const timeStr = timestamp.toFixed(2).replace('.', '_');
+      // Generate unique filename: {video_name}_frame_{timestamp}_{uuid}.png
+      const baseName = asset.name.replace(/\.[^/.]+$/, "");
+      const timeStr = timestamp.toFixed(2).replace(".", "_");
       const uniqueId = uuidv4().substring(0, 8);
-      const frameFileName = `${baseName}_frame_${timeStr}_${uniqueId}.jpg`;
-      const outputPath = `${assetsFolder}/${frameFileName}`.replace(/\\/g, '/');
+      const frameFileName = `${baseName}_frame_${timeStr}_${uniqueId}.png`;
+      const outputPath = `${assetsFolder}/${frameFileName}`.replace(/\\/g, "/");
 
       // Extract frame using ffmpeg
       const result = await window.electronAPI.extractVideoFrame({
@@ -260,7 +280,8 @@ export default function DetailsPanel() {
       }
 
       // Read the captured image as base64 for thumbnail
-      const thumbnailBase64 = await window.electronAPI.readFileAsBase64(outputPath);
+      const thumbnailBase64 =
+        await window.electronAPI.readFileAsBase64(outputPath);
 
       // Create new asset for the captured frame
       const newAssetId = uuidv4();
@@ -268,7 +289,7 @@ export default function DetailsPanel() {
         id: newAssetId,
         name: frameFileName,
         path: outputPath,
-        type: 'image',
+        type: "image",
         thumbnail: thumbnailBase64 || undefined,
         vaultRelativePath: `assets/${frameFileName}`,
       };
@@ -282,7 +303,7 @@ export default function DetailsPanel() {
       // Show success message
       alert(`Frame captured!\n\nFile: ${frameFileName}`);
     } catch (error) {
-      console.error('Frame capture failed:', error);
+      console.error("Frame capture failed:", error);
       alert(`Failed to capture frame: ${error}`);
     }
   };
@@ -291,19 +312,22 @@ export default function DetailsPanel() {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     const ms = Math.floor((seconds % 1) * 100);
-    return `${mins}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
   };
 
   const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Unknown';
+    if (!bytes) return "Unknown";
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   // Show multi-selection details
-  if (isMultiSelection && selectionType === 'cut') {
-    const totalDuration = selectedCuts.reduce((acc, { cut: c }) => acc + c.displayTime, 0);
+  if (isMultiSelection && selectionType === "cut") {
+    const totalDuration = selectedCuts.reduce(
+      (acc, { cut: c }) => acc + c.displayTime,
+      0,
+    );
     const sceneGroups = new Map<string, number>();
     selectedCuts.forEach(({ scene }) => {
       sceneGroups.set(scene.name, (sceneGroups.get(scene.name) || 0) + 1);
@@ -319,7 +343,9 @@ export default function DetailsPanel() {
         <div className="details-content">
           <div className="selected-info multi-select">
             <span className="selected-label">MULTI-SELECT</span>
-            <span className="selected-value">{selectedCutIds.size} cuts selected</span>
+            <span className="selected-value">
+              {selectedCutIds.size} cuts selected
+            </span>
           </div>
 
           <div className="multi-select-stats">
@@ -329,7 +355,9 @@ export default function DetailsPanel() {
             </div>
             <div className="stat-item">
               <Layers size={16} />
-              <span>{sceneGroups.size} scene{sceneGroups.size > 1 ? 's' : ''}</span>
+              <span>
+                {sceneGroups.size} scene{sceneGroups.size > 1 ? "s" : ""}
+              </span>
             </div>
           </div>
 
@@ -338,7 +366,9 @@ export default function DetailsPanel() {
             {Array.from(sceneGroups.entries()).map(([sceneName, count]) => (
               <div key={sceneName} className="breakdown-item">
                 <span>{sceneName}</span>
-                <span className="count">{count} cut{count > 1 ? 's' : ''}</span>
+                <span className="count">
+                  {count} cut{count > 1 ? "s" : ""}
+                </span>
               </div>
             ))}
           </div>
@@ -371,7 +401,9 @@ export default function DetailsPanel() {
           </div>
 
           <div className="multi-select-actions">
-            <p className="hint">Ctrl/Cmd+C to copy, Ctrl/Cmd+V to paste, Delete to remove</p>
+            <p className="hint">
+              Ctrl/Cmd+C to copy, Ctrl/Cmd+V to paste, Delete to remove
+            </p>
             <button className="delete-btn batch" onClick={handleBatchDelete}>
               <Trash2 size={14} />
               <span>Delete Selected ({selectedCutIds.size})</span>
@@ -383,7 +415,7 @@ export default function DetailsPanel() {
   }
 
   // Show scene details
-  if (selectionType === 'scene' && selectedScene) {
+  if (selectionType === "scene" && selectedScene) {
     return (
       <aside className="details-panel">
         <div className="details-header">
@@ -458,8 +490,8 @@ export default function DetailsPanel() {
   }
 
   // Show cut details
-  if (selectionType === 'cut' && cut && asset) {
-    const isVideo = asset.type === 'video';
+  if (selectionType === "cut" && cut && asset) {
+    const isVideo = asset.type === "video";
 
     return (
       <aside className="details-panel">
@@ -477,13 +509,17 @@ export default function DetailsPanel() {
           </div>
 
           <div
-            className={`details-preview ${isVideo ? 'clickable' : ''}`}
+            className={`details-preview ${isVideo ? "clickable" : ""}`}
             onClick={isVideo ? () => setShowVideoPreview(true) : undefined}
-            title={isVideo ? 'Click to preview video' : undefined}
+            title={isVideo ? "Click to preview video" : undefined}
           >
             {thumbnail ? (
               <>
-                <img src={thumbnail} alt={asset.name} className="preview-image" />
+                <img
+                  src={thumbnail}
+                  alt={asset.name}
+                  className="preview-image"
+                />
                 {isVideo && (
                   <div className="preview-play-overlay">
                     <Play size={32} />
@@ -503,7 +539,7 @@ export default function DetailsPanel() {
               <span className="info-value">
                 {metadata?.width && metadata?.height
                   ? `${metadata.width}×${metadata.height}`
-                  : 'Unknown'}
+                  : "Unknown"}
               </span>
             </div>
             <div className="info-row">
@@ -537,39 +573,46 @@ export default function DetailsPanel() {
           </div>
 
           {/* Clip Info Section (for video clips) */}
-          {isVideo && cut?.isClip && cut.inPoint !== undefined && cut.outPoint !== undefined && (
-            <div className="clip-info-section">
-              <div className="clip-info-header">
-                <Scissors size={14} />
-                <span>Video Clip</span>
-              </div>
-              <div className="clip-info-content">
-                <div className="clip-times">
-                  <span className="clip-time-label">IN:</span>
-                  <span className="clip-time-value">{formatClipTime(cut.inPoint)}</span>
-                  <span className="clip-time-separator">→</span>
-                  <span className="clip-time-label">OUT:</span>
-                  <span className="clip-time-value">{formatClipTime(cut.outPoint)}</span>
+          {isVideo &&
+            cut?.isClip &&
+            cut.inPoint !== undefined &&
+            cut.outPoint !== undefined && (
+              <div className="clip-info-section">
+                <div className="clip-info-header">
+                  <Scissors size={14} />
+                  <span>Video Clip</span>
                 </div>
-                <div className="clip-actions">
-                  <button
-                    className="clip-edit-btn"
-                    onClick={() => setShowVideoPreview(true)}
-                    title="Edit clip points"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="clip-clear-btn"
-                    onClick={handleClearClip}
-                    title="Clear clip (use full video)"
-                  >
-                    Clear
-                  </button>
+                <div className="clip-info-content">
+                  <div className="clip-times">
+                    <span className="clip-time-label">IN:</span>
+                    <span className="clip-time-value">
+                      {formatClipTime(cut.inPoint)}
+                    </span>
+                    <span className="clip-time-separator">→</span>
+                    <span className="clip-time-label">OUT:</span>
+                    <span className="clip-time-value">
+                      {formatClipTime(cut.outPoint)}
+                    </span>
+                  </div>
+                  <div className="clip-actions">
+                    <button
+                      className="clip-edit-btn"
+                      onClick={() => setShowVideoPreview(true)}
+                      title="Edit clip points"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="clip-clear-btn"
+                      onClick={handleClearClip}
+                      title="Clear clip (use full video)"
+                    >
+                      Clear
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {metadata?.prompt && (
             <div className="metadata-section">
@@ -579,7 +622,9 @@ export default function DetailsPanel() {
               </div>
               {metadata.negativePrompt && (
                 <>
-                  <div className="metadata-header negative">Negative Prompt</div>
+                  <div className="metadata-header negative">
+                    Negative Prompt
+                  </div>
                   <div className="metadata-content prompt-text negative">
                     {metadata.negativePrompt}
                   </div>

@@ -57,6 +57,9 @@ interface AppState {
   globalVolume: number;
   globalMuted: boolean;
 
+  // Video preview modal state
+  videoPreviewCutId: string | null;
+
   // Actions - Project
   setProjectLoaded: (loaded: boolean) => void;
   setProjectPath: (path: string | null) => void;
@@ -130,6 +133,10 @@ interface AppState {
   setGlobalMuted: (muted: boolean) => void;
   toggleGlobalMute: () => void;
 
+  // Actions - Video preview modal
+  openVideoPreview: (cutId: string) => void;
+  closeVideoPreview: () => void;
+
   // Actions - Asset cache
   cacheAsset: (asset: Asset) => void;
   getAsset: (assetId: string) => Asset | undefined;
@@ -169,6 +176,7 @@ export const useStore = create<AppState>((set, get) => ({
   currentPreviewIndex: 0,
   globalVolume: 1,
   globalMuted: false,
+  videoPreviewCutId: null,
 
   // Project actions
   setProjectLoaded: (loaded) => set({ projectLoaded: loaded }),
@@ -859,6 +867,10 @@ export const useStore = create<AppState>((set, get) => ({
   setGlobalVolume: (volume) => set({ globalVolume: volume, globalMuted: volume === 0 }),
   setGlobalMuted: (muted) => set({ globalMuted: muted }),
   toggleGlobalMute: () => set((state) => ({ globalMuted: !state.globalMuted })),
+
+  // Video preview modal actions
+  openVideoPreview: (cutId) => set({ videoPreviewCutId: cutId }),
+  closeVideoPreview: () => set({ videoPreviewCutId: null }),
 
   // Asset cache actions
   cacheAsset: (asset) => set((state) => {

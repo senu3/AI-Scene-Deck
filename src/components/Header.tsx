@@ -255,6 +255,24 @@ export default function Header() {
       }
     }
 
+    // Regenerate thumbnails for video clips at their IN points
+    finalScenes = await Promise.all(finalScenes.map(async scene => {
+      const updatedCuts = await Promise.all(scene.cuts.map(async cut => {
+        // Only process video clips with valid IN points
+        if (cut.isClip && cut.inPoint !== undefined && cut.asset?.type === 'video' && cut.asset.path) {
+          const newThumbnail = await generateVideoThumbnail(cut.asset.path, cut.inPoint);
+          if (newThumbnail) {
+            return {
+              ...cut,
+              asset: { ...cut.asset, thumbnail: newThumbnail },
+            };
+          }
+        }
+        return cut;
+      }));
+      return { ...scene, cuts: updatedCuts };
+    }));
+
     initializeProject({
       name: project.name,
       vaultPath: project.vaultPath,
