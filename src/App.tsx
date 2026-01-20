@@ -80,6 +80,7 @@ function App() {
     videoPreviewCutId,
     closeVideoPreview,
     cacheAsset,
+    updateCutAsset,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -497,11 +498,12 @@ function App() {
     if (asset.path) {
       const newThumbnail = await generateVideoThumbnail(asset.path, inPoint);
       if (newThumbnail) {
-        const updatedAsset = { ...asset, thumbnail: newThumbnail };
-        cacheAsset(updatedAsset);
+        // Update both the cut's asset and the cache
+        updateCutAsset(scene.id, cut.id, { thumbnail: newThumbnail });
+        cacheAsset({ ...asset, thumbnail: newThumbnail });
       }
     }
-  }, [previewData, executeCommand, cacheAsset]);
+  }, [previewData, executeCommand, cacheAsset, updateCutAsset]);
 
   // Handle frame capture from video preview modal
   const handleVideoPreviewFrameCapture = useCallback(async (timestamp: number) => {

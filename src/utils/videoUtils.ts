@@ -101,8 +101,8 @@ export async function generateVideoThumbnail(filePath: string, timeOffset: numbe
     video.src = objectUrl; // Set src immediately after creation to avoid Empty src error
 
     video.onloadedmetadata = () => {
-      // Seek to the desired time
-      video.currentTime = Math.min(timeOffset, video.duration * 0.1);
+      // Seek to the desired time (clamped to video duration)
+      video.currentTime = Math.min(timeOffset, video.duration);
     };
 
     video.onseeked = () => {

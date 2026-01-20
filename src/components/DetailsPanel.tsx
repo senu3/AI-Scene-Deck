@@ -42,6 +42,7 @@ export default function DetailsPanel() {
     removeSceneNote,
     getSelectedCuts,
     cacheAsset,
+    updateCutAsset,
     vaultPath,
   } = useStore();
 
@@ -211,9 +212,9 @@ export default function DetailsPanel() {
       if (asset.path && asset.type === "video") {
         const newThumbnail = await generateVideoThumbnail(asset.path, inPoint);
         if (newThumbnail) {
-          // Update asset in cache with new thumbnail
-          const updatedAsset = { ...asset, thumbnail: newThumbnail };
-          cacheAsset(updatedAsset);
+          // Update both the cut's asset and the cache
+          updateCutAsset(cutScene.id, cut.id, { thumbnail: newThumbnail });
+          cacheAsset({ ...asset, thumbnail: newThumbnail });
           setThumbnail(newThumbnail);
         }
       }
@@ -228,9 +229,9 @@ export default function DetailsPanel() {
       if (asset.path && asset.type === "video") {
         const newThumbnail = await generateVideoThumbnail(asset.path, 0);
         if (newThumbnail) {
-          // Update asset in cache with new thumbnail
-          const updatedAsset = { ...asset, thumbnail: newThumbnail };
-          cacheAsset(updatedAsset);
+          // Update both the cut's asset and the cache
+          updateCutAsset(cutScene.id, cut.id, { thumbnail: newThumbnail });
+          cacheAsset({ ...asset, thumbnail: newThumbnail });
           setThumbnail(newThumbnail);
         }
       }

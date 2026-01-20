@@ -234,21 +234,23 @@ export default function VideoPreviewModal({
     if (videoRef.current) {
       setCurrentTime(videoRef.current.currentTime);
 
-      // If this is an existing clip (both initialInPoint and initialOutPoint set),
-      // stop playback at the OUT point
-      if (initialInPoint !== undefined && initialOutPoint !== undefined) {
-        if (videoRef.current.currentTime >= initialOutPoint) {
+      // If both IN and OUT points are set (local state), constrain playback
+      // This allows clearing points to enable free playback
+      if (inPoint !== null && outPoint !== null) {
+        const clipStart = Math.min(inPoint, outPoint);
+        const clipEnd = Math.max(inPoint, outPoint);
+        if (videoRef.current.currentTime >= clipEnd) {
           if (isLooping) {
-            videoRef.current.currentTime = initialInPoint;
+            videoRef.current.currentTime = clipStart;
           } else {
             videoRef.current.pause();
             setIsPlaying(false);
-            videoRef.current.currentTime = initialInPoint;
+            videoRef.current.currentTime = clipStart;
           }
         }
       }
     }
-  }, [initialInPoint, initialOutPoint, isLooping]);
+  }, [inPoint, outPoint, isLooping]);
 
   const handleLoadedMetadata = useCallback(() => {
     if (videoRef.current) {

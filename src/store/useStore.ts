@@ -106,6 +106,7 @@ interface AppState {
   // Actions - Video Clips
   updateCutClipPoints: (sceneId: string, cutId: string, inPoint: number, outPoint: number) => void;
   clearCutClipPoints: (sceneId: string, cutId: string) => void;
+  updateCutAsset: (sceneId: string, cutId: string, assetUpdates: Partial<Asset>) => void;
 
   // Actions - Selection
   selectScene: (sceneId: string | null) => void;
@@ -534,6 +535,24 @@ export const useStore = create<AppState>((set, get) => ({
                     inPoint: undefined,
                     outPoint: undefined,
                     isClip: false,
+                  }
+                : c
+            ),
+          }
+        : s
+    ),
+  })),
+
+  updateCutAsset: (sceneId, cutId, assetUpdates) => set((state) => ({
+    scenes: state.scenes.map((s) =>
+      s.id === sceneId
+        ? {
+            ...s,
+            cuts: s.cuts.map((c) =>
+              c.id === cutId && c.asset
+                ? {
+                    ...c,
+                    asset: { ...c.asset, ...assetUpdates },
                   }
                 : c
             ),
