@@ -81,6 +81,9 @@ function App() {
     closeVideoPreview,
     cacheAsset,
     updateCutAsset,
+    addLoadingCutToScene,
+    updateCutWithAsset,
+    refreshAllSourceFolders,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -208,28 +211,18 @@ function App() {
     dragDataRef.current = {};
 
     if (!over) {
-      // Dropped outside - check if it's a cut being removed
+      // Dropped outside timeline - just remove cut from timeline (keep file in assets)
       if (activeData.type === 'cut' && activeData.sceneId) {
         const cutId = active.id as string;
-        const cutToRemove = scenes.flatMap(s => s.cuts).find(c => c.id === cutId);
-
-        // Only move file to trash if no other cuts reference the same asset
-        const shouldDeleteFile = cutToRemove?.assetId &&
-          !hasOtherCutsWithSameAsset(scenes, cutId, cutToRemove.assetId);
-
-        const removedCut = removeCut(activeData.sceneId, cutId);
-
-        // Move file to trash if we have the API and no other cuts use this asset
-        if (shouldDeleteFile && removedCut?.asset?.path && trashPath && window.electronAPI) {
-          await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
-        }
+        removeCut(activeData.sceneId, cutId);
+        // Don't move file to trash - just remove from timeline
       }
       return;
     }
 
     const overData = over.data.current as { sceneId?: string; index?: number; type?: string } | undefined;
 
-    // Handle trash drop
+    // Handle trash drop - move file to .trash folder
     if (overData?.type === 'trash' && activeData.type === 'cut' && activeData.sceneId) {
       const cutId = active.id as string;
       const cutToRemove = scenes.flatMap(s => s.cuts).find(c => c.id === cutId);
@@ -243,6 +236,8 @@ function App() {
       // Move file to trash if we have the API and no other cuts use this asset
       if (shouldDeleteFile && removedCut?.asset?.path && trashPath && window.electronAPI) {
         await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
+        // Refresh sidebar after moving to trash
+        refreshAllSourceFolders();
       }
       return;
     }
@@ -337,85 +332,97 @@ function App() {
       if (!mediaType) continue; // Skip non-media files
       const assetId = uuidv4();
 
-      // Extract video metadata and thumbnail if it's a video
-      let duration: number | undefined;
-      let thumbnail: string | undefined;
-      let videoWidth: number | undefined;
-      let videoHeight: number | undefined;
+      // Create empty loading cut card immediately
+      const cutId = addLoadingCutToScene(targetSceneId, assetId, file.name);
 
-      if (mediaType === 'video') {
-        const videoMeta = await extractVideoMetadata(filePath);
-        if (videoMeta) {
-          duration = videoMeta.duration;
-          videoWidth = videoMeta.width;
-          videoHeight = videoMeta.height;
-        }
-        // Generate thumbnail from first frame (timeOffset=0)
-        const thumb = await generateVideoThumbnail(filePath, 0);
-        if (thumb) {
-          thumbnail = thumb;
-        }
-      }
+      // Import file in background
+      (async () => {
+        try {
+          // Extract video metadata and thumbnail if it's a video
+          let duration: number | undefined;
+          let thumbnail: string | undefined;
+          let videoWidth: number | undefined;
+          let videoHeight: number | undefined;
 
-      let asset: Asset;
-
-      // Get file size
-      const fileSize = file.size;
-
-      // If vault path is set, import to vault first
-      if (vaultPath) {
-        const importedAsset = await importFileToVault(
-          filePath,
-          vaultPath,
-          assetId,
-          {
-            name: file.name,
-            type: mediaType,
-            duration,
-            thumbnail,
-            fileSize,
-            metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
+          if (mediaType === 'video') {
+            const videoMeta = await extractVideoMetadata(filePath);
+            if (videoMeta) {
+              duration = videoMeta.duration;
+              videoWidth = videoMeta.width;
+              videoHeight = videoMeta.height;
+            }
+            // Generate thumbnail from first frame (timeOffset=0)
+            const thumb = await generateVideoThumbnail(filePath, 0);
+            if (thumb) {
+              thumbnail = thumb;
+            }
           }
-        );
 
-        if (importedAsset) {
-          asset = importedAsset;
-        } else {
-          // Fallback to original path if import fails
-          console.warn('Failed to import to vault, using original path');
-          asset = {
-            id: assetId,
-            name: file.name,
-            path: filePath,
-            type: mediaType,
-            duration,
-            thumbnail,
-            fileSize,
-            metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-          };
+          let asset: Asset;
+
+          // Get file size
+          const fileSize = file.size;
+
+          // If vault path is set, import to vault first (always copy now)
+          if (vaultPath) {
+            const importedAsset = await importFileToVault(
+              filePath,
+              vaultPath,
+              assetId,
+              {
+                name: file.name,
+                type: mediaType,
+                duration,
+                thumbnail,
+                fileSize,
+                metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
+              }
+            );
+
+            if (importedAsset) {
+              asset = importedAsset;
+            } else {
+              // Fallback to original path if import fails
+              console.warn('Failed to import to vault, using original path');
+              asset = {
+                id: assetId,
+                name: file.name,
+                path: filePath,
+                type: mediaType,
+                duration,
+                thumbnail,
+                fileSize,
+                metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
+              };
+            }
+          } else {
+            // No vault set, use original path
+            asset = {
+              id: assetId,
+              name: file.name,
+              path: filePath,
+              type: mediaType,
+              duration,
+              thumbnail,
+              fileSize,
+              metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
+            };
+          }
+
+          // Update the loading cut with actual asset data
+          const displayTime = mediaType === 'video' && duration ? duration : 1.0;
+          updateCutWithAsset(targetSceneId, cutId, asset, displayTime);
+
+          // Refresh sidebar to show new file in assets folder
+          refreshAllSourceFolders();
+        } catch (error) {
+          console.error('Failed to import file:', error);
+          // Remove the loading cut on error
+          removeCut(targetSceneId, cutId);
         }
-      } else {
-        // No vault set, use original path
-        asset = {
-          id: assetId,
-          name: file.name,
-          path: filePath,
-          type: mediaType,
-          duration,
-          thumbnail,
-          fileSize,
-          metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-        };
-      }
-
-      // Use command for undo/redo support
-      // For videos, set displayTime to video duration
-      const displayTime = mediaType === 'video' && duration ? duration : undefined;
-      executeCommand(new AddCutCommand(targetSceneId, asset, displayTime)).catch((error) => {
-        console.error('Failed to add cut:', error);
-      });
+      })();
     }
-  }, [selectedSceneId, scenes, vaultPath, executeCommand]);
+  }, [selectedSceneId, scenes, vaultPath, addLoadingCutToScene, updateCutWithAsset, refreshAllSourceFolders, removeCut]);
 
   // Export sequence from PlaybackControls
   const handleExportFromControls = useCallback(async () => {

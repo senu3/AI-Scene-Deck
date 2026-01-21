@@ -8,6 +8,8 @@ import { AddCutCommand, AddSceneCommand, RemoveSceneCommand, RenameSceneCommand 
 import CutCard from './CutCard';
 import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { importFileToVault } from '../utils/assetPath';
+import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
 import './Timeline.css';
 
 interface TimelineProps {
@@ -16,7 +18,7 @@ interface TimelineProps {
 }
 
 export default function Timeline({ activeId }: TimelineProps) {
-  const { scenes, selectedSceneId, selectScene } = useStore();
+  const { scenes, selectedSceneId, selectScene, vaultPath, addLoadingCutToScene, updateCutWithAsset, refreshAllSourceFolders, removeCut } = useStore();
   const { executeCommand } = useHistoryStore();
 
   const handleDrop = async (sceneId: string, e: React.DragEvent) => {
@@ -26,13 +28,80 @@ export default function Timeline({ activeId }: TimelineProps) {
     try {
       const data = e.dataTransfer.getData('application/json');
       if (data) {
-        const asset: Asset = JSON.parse(data);
+        let asset: Asset = JSON.parse(data);
         // Ensure the asset has a unique ID
         if (!asset.id) {
           asset.id = uuidv4();
         }
-        // Use command for undo/redo support
-        await executeCommand(new AddCutCommand(sceneId, asset));
+
+        // If vault path is set and asset has originalPath (dragged from Sidebar), import to vault first
+        if (vaultPath && asset.originalPath && !asset.vaultRelativePath) {
+          // Create empty loading cut card immediately
+          const cutId = addLoadingCutToScene(sceneId, asset.id, asset.name);
+
+          // Import file in background
+          (async () => {
+            try {
+              // Extract video metadata if it's a video
+              let duration: number | undefined = asset.duration;
+              let videoWidth: number | undefined;
+              let videoHeight: number | undefined;
+              let thumbnail: string | undefined = asset.thumbnail;
+
+              if (asset.type === 'video' && !duration) {
+                const videoMeta = await extractVideoMetadata(asset.originalPath!);
+                if (videoMeta) {
+                  duration = videoMeta.duration;
+                  videoWidth = videoMeta.width;
+                  videoHeight = videoMeta.height;
+                }
+                if (!thumbnail) {
+                  const thumb = await generateVideoThumbnail(asset.originalPath!, 0);
+                  if (thumb) {
+                    thumbnail = thumb;
+                  }
+                }
+              }
+
+              const importedAsset = await importFileToVault(
+                asset.originalPath!,
+                vaultPath,
+                asset.id,
+                {
+                  name: asset.name,
+                  type: asset.type,
+                  thumbnail,
+                  duration,
+                  metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : asset.metadata,
+                }
+              );
+
+              let finalAsset = asset;
+              if (importedAsset) {
+                finalAsset = importedAsset;
+              } else {
+                console.warn('Failed to import to vault, using original path');
+              }
+
+              // Update the loading cut with actual asset data
+              const displayTime = finalAsset.type === 'video' && (finalAsset.duration || duration) ? (finalAsset.duration || duration || 1.0) : 1.0;
+              updateCutWithAsset(sceneId, cutId, finalAsset, displayTime);
+
+              // Refresh sidebar to show new file in assets folder
+              refreshAllSourceFolders();
+            } catch (error) {
+              console.error('Failed to import file:', error);
+              // Remove the loading cut on error
+              removeCut(sceneId, cutId);
+            }
+          })();
+        } else {
+          // Asset already in vault or no vault set - add directly
+          // Use command for undo/redo support
+          // For videos, set displayTime to video duration
+          const displayTime = asset.type === 'video' && asset.duration ? asset.duration : undefined;
+          await executeCommand(new AddCutCommand(sceneId, asset, displayTime));
+        }
       }
     } catch (error) {
       console.error('Failed to add cut:', error);

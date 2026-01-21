@@ -166,10 +166,40 @@ export default function StartupModal() {
         // Create assets folder for file-based asset sync
         await window.electronAPI.ensureAssetsFolder(vault.path);
 
-        // Initialize project
+        // Initialize project with default 3 scenes
+        const defaultScenes = [
+          { id: crypto.randomUUID(), name: 'Scene 1', cuts: [] },
+          { id: crypto.randomUUID(), name: 'Scene 2', cuts: [] },
+          { id: crypto.randomUUID(), name: 'Scene 3', cuts: [] },
+        ];
+
+        // Save initial empty project file immediately
+        const projectData = JSON.stringify({
+          version: 3,
+          name: projectName,
+          vaultPath: vault.path,
+          scenes: defaultScenes,
+          sourcePanel: undefined,
+          savedAt: new Date().toISOString(),
+        });
+
+        const projectFilePath = `${vault.path}/project.sdp`;
+        await window.electronAPI.saveProject(projectData, projectFilePath);
+
+        // Update recent projects
+        const newRecent: RecentProject = {
+          name: projectName,
+          path: projectFilePath,
+          date: new Date().toISOString(),
+        };
+        const existingRecent = await window.electronAPI.getRecentProjects();
+        await window.electronAPI.saveRecentProjects([newRecent, ...existingRecent.slice(0, 9)]);
+
+        // Initialize project with the scenes we created
         initializeProject({
           name: projectName,
           vaultPath: vault.path,
+          scenes: defaultScenes as any,
         });
 
         // Set root folder to vault
@@ -182,8 +212,6 @@ export default function StartupModal() {
 
         // Initialize source panel with default vault assets folder
         await initializeSourcePanel(undefined, vault.path);
-
-        // Note: Recent projects will be updated when the user saves the project for the first time
       } else {
         // Demo mode
         initializeProject({

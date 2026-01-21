@@ -60,6 +60,9 @@ interface AppState {
   // Video preview modal state
   videoPreviewCutId: string | null;
 
+  // Asset importing state (for progress indicator)
+  isImportingAsset: string | null;  // Name of asset being imported, null if not importing
+
   // Actions - Project
   setProjectLoaded: (loaded: boolean) => void;
   setProjectPath: (path: string | null) => void;
@@ -75,6 +78,7 @@ interface AppState {
   addSourceFolder: (folder: SourceFolder) => void;
   removeSourceFolder: (path: string) => void;
   updateSourceFolder: (path: string, structure: FileItem[]) => void;
+  refreshAllSourceFolders: () => Promise<void>;  // Refresh all source folders
   toggleFolderExpanded: (path: string) => void;
   setExpandedFolders: (paths: string[]) => void;
   addFavorite: (folder: FavoriteFolder) => void;
@@ -97,6 +101,8 @@ interface AppState {
 
   // Actions - Cuts
   addCutToScene: (sceneId: string, asset: Asset) => string; // Returns cutId
+  addLoadingCutToScene: (sceneId: string, assetId: string, loadingName: string) => string; // Returns cutId for loading cut
+  updateCutWithAsset: (sceneId: string, cutId: string, asset: Asset, displayTime?: number) => void; // Update loading cut with actual asset
   removeCut: (sceneId: string, cutId: string) => Cut | null;
   updateCutDisplayTime: (sceneId: string, cutId: string, time: number) => void;
   reorderCuts: (sceneId: string, cutId: string, newIndex: number, fromSceneId: string, oldIndex: number) => void;
@@ -138,6 +144,9 @@ interface AppState {
   openVideoPreview: (cutId: string) => void;
   closeVideoPreview: () => void;
 
+  // Actions - Asset importing
+  setImportingAsset: (name: string | null) => void;
+
   // Actions - Asset cache
   cacheAsset: (asset: Asset) => void;
   getAsset: (assetId: string) => Asset | undefined;
@@ -178,6 +187,7 @@ export const useStore = create<AppState>((set, get) => ({
   globalVolume: 1,
   globalMuted: false,
   videoPreviewCutId: null,
+  isImportingAsset: null,
 
   // Project actions
   setProjectLoaded: (loaded) => set({ projectLoaded: loaded }),
@@ -258,6 +268,24 @@ export const useStore = create<AppState>((set, get) => ({
       f.path === path ? { ...f, structure } : f
     ),
   })),
+
+  refreshAllSourceFolders: async () => {
+    const state = get();
+    if (!window.electronAPI) return;
+
+    for (const folder of state.sourceFolders) {
+      try {
+        const structure = await window.electronAPI.getFolderContents(folder.path);
+        set((state) => ({
+          sourceFolders: state.sourceFolders.map(f =>
+            f.path === folder.path ? { ...f, structure } : f
+          ),
+        }));
+      } catch (error) {
+        console.error('Failed to refresh folder:', folder.path, error);
+      }
+    }
+  },
 
   toggleFolderExpanded: (path) => set((state) => {
     const newExpanded = new Set(state.expandedFolders);
@@ -462,6 +490,65 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     return cutId;
+  },
+
+  // Add a loading cut (empty placeholder while file is being imported)
+  addLoadingCutToScene: (sceneId, assetId, loadingName) => {
+    const scene = get().scenes.find((s) => s.id === sceneId);
+    if (!scene) return '';
+
+    const cutId = uuidv4();
+    const newCut: Cut = {
+      id: cutId,
+      assetId,
+      asset: undefined,
+      displayTime: 1.0,
+      order: scene.cuts.length,
+      isLoading: true,
+      loadingName,
+    };
+
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? { ...s, cuts: [...s.cuts, newCut] }
+          : s
+      ),
+    }));
+
+    return cutId;
+  },
+
+  // Update a loading cut with the actual asset data
+  updateCutWithAsset: (sceneId, cutId, asset, displayTime) => {
+    set((state) => {
+      // Cache the asset
+      const newCache = new Map(state.assetCache);
+      newCache.set(asset.id, asset);
+
+      return {
+        scenes: state.scenes.map((s) =>
+          s.id === sceneId
+            ? {
+                ...s,
+                cuts: s.cuts.map((c) =>
+                  c.id === cutId
+                    ? {
+                        ...c,
+                        asset,
+                        assetId: asset.id,
+                        displayTime: displayTime ?? c.displayTime,
+                        isLoading: false,
+                        loadingName: undefined,
+                      }
+                    : c
+                ),
+              }
+            : s
+        ),
+        assetCache: newCache,
+      };
+    });
   },
 
   removeCut: (sceneId, cutId) => {
@@ -890,6 +977,9 @@ export const useStore = create<AppState>((set, get) => ({
   // Video preview modal actions
   openVideoPreview: (cutId) => set({ videoPreviewCutId: cutId }),
   closeVideoPreview: () => set({ videoPreviewCutId: null }),
+
+  // Asset importing actions
+  setImportingAsset: (name) => set({ isImportingAsset: name }),
 
   // Asset cache actions
   cacheAsset: (asset) => set((state) => {

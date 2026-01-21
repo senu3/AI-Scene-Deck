@@ -15,8 +15,6 @@ import {
   Grid,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import { useHistoryStore } from '../store/historyStore';
-import { AddCutCommand } from '../store/commands';
 import type { FileItem, Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { importFileToVault } from '../utils/assetPath';
@@ -427,8 +425,7 @@ interface FileItemComponentProps {
 }
 
 function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCache, viewMode }: FileItemComponentProps) {
-  const { scenes, selectedSceneId, vaultPath } = useStore();
-  const { executeCommand } = useHistoryStore();
+  const { scenes, selectedSceneId, vaultPath, addLoadingCutToScene, updateCutWithAsset, refreshAllSourceFolders, removeCut } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(
     thumbnailCache.get(item.path) || null
   );
@@ -466,67 +463,92 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
     if (isImporting) return;
 
     setIsImporting(true);
+    const assetId = uuidv4();
 
-    try {
-      const assetId = uuidv4();
-      let asset: Asset;
+    // Create empty loading cut card immediately
+    const cutId = addLoadingCutToScene(targetSceneId, assetId, item.name);
 
-      // Extract video metadata if it's a video
-      let duration: number | undefined;
-      if (mediaType === 'video') {
-        const videoMeta = await extractVideoMetadata(item.path);
-        if (videoMeta) {
-          duration = videoMeta.duration;
-        }
-      }
+    // Import file in background
+    (async () => {
+      try {
+        // Extract video metadata if it's a video
+        let duration: number | undefined;
+        let videoWidth: number | undefined;
+        let videoHeight: number | undefined;
+        let thumbData = thumbnail;
 
-      // If vault path is set, import to vault first
-      if (vaultPath) {
-        const importedAsset = await importFileToVault(
-          item.path,
-          vaultPath,
-          assetId,
-          {
-            name: item.name,
-            type: mediaType || 'image',
-            thumbnail: thumbnail || undefined,
-            duration,
+        if (mediaType === 'video') {
+          const videoMeta = await extractVideoMetadata(item.path);
+          if (videoMeta) {
+            duration = videoMeta.duration;
+            videoWidth = videoMeta.width;
+            videoHeight = videoMeta.height;
           }
-        );
+          if (!thumbData) {
+            const thumb = await generateVideoThumbnail(item.path, 0);
+            if (thumb) {
+              thumbData = thumb;
+            }
+          }
+        }
 
-        if (importedAsset) {
-          asset = importedAsset;
+        let asset: Asset;
+
+        // If vault path is set, import to vault first
+        if (vaultPath) {
+          const importedAsset = await importFileToVault(
+            item.path,
+            vaultPath,
+            assetId,
+            {
+              name: item.name,
+              type: mediaType || 'image',
+              thumbnail: thumbData || undefined,
+              duration,
+              metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
+            }
+          );
+
+          if (importedAsset) {
+            asset = importedAsset;
+          } else {
+            // Fallback to original path if import fails
+            console.warn('Failed to import to vault, using original path');
+            asset = {
+              id: assetId,
+              name: item.name,
+              path: item.path,
+              type: mediaType || 'image',
+              thumbnail: thumbData || undefined,
+              duration,
+            };
+          }
         } else {
-          // Fallback to original path if import fails
-          console.warn('Failed to import to vault, using original path');
+          // No vault set, use original path
           asset = {
             id: assetId,
             name: item.name,
             path: item.path,
             type: mediaType || 'image',
-            thumbnail: thumbnail || undefined,
+            thumbnail: thumbData || undefined,
             duration,
           };
         }
-      } else {
-        // No vault set, use original path
-        asset = {
-          id: assetId,
-          name: item.name,
-          path: item.path,
-          type: mediaType || 'image',
-          thumbnail: thumbnail || undefined,
-          duration,
-        };
-      }
 
-      // Use command for undo/redo support
-      await executeCommand(new AddCutCommand(targetSceneId, asset));
-    } catch (error) {
-      console.error('Failed to add cut:', error);
-    } finally {
-      setIsImporting(false);
-    }
+        // Update the loading cut with actual asset data
+        const displayTime = mediaType === 'video' && duration ? duration : 1.0;
+        updateCutWithAsset(targetSceneId, cutId, asset, displayTime);
+
+        // Refresh sidebar to show new file in assets folder
+        refreshAllSourceFolders();
+      } catch (error) {
+        console.error('Failed to add cut:', error);
+        // Remove the loading cut on error
+        removeCut(targetSceneId, cutId);
+      } finally {
+        setIsImporting(false);
+      }
+    })();
   };
 
   const handleDragStart = async (e: React.DragEvent) => {

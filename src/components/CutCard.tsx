@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, useEffect, useRef } from 'react';
-import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download } from 'lucide-react';
+import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Scene } from '../types';
 import './CutCard.css';
@@ -17,6 +17,9 @@ interface CutCardProps {
     inPoint?: number;
     outPoint?: number;
     isClip?: boolean;
+    // Loading state
+    isLoading?: boolean;
+    loadingName?: string;
   };
   sceneId: string;
   index: number;
@@ -162,6 +165,29 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
   } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [showLoadingSpinner, setShowLoadingSpinner] = useState(false);
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Show spinner after 1 second of loading
+  useEffect(() => {
+    if (cut.isLoading) {
+      loadingTimerRef.current = setTimeout(() => {
+        setShowLoadingSpinner(true);
+      }, 1000);
+    } else {
+      setShowLoadingSpinner(false);
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+      }
+    };
+  }, [cut.isLoading]);
 
   const {
     attributes,
@@ -352,6 +378,30 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
 
     setContextMenu(null);
   };
+
+  // If loading, show loading card
+  if (cut.isLoading) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        className={`cut-card loading ${isDragging ? 'dragging' : ''}`}
+      >
+        <div className="cut-thumbnail-container">
+          <div className="cut-thumbnail placeholder loading-placeholder">
+            {showLoadingSpinner && (
+              <Loader2 size={24} className="loading-spinner" />
+            )}
+          </div>
+          <div className="cut-loading-name" title={cut.loadingName}>
+            {cut.loadingName}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
