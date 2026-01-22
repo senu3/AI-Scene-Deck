@@ -8,7 +8,6 @@ import Timeline from './components/Timeline';
 import DetailsPanel from './components/DetailsPanel';
 import PlaybackControls from './components/PlaybackControls';
 import PreviewModal from './components/PreviewModal';
-import VideoPreviewModal from './components/VideoPreviewModal';
 import Header from './components/Header';
 import StartupModal from './components/StartupModal';
 import { Trash2 } from 'lucide-react';
@@ -620,13 +619,15 @@ function App() {
           />
         )}
         {previewData && (
-          <VideoPreviewModal
+          <PreviewModal
             asset={previewData.asset}
             onClose={closeVideoPreview}
             initialInPoint={previewData.cut.inPoint}
             initialOutPoint={previewData.cut.outPoint}
             onClipSave={handleVideoPreviewClipSave}
             onFrameCapture={handleVideoPreviewFrameCapture}
+            exportResolution={exportResolution}
+            onResolutionChange={setExportResolution}
           />
         )}
       </div>

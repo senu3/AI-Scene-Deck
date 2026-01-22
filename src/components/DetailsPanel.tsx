@@ -25,7 +25,7 @@ import {
   AddCutCommand,
 } from "../store/commands";
 import { generateVideoThumbnail } from "../utils/videoUtils";
-import VideoPreviewModal from "./VideoPreviewModal";
+import PreviewModal from "./PreviewModal";
 import type { ImageMetadata, Asset } from "../types";
 import { v4 as uuidv4 } from "uuid";
 import "./DetailsPanel.css";
@@ -663,7 +663,7 @@ export default function DetailsPanel() {
 
         {/* Video Preview Modal */}
         {showVideoPreview && asset && isVideo && (
-          <VideoPreviewModal
+          <PreviewModal
             asset={asset}
             onClose={() => setShowVideoPreview(false)}
             initialInPoint={cut?.inPoint}

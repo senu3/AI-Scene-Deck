@@ -622,6 +622,8 @@ export const useStore = create<AppState>((set, get) => ({
                     inPoint: undefined,
                     outPoint: undefined,
                     isClip: false,
+                    // Restore displayTime to original video duration
+                    displayTime: c.asset?.duration ?? c.displayTime,
                   }
                 : c
             ),
