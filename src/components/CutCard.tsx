@@ -258,8 +258,8 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
 
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Only open video preview for video assets
-    if (isVideo && asset) {
+    // Open Single Mode preview for both video and image assets
+    if (asset) {
       openVideoPreview(cut.id);
     }
   };

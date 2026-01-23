@@ -134,28 +134,52 @@ export default function PreviewModal({
 
   // ===== SINGLE MODE LOGIC =====
 
-  // Load video URL for Single Mode
+  // Detect if Single Mode asset is video or image
+  const isSingleModeVideo = isSingleMode && asset?.type === 'video';
+  const isSingleModeImage = isSingleMode && asset?.type === 'image';
+
+  // State for image data in Single Mode
+  const [singleModeImageData, setSingleModeImageData] = useState<string | null>(null);
+
+  // Load video URL or image data for Single Mode
   useEffect(() => {
-    if (!isSingleMode || !asset.path) return;
+    if (!isSingleMode || !asset?.path) return;
 
     let isMounted = true;
 
-    const loadVideo = async () => {
+    const loadAsset = async () => {
       setIsLoading(true);
-      const url = await createVideoObjectUrl(asset.path);
 
-      if (isMounted && url) {
-        setVideoObjectUrl(url);
+      if (asset.type === 'video') {
+        const url = await createVideoObjectUrl(asset.path);
+        if (isMounted && url) {
+          setVideoObjectUrl(url);
+        }
+      } else if (asset.type === 'image') {
+        // Load image as base64
+        if (asset.thumbnail) {
+          setSingleModeImageData(asset.thumbnail);
+        } else if (window.electronAPI) {
+          try {
+            const base64 = await window.electronAPI.readFileAsBase64(asset.path);
+            if (isMounted && base64) {
+              setSingleModeImageData(base64);
+            }
+          } catch {
+            // Failed to load image
+          }
+        }
       }
+
       setIsLoading(false);
     };
 
-    loadVideo();
+    loadAsset();
 
     return () => {
       isMounted = false;
     };
-  }, [isSingleMode, asset?.path]);
+  }, [isSingleMode, asset?.path, asset?.type, asset?.thumbnail]);
 
   // Cleanup Object URL on unmount (Single Mode)
   useEffect(() => {
@@ -1251,9 +1275,9 @@ export default function PreviewModal({
             {isLoading ? (
               <div className="preview-placeholder">
                 <div className="loading-spinner" />
-                <p>Loading video...</p>
+                <p>Loading {isSingleModeVideo ? 'video' : 'image'}...</p>
               </div>
-            ) : videoObjectUrl ? (
+            ) : isSingleModeVideo && videoObjectUrl ? (
               (() => {
                 const viewportStyle = getViewportStyle();
                 const videoContent = (
@@ -1299,87 +1323,127 @@ export default function PreviewModal({
                   </>
                 );
               })()
+            ) : isSingleModeImage && singleModeImageData ? (
+              (() => {
+                const viewportStyle = getViewportStyle();
+                const imageContent = (
+                  <img
+                    src={singleModeImageData}
+                    alt={asset?.name || 'Preview'}
+                    className="preview-media"
+                  />
+                );
+
+                if (viewportStyle) {
+                  return (
+                    <div
+                      className="resolution-viewport"
+                      style={{
+                        width: viewportStyle.width,
+                        height: viewportStyle.height,
+                      }}
+                    >
+                      <div className="resolution-label">
+                        {selectedResolution.name} ({selectedResolution.width}×{selectedResolution.height})
+                      </div>
+                      {imageContent}
+                    </div>
+                  );
+                }
+
+                return imageContent;
+              })()
             ) : (
               <div className="preview-placeholder">
-                <p>Failed to load video</p>
+                <p>Failed to load {isSingleModeVideo ? 'video' : 'image'}</p>
               </div>
             )}
           </div>
 
-          {/* Progress bar with time display */}
-          <div className="preview-progress">
-            <div
-              className="progress-bar scrub-enabled"
-              ref={progressBarRef}
-              onClick={handleSingleModeProgressClick}
-            >
-              <TimelineMarkers
-                inPoint={inPoint}
-                outPoint={outPoint}
-                duration={singleModeDuration}
-                showMilliseconds={true}
-              />
-              <div className="progress-fill" style={{ width: `${singleModeProgressPercent}%` }} />
-              <div className="progress-handle" style={{ left: `${singleModeProgressPercent}%` }} />
+          {/* Progress bar with time display - only for video */}
+          {isSingleModeVideo && (
+            <div className="preview-progress">
+              <div
+                className="progress-bar scrub-enabled"
+                ref={progressBarRef}
+                onClick={handleSingleModeProgressClick}
+              >
+                <TimelineMarkers
+                  inPoint={inPoint}
+                  outPoint={outPoint}
+                  duration={singleModeDuration}
+                  showMilliseconds={true}
+                />
+                <div className="progress-fill" style={{ width: `${singleModeProgressPercent}%` }} />
+                <div className="progress-handle" style={{ left: `${singleModeProgressPercent}%` }} />
+              </div>
+              <div className="progress-info">
+                <TimeDisplay currentTime={singleModeCurrentTime} totalDuration={singleModeDuration} showMilliseconds={true} />
+                <PlaybackSpeedControl speed={playbackSpeed} onSpeedChange={setPlaybackSpeed} />
+              </div>
             </div>
-            <div className="progress-info">
-              <TimeDisplay currentTime={singleModeCurrentTime} totalDuration={singleModeDuration} showMilliseconds={true} />
-              <PlaybackSpeedControl speed={playbackSpeed} onSpeedChange={setPlaybackSpeed} />
-            </div>
-          </div>
+          )}
 
-          {/* Controls: Left=play/skip/volume, Center=(empty), Right=IN/OUT+loop+fullscreen */}
+          {/* Controls */}
           <div className="preview-controls">
             <div className="controls-left">
-              {/* Play/Pause */}
-              <button
-                className="control-btn"
-                onClick={toggleSingleModePlay}
-                title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-              >
-                {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-              </button>
+              {isSingleModeVideo && (
+                <>
+                  {/* Play/Pause */}
+                  <button
+                    className="control-btn"
+                    onClick={toggleSingleModePlay}
+                    title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+                  >
+                    {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                  </button>
 
-              {/* Skip buttons */}
-              <button
-                className="control-btn"
-                onClick={() => skip(-5)}
-                title="Rewind 5s (←)"
-              >
-                <SkipBack size={18} />
-              </button>
-              <button
-                className="control-btn"
-                onClick={() => skip(5)}
-                title="Forward 5s (→)"
-              >
-                <SkipForward size={18} />
-              </button>
+                  {/* Skip buttons */}
+                  <button
+                    className="control-btn"
+                    onClick={() => skip(-5)}
+                    title="Rewind 5s (←)"
+                  >
+                    <SkipBack size={18} />
+                  </button>
+                  <button
+                    className="control-btn"
+                    onClick={() => skip(5)}
+                    title="Forward 5s (→)"
+                  >
+                    <SkipForward size={18} />
+                  </button>
 
-              {/* Volume */}
-              <VolumeControl
-                volume={globalVolume}
-                isMuted={globalMuted}
-                onVolumeChange={setGlobalVolume}
-                onMuteToggle={toggleGlobalMute}
-              />
+                  {/* Volume */}
+                  <VolumeControl
+                    volume={globalVolume}
+                    isMuted={globalMuted}
+                    onVolumeChange={setGlobalVolume}
+                    onMuteToggle={toggleGlobalMute}
+                  />
+                </>
+              )}
             </div>
             <div className="controls-center">
-              {/* Empty for Single Mode - no Prev/Next navigation */}
+              {/* Empty for Single Mode */}
             </div>
             <div className="controls-right">
-              {/* IN/OUT controls with conditional Save button */}
-              <ClipRangeControls
-                inPoint={inPoint}
-                outPoint={outPoint}
-                onSetInPoint={handleSingleModeSetInPoint}
-                onSetOutPoint={handleSingleModeSetOutPoint}
-                onClear={handleClearPoints}
-                onSave={showSingleModeSaveButton ? handleSingleModeSave : undefined}
-                showSaveButton={!!showSingleModeSaveButton}
-                showMilliseconds={true}
-              />
-              <LoopToggle isLooping={isLooping} onToggle={() => setIsLooping(!isLooping)} />
+              {/* IN/OUT controls - only for video */}
+              {isSingleModeVideo && (
+                <>
+                  <ClipRangeControls
+                    inPoint={inPoint}
+                    outPoint={outPoint}
+                    onSetInPoint={handleSingleModeSetInPoint}
+                    onSetOutPoint={handleSingleModeSetOutPoint}
+                    onClear={handleClearPoints}
+                    onSave={showSingleModeSaveButton ? handleSingleModeSave : undefined}
+                    showSaveButton={!!showSingleModeSaveButton}
+                    showMilliseconds={true}
+                  />
+                  <LoopToggle isLooping={isLooping} onToggle={() => setIsLooping(!isLooping)} />
+                </>
+              )}
               <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
             </div>
           </div>

@@ -4,7 +4,7 @@ import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
 import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand, UpdateClipPointsCommand } from './store/commands';
 import Sidebar from './components/Sidebar';
-import Timeline from './components/Timeline';
+import Storyline from './components/Storyline';
 import DetailsPanel from './components/DetailsPanel';
 import PlaybackControls from './components/PlaybackControls';
 import PreviewModal from './components/PreviewModal';
@@ -478,19 +478,19 @@ function App() {
     }
   }, [scenes, exportResolution, isExporting]);
 
-  // Find cut data for video preview modal
-  const videoPreviewData = useCallback(() => {
+  // Find cut data for Single Mode preview modal
+  const previewCutData = useCallback(() => {
     if (!videoPreviewCutId) return null;
     for (const scene of scenes) {
       const cut = scene.cuts.find(c => c.id === videoPreviewCutId);
-      if (cut && cut.asset && cut.asset.type === 'video') {
+      if (cut && cut.asset) {
         return { scene, cut, asset: cut.asset };
       }
     }
     return null;
   }, [videoPreviewCutId, scenes]);
 
-  const previewData = videoPreviewData();
+  const previewData = previewCutData();
 
   // Handle clip save from video preview modal
   const handleVideoPreviewClipSave = useCallback(async (inPoint: number, outPoint: number) => {
@@ -594,7 +594,7 @@ function App() {
             onDragLeave={handleWorkspaceDragLeave}
             onDrop={handleWorkspaceDrop}
           >
-            <Timeline activeId={activeId} activeType={activeType} />
+            <Storyline activeId={activeId} activeType={activeType} />
             <PlaybackControls
               onPreview={() => setShowPreview(true)}
               onExport={handleExportFromControls}

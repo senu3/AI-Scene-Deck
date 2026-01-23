@@ -510,9 +510,9 @@ export default function DetailsPanel() {
           </div>
 
           <div
-            className={`details-preview ${isVideo ? "clickable" : ""}`}
-            onClick={isVideo ? () => setShowVideoPreview(true) : undefined}
-            title={isVideo ? "Click to preview video" : undefined}
+            className="details-preview clickable"
+            onClick={() => setShowVideoPreview(true)}
+            title="Click to preview"
           >
             {thumbnail ? (
               <>
@@ -661,15 +661,15 @@ export default function DetailsPanel() {
           </div>
         </div>
 
-        {/* Video Preview Modal */}
-        {showVideoPreview && asset && isVideo && (
+        {/* Single Mode Preview Modal */}
+        {showVideoPreview && asset && (
           <PreviewModal
             asset={asset}
             onClose={() => setShowVideoPreview(false)}
             initialInPoint={cut?.inPoint}
             initialOutPoint={cut?.outPoint}
-            onClipSave={handleSaveClip}
-            onFrameCapture={handleFrameCapture}
+            onClipSave={isVideo ? handleSaveClip : undefined}
+            onFrameCapture={isVideo ? handleFrameCapture : undefined}
           />
         )}
       </aside>

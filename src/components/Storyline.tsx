@@ -10,14 +10,14 @@ import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
-import './Timeline.css';
+import './Storyline.css';
 
-interface TimelineProps {
+interface StorylineProps {
   activeId: string | null;
   activeType: 'cut' | 'scene' | null;
 }
 
-export default function Timeline({ activeId }: TimelineProps) {
+export default function Storyline({ activeId }: StorylineProps) {
   const { scenes, selectedSceneId, selectScene, vaultPath, addLoadingCutToScene, updateCutWithAsset, refreshAllSourceFolders, removeCut } = useStore();
   const { executeCommand } = useHistoryStore();
 
