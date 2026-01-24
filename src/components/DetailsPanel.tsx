@@ -2,12 +2,14 @@ import { useState, useEffect } from "react";
 import {
   Settings,
   Sparkles,
-  Wand2,
+  Link,
+  Music,
   Trash2,
   Clock,
   FileImage,
   Film,
   Plus,
+  Minus,
   StickyNote,
   X,
   Layers,
@@ -25,6 +27,7 @@ import {
   AddCutCommand,
 } from "../store/commands";
 import { generateVideoThumbnail } from "../utils/videoUtils";
+// Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
 import type { ImageMetadata, Asset } from "../types";
 import { v4 as uuidv4 } from "uuid";
@@ -44,6 +47,12 @@ export default function DetailsPanel() {
     cacheAsset,
     updateCutAsset,
     vaultPath,
+    metadataStore,
+    attachAudioToAsset,
+    detachAudioFromAsset,
+    getAttachedAudio,
+    updateAudioOffset,
+    relinkCutAsset,
   } = useStore();
 
   const { executeCommand } = useHistoryStore();
@@ -54,6 +63,11 @@ export default function DetailsPanel() {
   const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
   const [noteText, setNoteText] = useState("");
   const [showVideoPreview, setShowVideoPreview] = useState(false);
+
+  // Attached audio state
+  const [attachedAudio, setAttachedAudio] = useState<Asset | undefined>(undefined);
+  const [attachedAudioDuration, setAttachedAudioDuration] = useState<number | null>(null);
+  const [audioOffset, setAudioOffset] = useState("0.0");
 
   // Find selected scene
   const selectedScene = selectedSceneId
@@ -88,6 +102,28 @@ export default function DetailsPanel() {
       setLocalDisplayTime(cut.displayTime.toFixed(1));
     }
   }, [cut?.displayTime, cut]);
+
+  // Load attached audio info
+  useEffect(() => {
+    const loadAttachedAudio = async () => {
+      setAttachedAudio(undefined);
+      setAttachedAudioDuration(null);
+
+      if (!asset?.id) return;
+
+      const audio = getAttachedAudio(asset.id);
+      setAttachedAudio(audio);
+
+      // Load offset from metadata
+      const meta = metadataStore?.metadata[asset.id];
+      setAudioOffset((meta?.attachedAudioOffset ?? 0).toFixed(1));
+
+      // Use duration from asset (set during import)
+      setAttachedAudioDuration(audio?.duration ?? null);
+    };
+
+    loadAttachedAudio();
+  }, [asset?.id, metadataStore, getAttachedAudio]);
 
   // Load thumbnail and metadata
   useEffect(() => {
@@ -238,6 +274,154 @@ export default function DetailsPanel() {
     }
   };
 
+  // Attach audio handler
+  // TODO: 音声紐づけ後にPreviewModalを開くとクラッシュする問題あり（原因調査中）
+  const handleAttachAudio = async () => {
+    if (!asset || !vaultPath || !window.electronAPI) return;
+
+    let filePath: string | null = null;
+    try {
+      filePath = await window.electronAPI.showOpenFileDialog({
+        title: 'Attach Audio File',
+        filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }],
+      });
+    } catch (error) {
+      console.error('Failed to open file dialog:', error);
+      return;
+    }
+
+    if (!filePath) return;
+
+    try {
+      const audioAssetId = uuidv4();
+
+      // Import to vault
+      const importResult = await window.electronAPI.importAssetToVault(
+        filePath,
+        vaultPath,
+        audioAssetId
+      );
+
+      if (!importResult.success) {
+        alert(`Failed to import audio: ${importResult.error}`);
+        return;
+      }
+
+      // Get file info (with null check)
+      const audioPath = importResult.vaultPath;
+      if (!audioPath) {
+        alert('Failed to get audio path after import');
+        return;
+      }
+
+      const fileInfo = await window.electronAPI.getFileInfo(audioPath);
+
+      // Note: Duration is not fetched here to avoid mixing HTMLAudioElement with Web Audio API
+      // Duration will be available from AudioManager.getDuration() after load
+
+      // Create audio asset
+      const audioAsset: Asset = {
+        id: audioAssetId,
+        name: fileInfo?.name || filePath.split(/[/\\]/).pop() || 'audio',
+        path: audioPath,
+        type: 'audio',
+        vaultRelativePath: importResult.relativePath,
+        hash: importResult.hash,
+        fileSize: fileInfo?.size,
+      };
+
+      // Attach to asset
+      attachAudioToAsset(asset.id, audioAsset);
+    } catch (error) {
+      console.error('Failed to attach audio:', error);
+      alert(`Failed to attach audio: ${error}`);
+    }
+  };
+
+  // Detach audio handler
+  const handleDetachAudio = () => {
+    if (!asset) return;
+    detachAudioFromAsset(asset.id);
+  };
+
+  // Relink file handler
+  const handleRelinkFile = async () => {
+    if (!cutScene || !cut || !vaultPath || !window.electronAPI) return;
+
+    const filePath = await window.electronAPI.showOpenFileDialog({
+      title: 'Select New File',
+      filters: [{ name: 'Media', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm', 'mov', 'avi', 'mkv'] }],
+    });
+
+    if (!filePath) return;
+
+    try {
+      const newAssetId = uuidv4();
+
+      // Import to vault
+      const importResult = await window.electronAPI.importAssetToVault(
+        filePath,
+        vaultPath,
+        newAssetId
+      );
+
+      if (!importResult.success) {
+        alert(`Failed to import file: ${importResult.error}`);
+        return;
+      }
+
+      // Get file info
+      const fileInfo = await window.electronAPI.getFileInfo(importResult.vaultPath!);
+      const ext = fileInfo?.extension?.toLowerCase() || '';
+      const isVideo = ['.mp4', '.webm', '.mov', '.avi', '.mkv'].includes(ext);
+
+      // Create new asset
+      const newAsset: Asset = {
+        id: newAssetId,
+        name: fileInfo?.name || 'asset',
+        path: importResult.vaultPath!,
+        type: isVideo ? 'video' : 'image',
+        vaultRelativePath: importResult.relativePath,
+        hash: importResult.hash,
+        fileSize: fileInfo?.size,
+      };
+
+      // Load thumbnail for images or generate for videos
+      if (isVideo) {
+        const thumbnail = await generateVideoThumbnail(importResult.vaultPath!);
+        if (thumbnail) {
+          newAsset.thumbnail = thumbnail;
+        }
+      } else if (window.electronAPI) {
+        const thumbnail = await window.electronAPI.readFileAsBase64(importResult.vaultPath!);
+        if (thumbnail) {
+          newAsset.thumbnail = thumbnail;
+        }
+      }
+
+      // Relink cut to new asset
+      relinkCutAsset(cutScene.id, cut.id, newAsset);
+    } catch (error) {
+      console.error('Failed to relink file:', error);
+      alert(`Failed to relink file: ${error}`);
+    }
+  };
+
+  // Audio offset handlers
+  const handleAudioOffsetChange = (value: string) => {
+    setAudioOffset(value);
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && asset) {
+      updateAudioOffset(asset.id, numValue);
+    }
+  };
+
+  const handleAudioOffsetStep = (delta: number) => {
+    const currentOffset = parseFloat(audioOffset) || 0;
+    const newOffset = (currentOffset + delta).toFixed(1);
+    handleAudioOffsetChange(newOffset);
+  };
+
   const handleFrameCapture = async (timestamp: number) => {
     if (!cutScene || !asset?.path || !vaultPath) {
       alert("Cannot capture frame: missing required data");
@@ -321,6 +505,12 @@ export default function DetailsPanel() {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Show multi-selection details
@@ -642,14 +832,77 @@ export default function DetailsPanel() {
             </div>
           )}
 
+          {/* Attached Audio Section */}
+          {attachedAudio && (
+            <div className="attached-audio-section">
+              <div className="attached-audio-header">
+                <Music size={14} />
+                <span>Attached Audio</span>
+              </div>
+              <div className="attached-audio-info">
+                <span className="audio-name">{attachedAudio.name}</span>
+              </div>
+              {attachedAudioDuration !== null && (
+                <div className="attached-audio-duration">
+                  Duration: {formatDuration(attachedAudioDuration)}
+                </div>
+              )}
+              <div className="audio-offset-control">
+                <label>Offset:</label>
+                <button
+                  className="audio-offset-btn"
+                  onClick={() => handleAudioOffsetStep(-0.1)}
+                  title="Decrease offset"
+                >
+                  <Minus size={12} />
+                </button>
+                <input
+                  type="number"
+                  value={audioOffset}
+                  onChange={(e) => handleAudioOffsetChange(e.target.value)}
+                  step="0.1"
+                  className="offset-input"
+                />
+                <span className="offset-unit">s</span>
+                <button
+                  className="audio-offset-btn"
+                  onClick={() => handleAudioOffsetStep(0.1)}
+                  title="Increase offset"
+                >
+                  <Plus size={12} />
+                </button>
+              </div>
+              <div className="attached-audio-actions">
+                <button
+                  className="audio-btn edit"
+                  onClick={() => setShowVideoPreview(true)}
+                  title="Preview with audio"
+                >
+                  Edit
+                </button>
+                <button
+                  className="audio-btn remove"
+                  onClick={handleDetachAudio}
+                  title="Remove audio"
+                >
+                  Remove
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="details-actions">
             <button className="action-btn primary">
               <Sparkles size={16} />
               <span>REMIX IMAGE</span>
             </button>
-            <button className="action-btn secondary">
-              <Wand2 size={16} />
-              <span>AI INPAINT</span>
+            <button className="action-btn secondary" onClick={handleRelinkFile}>
+              <Link size={16} />
+              <span>RELINK FILE</span>
+            </button>
+            <button className="action-btn attach-audio" onClick={handleAttachAudio}>
+              <Music size={16} />
+              <span>ATTACH AUDIO</span>
             </button>
           </div>
 

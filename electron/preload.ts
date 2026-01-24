@@ -18,7 +18,7 @@ export interface FileInfo {
   path: string;
   size: number;
   modified: Date;
-  type: 'image' | 'video' | null;
+  type: 'image' | 'video' | 'audio' | null;
   extension: string;
 }
 
@@ -49,7 +49,7 @@ export interface AssetIndexEntry {
   filename: string;
   originalName: string;
   originalPath: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   fileSize: number;
   importedAt: string;
 }
@@ -109,7 +109,7 @@ export interface ExtractFrameResult {
 }
 
 export interface SequenceItem {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   path: string;
   duration: number;
   inPoint?: number;
@@ -156,6 +156,10 @@ const electronAPI = {
 
   readFileAsBase64: (filePath: string): Promise<string | null> =>
     ipcRenderer.invoke('read-file-as-base64', filePath),
+
+  // Read audio file as ArrayBuffer (for Web Audio API - more stable)
+  readAudioFile: (filePath: string): Promise<ArrayBuffer | null> =>
+    ipcRenderer.invoke('read-audio-file', filePath),
 
   // Image metadata
   readImageMetadata: (filePath: string): Promise<ImageMetadata | null> =>

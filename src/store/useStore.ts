@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState } from '../types';
+import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore } from '../types';
+import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore } from '../utils/metadataStore';
 
 export interface SourceFolder {
   path: string;
@@ -26,6 +27,9 @@ interface AppState {
   vaultPath: string | null;
   trashPath: string | null;
   projectName: string;
+
+  // Metadata store for asset attachments
+  metadataStore: MetadataStore | null;
 
   // Clipboard state
   clipboard: ClipboardCut[];
@@ -151,6 +155,15 @@ interface AppState {
   cacheAsset: (asset: Asset) => void;
   getAsset: (assetId: string) => Asset | undefined;
 
+  // Actions - Metadata (audio attachments)
+  loadMetadata: (vaultPath: string) => Promise<void>;
+  saveMetadata: () => Promise<void>;
+  attachAudioToAsset: (assetId: string, audioAsset: Asset, offset?: number) => void;
+  detachAudioFromAsset: (assetId: string) => void;
+  getAttachedAudio: (assetId: string) => Asset | undefined;
+  updateAudioOffset: (assetId: string, offset: number) => void;
+  relinkCutAsset: (sceneId: string, cutId: string, newAsset: Asset) => void;
+
   // Helpers
   getSelectedCut: () => { scene: Scene; cut: Cut } | null;
   getSelectedScene: () => Scene | null;
@@ -166,6 +179,7 @@ export const useStore = create<AppState>((set, get) => ({
   vaultPath: null,
   trashPath: null,
   projectName: 'Untitled Project',
+  metadataStore: null,
 
   clipboard: [],
 
@@ -224,6 +238,7 @@ export const useStore = create<AppState>((set, get) => ({
     vaultPath: null,
     trashPath: null,
     projectName: 'Untitled Project',
+    metadataStore: null,
     scenes: [],
     selectedSceneId: null,
     selectedCutId: null,
@@ -991,6 +1006,105 @@ export const useStore = create<AppState>((set, get) => ({
   }),
 
   getAsset: (assetId) => get().assetCache.get(assetId),
+
+  // Metadata actions
+  loadMetadata: async (vaultPath) => {
+    const store = await loadMetadataStore(vaultPath);
+    set({ metadataStore: store });
+  },
+
+  saveMetadata: async () => {
+    const state = get();
+    if (state.vaultPath && state.metadataStore) {
+      await saveMetadataStore(state.vaultPath, state.metadataStore);
+    }
+  },
+
+  attachAudioToAsset: (assetId, audioAsset, offset = 0) => {
+    set((state) => {
+      // Cache the audio asset
+      const newCache = new Map(state.assetCache);
+      newCache.set(audioAsset.id, audioAsset);
+
+      // Update metadata store
+      const currentStore = state.metadataStore || { version: 1, metadata: {} };
+      const newStore = attachAudio(currentStore, assetId, audioAsset.id, offset);
+
+      return {
+        assetCache: newCache,
+        metadataStore: newStore,
+      };
+    });
+
+    // Save metadata to disk
+    get().saveMetadata();
+  },
+
+  detachAudioFromAsset: (assetId) => {
+    set((state) => {
+      if (!state.metadataStore) return state;
+
+      const newStore = detachAudio(state.metadataStore, assetId);
+      return { metadataStore: newStore };
+    });
+
+    // Save metadata to disk
+    get().saveMetadata();
+  },
+
+  getAttachedAudio: (assetId) => {
+    const state = get();
+    if (!state.metadataStore) return undefined;
+
+    const metadata = state.metadataStore.metadata[assetId];
+    if (!metadata?.attachedAudioId) return undefined;
+
+    return state.assetCache.get(metadata.attachedAudioId);
+  },
+
+  updateAudioOffset: (assetId, offset) => {
+    set((state) => {
+      if (!state.metadataStore) return state;
+
+      const newStore = updateOffsetInStore(state.metadataStore, assetId, offset);
+      return { metadataStore: newStore };
+    });
+
+    // Save metadata to disk
+    get().saveMetadata();
+  },
+
+  relinkCutAsset: (sceneId, cutId, newAsset) => {
+    set((state) => {
+      // Cache the new asset
+      const newCache = new Map(state.assetCache);
+      newCache.set(newAsset.id, newAsset);
+
+      return {
+        scenes: state.scenes.map((s) =>
+          s.id === sceneId
+            ? {
+                ...s,
+                cuts: s.cuts.map((c) =>
+                  c.id === cutId
+                    ? {
+                        ...c,
+                        asset: newAsset,
+                        assetId: newAsset.id,
+                        // Preserve clip points only if both assets are videos
+                        inPoint: c.asset?.type === 'video' && newAsset.type === 'video' ? c.inPoint : undefined,
+                        outPoint: c.asset?.type === 'video' && newAsset.type === 'video' ? c.outPoint : undefined,
+                        isClip: c.asset?.type === 'video' && newAsset.type === 'video' ? c.isClip : false,
+                      }
+                    : c
+                ),
+              }
+            : s
+        ),
+        assetCache: newCache,
+      };
+    });
+  },
 
   // Helpers
   getSelectedCut: () => {

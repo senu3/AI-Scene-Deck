@@ -110,13 +110,15 @@ interface ImageMetadata {
   software?: string;
 }
 
-function getMediaType(filename: string): 'image' | 'video' | null {
+function getMediaType(filename: string): 'image' | 'video' | 'audio' | null {
   const ext = path.extname(filename).toLowerCase();
   const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
   const videoExts = ['.mp4', '.webm', '.mov', '.avi', '.mkv'];
+  const audioExts = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
 
   if (imageExts.includes(ext)) return 'image';
   if (videoExts.includes(ext)) return 'video';
+  if (audioExts.includes(ext)) return 'audio';
   return null;
 }
 
@@ -348,9 +350,27 @@ ipcMain.handle('read-file-as-base64', async (_, filePath: string) => {
       '.mp4': 'video/mp4',
       '.webm': 'video/webm',
       '.mov': 'video/quicktime',
+      // Audio formats
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.ogg': 'audio/ogg',
+      '.m4a': 'audio/mp4',
+      '.aac': 'audio/aac',
+      '.flac': 'audio/flac',
     };
     const mimeType = mimeTypes[ext] || 'application/octet-stream';
     return `data:${mimeType};base64,${buffer.toString('base64')}`;
+  } catch {
+    return null;
+  }
+});
+
+// Read audio file as ArrayBuffer (for Web Audio API - more stable than base64)
+ipcMain.handle('read-audio-file', async (_, filePath: string) => {
+  try {
+    const buffer = fs.readFileSync(filePath);
+    // Return raw buffer that can be transferred to renderer
+    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
   } catch {
     return null;
   }
@@ -667,7 +687,7 @@ interface AssetIndexEntry {
   filename: string;
   originalName: string;
   originalPath: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   fileSize: number;
   importedAt: string;
 }
@@ -749,8 +769,8 @@ ipcMain.handle('import-asset-to-vault', async (_, sourcePath: string, vaultPath:
       return { success: false, error: 'Unsupported file type' };
     }
 
-    // Create hash-based filename: img_abc123.png or vid_abc123.mp4
-    const prefix = mediaType === 'image' ? 'img' : 'vid';
+    // Create hash-based filename: img_abc123.png, vid_abc123.mp4, or aud_abc123.mp3
+    const prefix = mediaType === 'image' ? 'img' : mediaType === 'video' ? 'vid' : 'aud';
     const newFilename = `${prefix}_${shortHash}${ext}`;
 
     // Ensure assets folder exists

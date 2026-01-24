@@ -30,7 +30,7 @@ export interface Asset {
   id: string;
   name: string;
   path: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   thumbnail?: string;
   duration?: number;
   metadata?: ImageMetadata;
@@ -48,7 +48,7 @@ export interface AssetIndexEntry {
   filename: string;           // e.g., "img_abc123.png"
   originalName: string;       // e.g., "my_photo.png"
   originalPath: string;       // Original source path
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   fileSize: number;
   importedAt: string;
 }
@@ -144,3 +144,18 @@ export interface FavoriteFolder {
 export type PlaybackMode = 'stopped' | 'playing' | 'paused';
 export type PreviewMode = 'scene' | 'all';
 export type SelectionType = 'scene' | 'cut' | null;
+
+// Asset metadata for multi-file attachment (.metadata.json persistence)
+export interface AssetMetadata {
+  assetId: string;              // Target asset ID
+  attachedAudioId?: string;     // Attached audio Asset ID
+  attachedAudioOffset?: number; // Audio offset in seconds (positive = delay, negative = earlier)
+  // Future expansion
+  attachedImageIds?: string[];  // Multiple image attachments
+}
+
+// Metadata store (file structure)
+export interface MetadataStore {
+  version: number;
+  metadata: { [assetId: string]: AssetMetadata };
+}

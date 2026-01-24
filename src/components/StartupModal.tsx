@@ -97,7 +97,7 @@ interface PendingProject {
 }
 
 export default function StartupModal() {
-  const { initializeProject, setRootFolder, initializeSourcePanel } = useStore();
+  const { initializeProject, setRootFolder, initializeSourcePanel, loadMetadata } = useStore();
   const [step, setStep] = useState<'choice' | 'new-project'>('choice');
   const [projectName, setProjectName] = useState('');
   const [vaultPath, setVaultPath] = useState('');
@@ -201,6 +201,9 @@ export default function StartupModal() {
           vaultPath: vault.path,
           scenes: defaultScenes as any,
         });
+
+        // Load metadata store (will be empty for new project)
+        await loadMetadata(vault.path);
 
         // Set root folder to vault
         const structure = await window.electronAPI.getFolderContents(vault.path);
@@ -398,6 +401,9 @@ export default function StartupModal() {
       vaultPath: project.vaultPath,
       scenes: finalScenes as ReturnType<typeof useStore.getState>['scenes'],
     });
+
+    // Load metadata store (audio attachments, etc.)
+    await loadMetadata(project.vaultPath);
 
     // Initialize source panel state
     await initializeSourcePanel(project.sourcePanelState, project.vaultPath);

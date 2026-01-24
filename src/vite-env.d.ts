@@ -20,7 +20,7 @@ interface FileInfo {
   path: string;
   size: number;
   modified: Date;
-  type: 'image' | 'video' | null;
+  type: 'image' | 'video' | 'audio' | null;
   extension: string;
 }
 
@@ -57,7 +57,7 @@ interface AssetIndexEntry {
   filename: string;
   originalName: string;
   originalPath: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   fileSize: number;
   importedAt: string;
 }
@@ -117,7 +117,7 @@ interface ExtractFrameResult {
 }
 
 interface SequenceItem {
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   path: string;
   duration: number;
   inPoint?: number;
@@ -145,6 +145,9 @@ interface ElectronAPI {
   getFolderContents: (folderPath: string) => Promise<FileItem[]>;
   getFileInfo: (filePath: string) => Promise<FileInfo | null>;
   readFileAsBase64: (filePath: string) => Promise<string | null>;
+
+  // Audio file (returns raw ArrayBuffer for Web Audio API)
+  readAudioFile: (filePath: string) => Promise<ArrayBuffer | null>;
 
   // Image metadata
   readImageMetadata: (filePath: string) => Promise<ImageMetadata | null>;
