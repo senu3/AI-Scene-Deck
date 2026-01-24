@@ -133,7 +133,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  animation: fadeIn 0.3s ease;
+  /* No animation - seamless clip transitions */
 }
 
 /* Resolution simulation viewport */
@@ -312,12 +312,6 @@
 }
 
 .control-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
   background-color: var(--bg-tertiary);
   color: var(--text-secondary);
   transition: all 0.15s ease;
@@ -413,17 +407,35 @@
   }
 }
 
+/* Buffering overlay for Sequence Mode */
+.buffering-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  z-index: 20;
+  gap: 12px;
+}
+
+.buffering-overlay span {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.buffering-spinner {
+  animation: spin 1s linear infinite;
+  color: var(--accent-primary);
+}
+
 /* Video clickable for play/pause in Single Mode */
 .preview-display video {
   cursor: pointer;
 }
 
-/* Fade in animation for content */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}

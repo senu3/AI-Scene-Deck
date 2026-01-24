@@ -91,7 +91,7 @@ function App() {
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [isWorkspaceDragOver, setIsWorkspaceDragOver] = useState(false);
-  const [exportResolution, setExportResolution] = useState({ name: 'FHD', width: 1920, height: 1080 });
+  const [exportResolution, setExportResolution] = useState({ name: 'Free', width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
 

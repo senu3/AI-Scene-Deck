@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
-import { X, Play, Pause, SkipBack, SkipForward, Download } from 'lucide-react';
+import { X, Play, Pause, SkipBack, SkipForward, Download, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
@@ -8,13 +8,17 @@ import {
   TimelineMarkers,
   ClipRangeControls,
   VolumeControl,
-  PlaybackSpeedControl,
   TimeDisplay,
   LoopToggle,
   FullscreenToggle,
 } from './shared';
 import './PreviewModal.css';
 import './shared/timeline-common.css';
+
+// 再生保証付き LazyLoad constants
+const PLAY_SAFE_AHEAD = 2.0; // seconds - minimum buffer required for playback
+const PRELOAD_AHEAD = 30.0; // seconds - preload this much ahead for smoother playback
+const INITIAL_PRELOAD_ITEMS = 5; // number of items to preload initially
 
 interface ResolutionPresetType {
   name: string;
@@ -107,6 +111,12 @@ export default function PreviewModal({
     exportResolution ? { ...exportResolution } : RESOLUTION_PRESETS[0]
   );
   const [isExporting, setIsExporting] = useState(false);
+
+  // Buffer management state (Sequence Mode)
+  const [isBuffering, setIsBuffering] = useState(false);
+  const videoUrlCacheRef = useRef<Map<number, string>>(new Map()); // index -> Object URL
+  const readyItemsRef = useRef<Set<number>>(new Set()); // indices of ready items
+  const preloadingRef = useRef<Set<number>>(new Set()); // indices currently being preloaded
 
   // Single Mode specific state
   const [isLoading, setIsLoading] = useState(isSingleMode);
@@ -378,6 +388,91 @@ export default function PreviewModal({
 
   // ===== SEQUENCE MODE LOGIC =====
 
+  // Helper: Get items that fall within a time window from given index
+  const getItemsInTimeWindow = useCallback((startIndex: number, windowSeconds: number): number[] => {
+    const indices: number[] = [];
+    let accumulatedTime = 0;
+
+    for (let i = startIndex; i < items.length && accumulatedTime < windowSeconds; i++) {
+      indices.push(i);
+      accumulatedTime += items[i].cut.displayTime;
+    }
+
+    return indices;
+  }, [items]);
+
+  // Helper: Check if an item is ready for playback
+  const isItemReady = useCallback((index: number): boolean => {
+    const item = items[index];
+    if (!item) return false;
+
+    if (item.cut.asset?.type === 'video') {
+      return videoUrlCacheRef.current.has(index);
+    } else {
+      // Images are ready if thumbnail is available
+      return !!item.thumbnail;
+    }
+  }, [items]);
+
+  // Helper: Preload items (video URLs or image data)
+  const preloadItems = useCallback(async (indices: number[]): Promise<void> => {
+    const preloadPromises: Promise<void>[] = [];
+
+    for (const index of indices) {
+      // Skip if already ready or currently being preloaded
+      if (readyItemsRef.current.has(index) || preloadingRef.current.has(index)) continue;
+
+      const item = items[index];
+      if (!item) continue;
+
+      if (item.cut.asset?.type === 'video' && item.cut.asset.path) {
+        if (!videoUrlCacheRef.current.has(index)) {
+          preloadingRef.current.add(index);
+          preloadPromises.push(
+            createVideoObjectUrl(item.cut.asset.path).then(url => {
+              if (url) {
+                videoUrlCacheRef.current.set(index, url);
+                readyItemsRef.current.add(index);
+              }
+              preloadingRef.current.delete(index);
+            })
+          );
+        } else {
+          readyItemsRef.current.add(index);
+        }
+      } else {
+        // Images - consider ready immediately (thumbnail already loaded in buildItems)
+        readyItemsRef.current.add(index);
+      }
+    }
+
+    await Promise.all(preloadPromises);
+  }, [items]);
+
+  // Helper: Check if buffer is sufficient for playback
+  const checkBufferStatus = useCallback((): { ready: boolean; neededItems: number[] } => {
+    if (items.length === 0) return { ready: true, neededItems: [] };
+
+    const neededItems = getItemsInTimeWindow(currentIndex, PLAY_SAFE_AHEAD);
+    const allReady = neededItems.every(idx => isItemReady(idx));
+
+    return { ready: allReady, neededItems };
+  }, [items, currentIndex, getItemsInTimeWindow, isItemReady]);
+
+  // Helper: Cleanup old video URLs to prevent memory leaks
+  const cleanupOldUrls = useCallback((keepFromIndex: number) => {
+    const keepBackWindow = 5; // Keep 5 items back for rewind
+    const keepStart = Math.max(0, keepFromIndex - keepBackWindow);
+
+    for (const [index, url] of videoUrlCacheRef.current) {
+      if (index < keepStart) {
+        URL.revokeObjectURL(url);
+        videoUrlCacheRef.current.delete(index);
+        readyItemsRef.current.delete(index);
+      }
+    }
+  }, []);
+
   // Build preview items (Sequence Mode only)
   useEffect(() => {
     if (isSingleMode) return;
@@ -425,29 +520,96 @@ export default function PreviewModal({
     buildItems();
   }, [isSingleMode, scenes, previewMode, selectedSceneId, getAsset]);
 
-  // Create Object URL for video when current item changes (Sequence Mode only)
+  // Reset cache when items change (Sequence Mode only)
   useEffect(() => {
     if (isSingleMode) return;
 
-    const currentItem = items[currentIndex];
-
-    if (videoObjectUrl) {
-      URL.revokeObjectURL(videoObjectUrl);
-      setVideoObjectUrl(null);
+    // Clear all cached URLs when items rebuild
+    for (const url of videoUrlCacheRef.current.values()) {
+      URL.revokeObjectURL(url);
     }
+    videoUrlCacheRef.current.clear();
+    readyItemsRef.current.clear();
+    preloadingRef.current.clear();
+  }, [isSingleMode, items.length]);
 
-    if (currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path) {
-      createVideoObjectUrl(currentItem.cut.asset.path).then(url => {
-        setVideoObjectUrl(url);
-      });
-    }
+  // Initial preload when items are loaded (Sequence Mode only)
+  useEffect(() => {
+    if (isSingleMode || items.length === 0) return;
+
+    const initialPreload = async () => {
+      // Preload first N items immediately for instant playback start
+      const initialItems: number[] = [];
+      for (let i = 0; i < Math.min(INITIAL_PRELOAD_ITEMS, items.length); i++) {
+        initialItems.push(i);
+      }
+      await preloadItems(initialItems);
+
+      // Also preload items within PRELOAD_AHEAD time window
+      const timeWindowItems = getItemsInTimeWindow(0, PRELOAD_AHEAD);
+      await preloadItems(timeWindowItems);
+    };
+
+    initialPreload();
+  }, [isSingleMode, items, preloadItems, getItemsInTimeWindow]);
+
+  // Preload and buffer management (Sequence Mode only)
+  useEffect(() => {
+    if (isSingleMode || items.length === 0) return;
+
+    const manageBuffer = async () => {
+      // Preload items well ahead for smoother playback
+      const itemsToPreload = getItemsInTimeWindow(currentIndex, PRELOAD_AHEAD);
+      // Start preloading in background (don't await)
+      preloadItems(itemsToPreload);
+
+      // Update videoObjectUrl from cache
+      const cachedUrl = videoUrlCacheRef.current.get(currentIndex);
+      const currentItem = items[currentIndex];
+
+      if (currentItem?.cut.asset?.type === 'video') {
+        if (cachedUrl && cachedUrl !== videoObjectUrl) {
+          setVideoObjectUrl(cachedUrl);
+        } else if (!cachedUrl) {
+          // Fallback: create URL if not in cache (shouldn't happen normally)
+          const url = await createVideoObjectUrl(currentItem.cut.asset.path!);
+          if (url) {
+            videoUrlCacheRef.current.set(currentIndex, url);
+            readyItemsRef.current.add(currentIndex);
+            setVideoObjectUrl(url);
+          }
+        }
+      } else {
+        // Not a video - clear video URL
+        setVideoObjectUrl(null);
+      }
+
+      // Check buffer status and update buffering state
+      const { ready } = checkBufferStatus();
+      if (isPlaying && !ready) {
+        setIsBuffering(true);
+      } else if (ready) {
+        setIsBuffering(false);
+      }
+
+      // Cleanup old URLs (keep more items for rewinding)
+      cleanupOldUrls(currentIndex);
+    };
+
+    manageBuffer();
+  }, [isSingleMode, items, currentIndex, isPlaying, videoObjectUrl, getItemsInTimeWindow, preloadItems, checkBufferStatus, cleanupOldUrls]);
+
+  // Cleanup all URLs on unmount (Sequence Mode)
+  useEffect(() => {
+    if (isSingleMode) return;
 
     return () => {
-      if (videoObjectUrl) {
-        URL.revokeObjectURL(videoObjectUrl);
+      for (const url of videoUrlCacheRef.current.values()) {
+        URL.revokeObjectURL(url);
       }
+      videoUrlCacheRef.current.clear();
     };
-  }, [isSingleMode, currentIndex, items]);
+  }, [isSingleMode]);
 
   // Calculate display size for resolution simulation
   useLayoutEffect(() => {
@@ -716,12 +878,35 @@ export default function PreviewModal({
     const currentItem = items[currentIndex];
     if (!video || currentItem?.cut.asset?.type !== 'video') return;
 
-    if (isPlaying) {
+    // Don't play if buffering
+    if (isPlaying && !isBuffering) {
       video.play().catch(() => {});
     } else {
       video.pause();
     }
-  }, [isPlaying, currentIndex, items]);
+  }, [isPlaying, isBuffering, currentIndex, items]);
+
+  // Auto pause/resume based on buffer status (Sequence Mode)
+  useEffect(() => {
+    if (isSingleMode || items.length === 0) return;
+
+    const video = videoRef.current;
+    const { ready } = checkBufferStatus();
+
+    if (isPlaying && !ready && !isBuffering) {
+      // Buffer depleted - pause and show loading
+      setIsBuffering(true);
+      if (video) {
+        video.pause();
+      }
+    } else if (isPlaying && ready && isBuffering) {
+      // Buffer restored - resume playback
+      setIsBuffering(false);
+      if (video && items[currentIndex]?.cut.asset?.type === 'video') {
+        video.play().catch(() => {});
+      }
+    }
+  }, [isSingleMode, items, currentIndex, isPlaying, isBuffering, checkBufferStatus]);
 
   // Use ref to track initial progress to avoid re-running effect on every progress update
   const initialProgressRef = useRef(progress);
@@ -730,7 +915,7 @@ export default function PreviewModal({
   }, [currentIndex]); // Only update when changing items
 
   useEffect(() => {
-    if (!isPlaying || items.length === 0 || isDragging) {
+    if (!isPlaying || items.length === 0 || isDragging || isBuffering) {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -807,7 +992,7 @@ export default function PreviewModal({
         clearTimeout(timerRef.current);
       }
     };
-  }, [isPlaying, currentIndex, items, goToNext, playbackSpeed, isDragging, inPoint, outPoint, isLooping, calculateAbsoluteTime, findPositionFromTime]);
+  }, [isPlaying, currentIndex, items, goToNext, playbackSpeed, isDragging, isBuffering, inPoint, outPoint, isLooping, calculateAbsoluteTime, findPositionFromTime]);
 
   // Cycle playback speed
   const cycleSpeed = useCallback((direction: 'up' | 'down') => {
@@ -1379,7 +1564,6 @@ export default function PreviewModal({
               </div>
               <div className="progress-info">
                 <TimeDisplay currentTime={singleModeCurrentTime} totalDuration={singleModeDuration} showMilliseconds={true} />
-                <PlaybackSpeedControl speed={playbackSpeed} onSpeedChange={setPlaybackSpeed} />
               </div>
             </div>
           )}
@@ -1534,7 +1718,7 @@ export default function PreviewModal({
                   key={videoObjectUrl}
                   src={videoObjectUrl}
                   className="preview-media"
-                  autoPlay={isPlaying}
+                  autoPlay={isPlaying && !isBuffering}
                   muted={globalMuted}
                   loop={false}
                   onLoadedMetadata={handleVideoLoadedMetadata}
@@ -1571,11 +1755,29 @@ export default function PreviewModal({
                     {selectedResolution.name} ({selectedResolution.width}×{selectedResolution.height})
                   </div>
                   {content}
+                  {/* Buffering overlay */}
+                  {isBuffering && (
+                    <div className="buffering-overlay">
+                      <Loader2 size={48} className="buffering-spinner" />
+                      <span>Loading...</span>
+                    </div>
+                  )}
                 </div>
               );
             }
 
-            return content;
+            return (
+              <>
+                {content}
+                {/* Buffering overlay */}
+                {isBuffering && (
+                  <div className="buffering-overlay">
+                    <Loader2 size={48} className="buffering-spinner" />
+                    <span>Loading...</span>
+                  </div>
+                )}
+              </>
+            );
           })()}
         </div>
 
@@ -1604,7 +1806,6 @@ export default function PreviewModal({
           </div>
           <div className="progress-info">
             <TimeDisplay currentTime={sequenceCurrentTime} totalDuration={sequenceTotalDuration} />
-            <PlaybackSpeedControl speed={playbackSpeed} onSpeedChange={setPlaybackSpeed} />
           </div>
         </div>
 
