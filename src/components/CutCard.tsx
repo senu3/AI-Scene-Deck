@@ -24,6 +24,7 @@ interface CutCardProps {
   sceneId: string;
   index: number;
   isDragging: boolean;
+  isHidden?: boolean;
 }
 
 interface ContextMenuProps {
@@ -145,7 +146,7 @@ function CutContextMenu({
   );
 }
 
-export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProps) {
+export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: CutCardProps) {
   const {
     selectedCutId,
     selectedCutIds,
@@ -208,6 +209,7 @@ export default function CutCard({ cut, sceneId, index, isDragging }: CutCardProp
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    display: isHidden ? 'none' : undefined,
   };
 
   const asset = cut.asset || getAsset(cut.assetId);

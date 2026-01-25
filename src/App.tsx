@@ -90,7 +90,6 @@ function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [isWorkspaceDragOver, setIsWorkspaceDragOver] = useState(false);
   const [exportResolution, setExportResolution] = useState({ name: 'Free', width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
@@ -285,27 +284,22 @@ function App() {
     }
   };
 
-  // Handle native file drop from OS
+  // Handle native file drop from OS (fallback when not dropping on a scene)
   const handleWorkspaceDragOver = useCallback((e: React.DragEvent) => {
     // Check if files are being dragged
     if (e.dataTransfer.types.includes('Files')) {
       e.preventDefault();
       e.stopPropagation();
-      setIsWorkspaceDragOver(true);
     }
   }, []);
 
-  const handleWorkspaceDragLeave = useCallback((e: React.DragEvent) => {
-    // Only hide if leaving the main area (not entering a child)
-    if (e.currentTarget === e.target) {
-      setIsWorkspaceDragOver(false);
-    }
+  const handleWorkspaceDragLeave = useCallback((_e: React.DragEvent) => {
+    // No-op, kept for consistency
   }, []);
 
   const handleWorkspaceDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsWorkspaceDragOver(false);
 
     // Check if this is an internal drag (from Sidebar) - if so, skip file processing
     // Internal drags use application/json data and are handled by Timeline's drop handler
@@ -589,7 +583,7 @@ function App() {
         <div className="app-content">
           <Sidebar />
           <main
-            className={`main-area ${isWorkspaceDragOver ? 'file-drag-over' : ''}`}
+            className="main-area"
             onDragOver={handleWorkspaceDragOver}
             onDragLeave={handleWorkspaceDragLeave}
             onDrop={handleWorkspaceDrop}
@@ -600,13 +594,6 @@ function App() {
               onExport={handleExportFromControls}
               isExporting={isExporting}
             />
-            {isWorkspaceDragOver && (
-              <div className="file-drop-overlay">
-                <div className="file-drop-content">
-                  <span>Drop files to add to timeline</span>
-                </div>
-              </div>
-            )}
           </main>
           <DetailsPanel />
         </div>

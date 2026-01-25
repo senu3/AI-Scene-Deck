@@ -13,17 +13,19 @@ export class AddCutCommand implements Command {
   private asset: Asset;
   private cutId?: string;
   private displayTime?: number;
+  private insertIndex?: number;
 
-  constructor(sceneId: string, asset: Asset, displayTime?: number) {
+  constructor(sceneId: string, asset: Asset, displayTime?: number, insertIndex?: number) {
     this.sceneId = sceneId;
     this.asset = asset;
     this.displayTime = displayTime;
+    this.insertIndex = insertIndex;
     this.description = `Add cut: ${asset.name}`;
   }
 
   async execute(): Promise<void> {
     const store = useStore.getState();
-    this.cutId = store.addCutToScene(this.sceneId, this.asset);
+    this.cutId = store.addCutToScene(this.sceneId, this.asset, this.insertIndex);
 
     if (this.displayTime !== undefined && this.cutId) {
       store.updateCutDisplayTime(this.sceneId, this.cutId, this.displayTime);

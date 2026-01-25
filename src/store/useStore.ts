@@ -104,8 +104,8 @@ interface AppState {
   removeSceneNote: (sceneId: string, noteId: string) => void;
 
   // Actions - Cuts
-  addCutToScene: (sceneId: string, asset: Asset) => string; // Returns cutId
-  addLoadingCutToScene: (sceneId: string, assetId: string, loadingName: string) => string; // Returns cutId for loading cut
+  addCutToScene: (sceneId: string, asset: Asset, insertIndex?: number) => string; // Returns cutId
+  addLoadingCutToScene: (sceneId: string, assetId: string, loadingName: string, insertIndex?: number) => string; // Returns cutId for loading cut
   updateCutWithAsset: (sceneId: string, cutId: string, asset: Asset, displayTime?: number) => void; // Update loading cut with actual asset
   removeCut: (sceneId: string, cutId: string) => Cut | null;
   updateCutDisplayTime: (sceneId: string, cutId: string, time: number) => void;
@@ -476,17 +476,18 @@ export const useStore = create<AppState>((set, get) => ({
   })),
 
   // Cut actions
-  addCutToScene: (sceneId, asset) => {
+  addCutToScene: (sceneId, asset, insertIndex) => {
     const scene = get().scenes.find((s) => s.id === sceneId);
     if (!scene) return '';
 
     const cutId = uuidv4();
+    const actualIndex = insertIndex !== undefined ? insertIndex : scene.cuts.length;
     const newCut: Cut = {
       id: cutId,
       assetId: asset.id,
       asset,
       displayTime: 1.0,
-      order: scene.cuts.length,
+      order: actualIndex,
     };
 
     set((state) => {
@@ -495,11 +496,17 @@ export const useStore = create<AppState>((set, get) => ({
       newCache.set(asset.id, asset);
 
       return {
-        scenes: state.scenes.map((s) =>
-          s.id === sceneId
-            ? { ...s, cuts: [...s.cuts, newCut] }
-            : s
-        ),
+        scenes: state.scenes.map((s) => {
+          if (s.id !== sceneId) return s;
+
+          const newCuts = [...s.cuts];
+          newCuts.splice(actualIndex, 0, newCut);
+          // Update order for all cuts
+          return {
+            ...s,
+            cuts: newCuts.map((c, i) => ({ ...c, order: i })),
+          };
+        }),
         assetCache: newCache,
       };
     });
@@ -508,27 +515,34 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   // Add a loading cut (empty placeholder while file is being imported)
-  addLoadingCutToScene: (sceneId, assetId, loadingName) => {
+  addLoadingCutToScene: (sceneId, assetId, loadingName, insertIndex) => {
     const scene = get().scenes.find((s) => s.id === sceneId);
     if (!scene) return '';
 
     const cutId = uuidv4();
+    const actualIndex = insertIndex !== undefined ? insertIndex : scene.cuts.length;
     const newCut: Cut = {
       id: cutId,
       assetId,
       asset: undefined,
       displayTime: 1.0,
-      order: scene.cuts.length,
+      order: actualIndex,
       isLoading: true,
       loadingName,
     };
 
     set((state) => ({
-      scenes: state.scenes.map((s) =>
-        s.id === sceneId
-          ? { ...s, cuts: [...s.cuts, newCut] }
-          : s
-      ),
+      scenes: state.scenes.map((s) => {
+        if (s.id !== sceneId) return s;
+
+        const newCuts = [...s.cuts];
+        newCuts.splice(actualIndex, 0, newCut);
+        // Update order for all cuts
+        return {
+          ...s,
+          cuts: newCuts.map((c, i) => ({ ...c, order: i })),
+        };
+      }),
     }));
 
     return cutId;
