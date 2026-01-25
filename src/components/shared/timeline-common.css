@@ -1,13 +1,23 @@
 /* Timeline Markers - IN/OUT points */
 .timeline-marker {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 4px;
+  top: -6px;
+  bottom: -6px;
+  width: 6px;
   transform: translateX(-50%);
-  border-radius: 2px;
-  z-index: 2;
-  pointer-events: none;
+  border-radius: 3px;
+  z-index: 3;
+  pointer-events: auto;
+  cursor: grab;
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.timeline-marker:hover {
+  transform: translateX(-50%) scaleY(1.1);
+}
+
+.timeline-marker:active {
+  cursor: grabbing;
 }
 
 .timeline-marker.in-marker {
@@ -16,6 +26,15 @@
 
 .timeline-marker.out-marker {
   background: #f44336;
+}
+
+.timeline-marker.focused {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5), 0 0 8px rgba(255, 255, 255, 0.3);
+  transform: translateX(-50%) scaleY(1.15);
+}
+
+.timeline-marker.focused:hover {
+  transform: translateX(-50%) scaleY(1.15);
 }
 
 /* Timeline Selection Region */

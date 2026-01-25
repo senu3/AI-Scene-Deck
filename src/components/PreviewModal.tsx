@@ -13,6 +13,7 @@ import {
   LoopToggle,
   FullscreenToggle,
 } from './shared';
+import type { FocusedMarker } from './shared';
 import './PreviewModal.css';
 import './shared/timeline-common.css';
 
@@ -128,6 +129,9 @@ export default function PreviewModal({
   // IN/OUT point state - initialize from props for Single Mode
   const [inPoint, setInPoint] = useState<number | null>(initialInPoint ?? null);
   const [outPoint, setOutPoint] = useState<number | null>(initialOutPoint ?? null);
+
+  // Focused marker state for draggable markers
+  const [focusedMarker, setFocusedMarker] = useState<FocusedMarker>(null);
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -255,6 +259,100 @@ export default function PreviewModal({
     }
   }, [isSingleMode, singleModeDuration, isPlaying, FRAME_DURATION]);
 
+  // Step focused marker by one frame
+  const stepFocusedMarker = useCallback((direction: number) => {
+    if (!focusedMarker) return;
+
+    const duration = isSingleMode ? singleModeDuration : items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    const stepAmount = direction * FRAME_DURATION;
+
+    if (focusedMarker === 'in' && inPoint !== null) {
+      // Constrain IN marker to not go past OUT point
+      const maxTime = outPoint !== null ? outPoint : duration;
+      const newTime = Math.max(0, Math.min(maxTime, inPoint + stepAmount));
+      setInPoint(newTime);
+      // Also move playback position
+      if (isSingleMode && videoRef.current) {
+        videoRef.current.currentTime = newTime;
+        setSingleModeCurrentTime(newTime);
+      }
+    } else if (focusedMarker === 'out' && outPoint !== null) {
+      // Constrain OUT marker to not go before IN point
+      const minTime = inPoint !== null ? inPoint : 0;
+      const newTime = Math.max(minTime, Math.min(duration, outPoint + stepAmount));
+      setOutPoint(newTime);
+      // Also move playback position
+      if (isSingleMode && videoRef.current) {
+        videoRef.current.currentTime = newTime;
+        setSingleModeCurrentTime(newTime);
+      }
+    }
+  }, [focusedMarker, inPoint, outPoint, isSingleMode, singleModeDuration, items, FRAME_DURATION]);
+
+  // Handle marker focus
+  const handleMarkerFocus = useCallback((marker: FocusedMarker) => {
+    setFocusedMarker(marker);
+  }, []);
+
+  // Handle marker drag (both modes)
+  const handleMarkerDrag = useCallback((marker: 'in' | 'out', newTime: number) => {
+    const duration = isSingleMode ? singleModeDuration : items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    let clampedTime = Math.max(0, Math.min(duration, newTime));
+
+    // Constrain IN marker to not go past OUT point
+    if (marker === 'in' && outPoint !== null) {
+      clampedTime = Math.min(clampedTime, outPoint);
+    }
+    // Constrain OUT marker to not go before IN point
+    if (marker === 'out' && inPoint !== null) {
+      clampedTime = Math.max(clampedTime, inPoint);
+    }
+
+    if (marker === 'in') {
+      setInPoint(clampedTime);
+    } else {
+      setOutPoint(clampedTime);
+    }
+
+    // Also update playback position
+    if (isSingleMode && videoRef.current) {
+      videoRef.current.currentTime = clampedTime;
+      setSingleModeCurrentTime(clampedTime);
+    } else if (!isSingleMode && items.length > 0) {
+      // Sequence mode: calculate current index and progress from time
+      let accumulatedTime = 0;
+      for (let i = 0; i < items.length; i++) {
+        const itemDuration = items[i].cut.displayTime;
+        if (accumulatedTime + itemDuration > clampedTime) {
+          const localProgress = ((clampedTime - accumulatedTime) / itemDuration) * 100;
+          setCurrentIndex(i);
+          setProgress(Math.max(0, Math.min(100, localProgress)));
+          break;
+        }
+        accumulatedTime += itemDuration;
+      }
+    }
+  }, [isSingleMode, singleModeDuration, items, inPoint, outPoint]);
+
+  // Handle marker drag end
+  const handleMarkerDragEnd = useCallback(() => {
+    // Focus will be cleared when clicking outside progress bar
+  }, []);
+
+  // Clear focused marker when clicking outside progress bar
+  const handleContainerMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!focusedMarker) return;
+
+    // Check if click was inside the progress bar
+    const target = e.target as HTMLElement;
+    const progressBar = target.closest('.progress-bar');
+
+    // If clicked outside progress bar, clear focus
+    if (!progressBar) {
+      setFocusedMarker(null);
+    }
+  }, [focusedMarker]);
+
   // Skip seconds (Both modes)
   const skip = useCallback((seconds: number) => {
     if (isSingleMode) {
@@ -358,11 +456,27 @@ export default function PreviewModal({
 
     const rect = progressBarRef.current.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
-    const newTime = percent * singleModeDuration;
+    let newTime = Math.max(0, Math.min(singleModeDuration, percent * singleModeDuration));
 
+    // If a marker is focused, move that marker with constraints
+    if (focusedMarker === 'in') {
+      // Constrain IN marker to not go past OUT point
+      if (outPoint !== null) {
+        newTime = Math.min(newTime, outPoint);
+      }
+      setInPoint(newTime);
+    } else if (focusedMarker === 'out') {
+      // Constrain OUT marker to not go before IN point
+      if (inPoint !== null) {
+        newTime = Math.max(newTime, inPoint);
+      }
+      setOutPoint(newTime);
+    }
+
+    // Always update playback position
     videoRef.current.currentTime = newTime;
     setSingleModeCurrentTime(newTime);
-  }, [isSingleMode, singleModeDuration]);
+  }, [isSingleMode, singleModeDuration, focusedMarker, inPoint, outPoint]);
 
   // Single Mode IN/OUT handlers
   const handleSingleModeSetInPoint = useCallback(() => {
@@ -1239,8 +1353,10 @@ export default function PreviewModal({
           break;
         case ',':
           e.preventDefault();
-          // Frame step backward (both modes, but only works for video)
-          if (isSingleMode) {
+          // If marker is focused, step the marker; otherwise step the frame
+          if (focusedMarker) {
+            stepFocusedMarker(-1);
+          } else if (isSingleMode) {
             stepFrame(-1);
           } else {
             // In Sequence Mode, frame step only works during video clip playback
@@ -1252,8 +1368,10 @@ export default function PreviewModal({
           break;
         case '.':
           e.preventDefault();
-          // Frame step forward (both modes, but only works for video)
-          if (isSingleMode) {
+          // If marker is focused, step the marker; otherwise step the frame
+          if (focusedMarker) {
+            stepFocusedMarker(1);
+          } else if (isSingleMode) {
             stepFrame(1);
           } else {
             // In Sequence Mode, frame step only works during video clip playback
@@ -1306,6 +1424,8 @@ export default function PreviewModal({
     handlePlayPause,
     skip,
     stepFrame,
+    stepFocusedMarker,
+    focusedMarker,
     items,
     currentIndex,
     cycleSpeed,
@@ -1505,13 +1625,33 @@ export default function PreviewModal({
 
     const rect = progressBarRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
-    const progressPercent = (clickX / rect.width) * 100;
+    const progressPercent = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
 
-    const { index, localProgress } = calculateGlobalPositionFromProgress(progressPercent);
+    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    let newTime = (progressPercent / 100) * totalDuration;
+
+    // If a marker is focused, move that marker with constraints
+    if (focusedMarker === 'in') {
+      // Constrain IN marker to not go past OUT point
+      if (outPoint !== null) {
+        newTime = Math.min(newTime, outPoint);
+      }
+      setInPoint(newTime);
+    } else if (focusedMarker === 'out') {
+      // Constrain OUT marker to not go before IN point
+      if (inPoint !== null) {
+        newTime = Math.max(newTime, inPoint);
+      }
+      setOutPoint(newTime);
+    }
+
+    // Always update playback position (recalculate from constrained newTime)
+    const constrainedPercent = (newTime / totalDuration) * 100;
+    const { index, localProgress } = calculateGlobalPositionFromProgress(constrainedPercent);
     setCurrentIndex(index);
     setProgress(localProgress);
     elapsedRef.current = (localProgress / 100) * items[index].cut.displayTime * 1000;
-  }, [items, calculateGlobalPositionFromProgress]);
+  }, [items, calculateGlobalPositionFromProgress, focusedMarker, inPoint, outPoint]);
 
   const handleProgressBarMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     setIsDragging(true);
@@ -1593,7 +1733,7 @@ export default function PreviewModal({
   // ===== SINGLE MODE RENDER =====
   if (isSingleMode) {
     return (
-      <div className="preview-modal" ref={modalRef}>
+      <div className="preview-modal" ref={modalRef} onMouseDown={handleContainerMouseDown}>
         <div className="preview-backdrop" onClick={onClose} />
         <div className="preview-container">
           {/* Header: Left=asset name + resolution, Right=resolution select/close */}
@@ -1737,6 +1877,11 @@ export default function PreviewModal({
                   outPoint={outPoint}
                   duration={singleModeDuration}
                   showMilliseconds={true}
+                  focusedMarker={focusedMarker}
+                  onMarkerFocus={handleMarkerFocus}
+                  onMarkerDrag={handleMarkerDrag}
+                  onMarkerDragEnd={handleMarkerDragEnd}
+                  progressBarRef={progressBarRef}
                 />
                 <div className="progress-fill" style={{ width: `${singleModeProgressPercent}%` }} />
                 <div className="progress-handle" style={{ left: `${singleModeProgressPercent}%` }} />
@@ -1839,7 +1984,7 @@ export default function PreviewModal({
   }
 
   return (
-    <div className="preview-modal" ref={modalRef}>
+    <div className="preview-modal" ref={modalRef} onMouseDown={handleContainerMouseDown}>
       <div className="preview-backdrop" onClick={onClose} />
       <div className="preview-container">
         {/* Header: Left=index, Center=scene/cut info, Right=resolution/download/close */}
@@ -1974,6 +2119,11 @@ export default function PreviewModal({
               outPoint={outPoint}
               duration={sequenceTotalDuration}
               showMilliseconds={false}
+              focusedMarker={focusedMarker}
+              onMarkerFocus={handleMarkerFocus}
+              onMarkerDrag={handleMarkerDrag}
+              onMarkerDragEnd={handleMarkerDragEnd}
+              progressBarRef={progressBarRef}
             />
             <div className="progress-fill" style={{ width: `${globalProgress}%` }} />
             <div className="progress-handle" style={{ left: `${globalProgress}%` }} />
