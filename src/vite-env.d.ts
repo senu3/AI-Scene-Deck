@@ -148,14 +148,14 @@ interface ElectronAPI {
 
   // Audio file (returns raw ArrayBuffer for Web Audio API)
     readAudioFile: (filePath: string) => Promise<ArrayBuffer | Uint8Array | null>;
-    readAudioPcm: (filePath: string) => Promise<{ pcm: Uint8Array; sampleRate: number; channels: number } | null>;
+    readAudioPcm: (filePath: string) => Promise<{ success: boolean; pcm?: Uint8Array; sampleRate?: number; channels?: number; error?: string } | null>;
 
   // Image metadata
   readImageMetadata: (filePath: string) => Promise<ImageMetadata | null>;
 
   // Video metadata
     getVideoMetadata: (filePath: string) => Promise<{ path: string; fileSize: number; format: string; duration?: number; width?: number; height?: number } | null>;
-    generateVideoThumbnail: (filePath: string, timeOffset?: number) => Promise<string | null>;
+    generateVideoThumbnail: (filePath: string, timeOffset?: number) => Promise<{ success: boolean; thumbnail?: string; error?: string } | null>;
 
   // Vault operations
   selectVault: () => Promise<string | null>;

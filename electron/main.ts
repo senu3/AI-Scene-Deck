@@ -49,6 +49,43 @@ const mimeTypes: Record<string, string> = {
   '.flac': 'audio/flac',
 };
 
+type FfmpegTask<T> = () => Promise<T>;
+
+function createFfmpegQueue(name: string, concurrency: number) {
+  let running = 0;
+  const queue: Array<() => void> = [];
+
+  const pump = () => {
+    while (running < concurrency && queue.length > 0) {
+      const job = queue.shift();
+      if (job) job();
+    }
+  };
+
+  const enqueue = <T>(task: FfmpegTask<T>): Promise<T> => new Promise((resolve, reject) => {
+    const run = () => {
+      running += 1;
+      task()
+        .then(resolve)
+        .catch(reject)
+        .finally(() => {
+          running -= 1;
+          pump();
+        });
+    };
+    queue.push(run);
+    if (queue.length > 25) {
+      console.warn(`[ffmpeg-queue:${name}] backlog=${queue.length}`);
+    }
+    pump();
+  });
+
+  return enqueue;
+}
+
+const enqueueFfmpegLight = createFfmpegQueue('light', 2);
+const enqueueFfmpegHeavy = createFfmpegQueue('heavy', 1);
+
 // Register custom protocol for local file access (with Range support)
 function registerMediaProtocol() {
   protocol.handle('media', (request) => {
@@ -144,7 +181,7 @@ function parseFfmpegMetadata(stderr: string): { duration?: number; width?: numbe
 }
 
 function probeVideoWithFfmpeg(ffmpegBinary: string, filePath: string): Promise<{ duration?: number; width?: number; height?: number }> {
-  return new Promise((resolve) => {
+  return enqueueFfmpegLight(() => new Promise((resolve) => {
     const args = ['-hide_banner', '-i', filePath];
     const proc = spawn(ffmpegBinary, args);
     let stderr = '';
@@ -158,11 +195,11 @@ function probeVideoWithFfmpeg(ffmpegBinary: string, filePath: string): Promise<{
     });
 
     proc.on('error', () => resolve({}));
-  });
+  }));
 }
 
 function runFfmpegThumbnail(ffmpegBinary: string, filePath: string, timeOffset: number, outputPath: string): Promise<{ success: boolean; error?: string }> {
-  return new Promise((resolve) => {
+  return enqueueFfmpegLight(() => new Promise((resolve) => {
     const safeTime = Math.max(0, timeOffset);
     const args = [
       '-hide_banner',
@@ -192,7 +229,7 @@ function runFfmpegThumbnail(ffmpegBinary: string, filePath: string, timeOffset: 
     proc.on('error', (err: Error) => {
       resolve({ success: false, error: `Failed to start ffmpeg: ${err.message}` });
     });
-  });
+  }));
 }
 
 function createWindow() {
@@ -538,7 +575,7 @@ ipcMain.handle('read-audio-pcm', async (_, filePath: string) => {
   const ffmpegBinary = ffmpegPath as string | null;
   if (!ffmpegBinary) {
     console.error('[Audio] ffmpeg not found');
-    return null;
+    return { success: false, error: 'ffmpeg not found' };
   }
 
   try {
@@ -555,7 +592,7 @@ ipcMain.handle('read-audio-pcm', async (_, filePath: string) => {
       'pipe:1',
     ];
 
-    return await new Promise((resolve) => {
+    return await enqueueFfmpegLight(() => new Promise((resolve) => {
       const proc = spawn(ffmpegBinary, args);
       const chunks: Buffer[] = [];
       let stderr = '';
@@ -570,23 +607,25 @@ ipcMain.handle('read-audio-pcm', async (_, filePath: string) => {
 
       proc.on('close', (code: number | null) => {
         if (code !== 0) {
-          console.error('[Audio] ffmpeg decode failed:', stderr || `exit ${code}`);
-          resolve(null);
+          const message = stderr || `ffmpeg exited with code ${code}`;
+          console.error('[Audio] ffmpeg decode failed:', message);
+          resolve({ success: false, error: message });
           return;
         }
 
         const pcm = Buffer.concat(chunks);
-        resolve({ pcm, sampleRate: 44100, channels: 2 });
+        resolve({ success: true, pcm, sampleRate: 44100, channels: 2 });
       });
 
       proc.on('error', (err: Error) => {
-        console.error('[Audio] ffmpeg spawn error:', err.message);
-        resolve(null);
+        const message = `Failed to start ffmpeg: ${err.message}`;
+        console.error('[Audio] ffmpeg spawn error:', message);
+        resolve({ success: false, error: message });
       });
-    });
+    }));
   } catch (error) {
     console.error('[Audio] read-audio-pcm failed:', error);
-    return null;
+    return { success: false, error: 'read-audio-pcm failed' };
   }
 });
 
@@ -650,7 +689,7 @@ ipcMain.handle('get-video-metadata', async (_, filePath: string) => {
 // Generate video thumbnail via ffmpeg and return as base64 data URL
 ipcMain.handle('generate-video-thumbnail', async (_, options: { filePath: string; timeOffset?: number }) => {
   const ffmpegBinary = ffmpegPath as string | null;
-  if (!ffmpegBinary) return null;
+  if (!ffmpegBinary) return { success: false, error: 'ffmpeg not found' };
 
   const timeOffset = options.timeOffset ?? 1;
   const tempName = `thumb_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.jpg`;
@@ -658,13 +697,13 @@ ipcMain.handle('generate-video-thumbnail', async (_, options: { filePath: string
 
   try {
     const result = await runFfmpegThumbnail(ffmpegBinary, options.filePath, timeOffset, outputPath);
-    if (!result.success) return null;
+    if (!result.success) return { success: false, error: result.error || 'thumbnail generation failed' };
 
     const buffer = fs.readFileSync(outputPath);
     const base64 = buffer.toString('base64');
-    return `data:image/jpeg;base64,${base64}`;
+    return { success: true, thumbnail: `data:image/jpeg;base64,${base64}` };
   } catch {
-    return null;
+    return { success: false, error: 'thumbnail generation failed' };
   } finally {
     try {
       if (fs.existsSync(outputPath)) {
@@ -1234,7 +1273,7 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
     return { success: false, error: 'ffmpeg not found' };
   }
 
-  return new Promise<{ success: boolean; outputPath?: string; fileSize?: number; error?: string }>((resolve) => {
+  return enqueueFfmpegHeavy(() => new Promise<{ success: boolean; outputPath?: string; fileSize?: number; error?: string }>((resolve) => {
     // Calculate duration
     const duration = outPoint - inPoint;
 
@@ -1293,7 +1332,7 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
         error: `Failed to start ffmpeg: ${err.message}`,
       });
     });
-  });
+  }));
 });
 
 // Extract video frame as image using ffmpeg
@@ -1354,7 +1393,7 @@ ipcMain.handle('show-save-sequence-dialog', async (_, defaultName: string) => {
 
 // Helper function to run ffmpeg process
 function runFfmpeg(ffmpegBinary: string, args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
+  return enqueueFfmpegHeavy(() => new Promise((resolve, reject) => {
     console.log('[ffmpeg] Running:', args.join(' '));
     const proc = spawn(ffmpegBinary, args);
     let stderr = '';
@@ -1366,7 +1405,7 @@ function runFfmpeg(ffmpegBinary: string, args: string[]): Promise<void> {
       else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
     });
     proc.on('error', reject);
-  });
+  }));
 }
 
 // Export sequence to MP4 using ffmpeg
@@ -1457,7 +1496,7 @@ ipcMain.handle('export-sequence', async (_, options: ExportSequenceOptions): Pro
 
     console.log('[ffmpeg] Concatenating segments...');
 
-    return new Promise<ExportSequenceResult>((resolve) => {
+    return enqueueFfmpegHeavy(() => new Promise<ExportSequenceResult>((resolve) => {
       const ffmpegProcess = spawn(ffmpegBinary, concatArgs);
 
       let stderr = '';
@@ -1518,7 +1557,7 @@ ipcMain.handle('export-sequence', async (_, options: ExportSequenceOptions): Pro
           error: `Failed to start ffmpeg: ${err.message}`,
         });
       });
-    });
+    }));
   } catch (error) {
     // Clean up temp files on error
     for (const tempFile of tempFiles) {
@@ -1547,7 +1586,7 @@ ipcMain.handle('extract-video-frame', async (_, options: ExtractFrameOptions): P
     return { success: false, error: 'ffmpeg not found' };
   }
 
-  return new Promise<ExtractFrameResult>((resolve) => {
+  return enqueueFfmpegHeavy(() => new Promise<ExtractFrameResult>((resolve) => {
     // Build ffmpeg arguments for frame extraction
     // -ss for seeking to timestamp
     // -vframes 1 to extract single frame
@@ -1600,5 +1639,5 @@ ipcMain.handle('extract-video-frame', async (_, options: ExtractFrameOptions): P
         error: `Failed to start ffmpeg: ${err.message}`,
       });
     });
-  });
+  }));
 });

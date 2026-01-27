@@ -161,7 +161,7 @@ const electronAPI = {
   readAudioFile: (filePath: string): Promise<ArrayBuffer | Uint8Array | null> =>
     ipcRenderer.invoke('read-audio-file', filePath),
 
-  readAudioPcm: (filePath: string): Promise<{ pcm: Uint8Array; sampleRate: number; channels: number } | null> =>
+  readAudioPcm: (filePath: string): Promise<{ success: boolean; pcm?: Uint8Array; sampleRate?: number; channels?: number; error?: string } | null> =>
     ipcRenderer.invoke('read-audio-pcm', filePath),
 
   // Image metadata
@@ -172,7 +172,7 @@ const electronAPI = {
   getVideoMetadata: (filePath: string): Promise<{ path: string; fileSize: number; format: string; duration?: number; width?: number; height?: number } | null> =>
     ipcRenderer.invoke('get-video-metadata', filePath),
 
-  generateVideoThumbnail: (filePath: string, timeOffset?: number): Promise<string | null> =>
+  generateVideoThumbnail: (filePath: string, timeOffset?: number): Promise<{ success: boolean; thumbnail?: string; error?: string } | null> =>
     ipcRenderer.invoke('generate-video-thumbnail', { filePath, timeOffset }),
 
   // Vault operations

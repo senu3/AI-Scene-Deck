@@ -155,8 +155,13 @@ export async function extractVideoMetadata(filePath: string): Promise<VideoMetad
 export async function generateVideoThumbnail(filePath: string, timeOffset: number = 1): Promise<string | null> {
   if (window.electronAPI?.generateVideoThumbnail) {
     try {
-      const thumbnail = await window.electronAPI.generateVideoThumbnail(filePath, timeOffset);
-      if (thumbnail) return thumbnail;
+      const result = await window.electronAPI.generateVideoThumbnail(filePath, timeOffset);
+      if (result && 'thumbnail' in result) {
+        if (result.thumbnail) return result.thumbnail;
+        if (result.error) {
+          console.warn('Failed to generate thumbnail:', result.error);
+        }
+      }
     } catch {
       // Fall back to renderer-side extraction
     }

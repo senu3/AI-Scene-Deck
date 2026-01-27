@@ -75,7 +75,12 @@ export class AudioManager {
 
       // Read audio as PCM via ffmpeg in main process
       const pcmResult = await window.electronAPI.readAudioPcm?.(filePath);
-      if (!pcmResult || !pcmResult.pcm || pcmResult.pcm.byteLength === 0) return false;
+      if (!pcmResult || !pcmResult.success || !pcmResult.pcm || pcmResult.pcm.byteLength === 0) {
+        if (pcmResult?.error) {
+          console.warn('[Audio] PCM decode failed:', pcmResult.error);
+        }
+        return false;
+      }
 
       // Check if disposed during async operation
       if (this.disposed) return false;
@@ -84,7 +89,7 @@ export class AudioManager {
       // Check if context was closed (by dispose)
       if ((ctx.state as string) === 'closed') return false;
 
-      const { pcm, sampleRate, channels } = pcmResult;
+      const { pcm, sampleRate = 44100, channels = 2 } = pcmResult;
       const bytes = pcm instanceof Uint8Array ? pcm : new Uint8Array(pcm);
       const sampleCount = Math.floor(bytes.byteLength / 2 / channels);
       if (sampleCount <= 0) return false;
