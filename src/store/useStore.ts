@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore } from '../types';
-import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore } from '../utils/metadataStore';
+import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis } from '../utils/metadataStore';
+import { analyzeAudioRms } from '../utils/audioUtils';
 
 export interface SourceFolder {
   path: string;
@@ -159,6 +160,7 @@ interface AppState {
   loadMetadata: (vaultPath: string) => Promise<void>;
   saveMetadata: () => Promise<void>;
   attachAudioToAsset: (assetId: string, audioAsset: Asset, offset?: number) => void;
+  analyzeAudioAsset: (audioAsset: Asset, fps?: number) => Promise<void>;
   detachAudioFromAsset: (assetId: string) => void;
   getAttachedAudio: (assetId: string) => Asset | undefined;
   updateAudioOffset: (assetId: string, offset: number) => void;
@@ -1052,6 +1054,32 @@ export const useStore = create<AppState>((set, get) => ({
 
     // Save metadata to disk
     get().saveMetadata();
+
+    // Kick off RMS analysis for the audio asset (non-blocking)
+    void get().analyzeAudioAsset(audioAsset, 60);
+  },
+
+  analyzeAudioAsset: async (audioAsset, fps = 60) => {
+    if (!audioAsset.path || audioAsset.type !== 'audio') return;
+
+    const state = get();
+    const currentStore = state.metadataStore || { version: 1, metadata: {} };
+    const existing = currentStore.metadata[audioAsset.id]?.audioAnalysis;
+
+    if (existing && audioAsset.hash && existing.hash === audioAsset.hash && existing.fps === fps) {
+      return;
+    }
+
+    const analysis = await analyzeAudioRms(audioAsset.path, fps, audioAsset.hash);
+    if (!analysis) return;
+
+    set((s) => {
+      const store = s.metadataStore || { version: 1, metadata: {} };
+      const updated = updateAudioAnalysis(store, audioAsset.id, analysis);
+      return { metadataStore: updated };
+    });
+
+    await get().saveMetadata();
   },
 
   detachAudioFromAsset: (assetId) => {

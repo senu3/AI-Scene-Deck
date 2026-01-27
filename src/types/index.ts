@@ -152,6 +152,16 @@ export interface AssetMetadata {
   attachedAudioOffset?: number; // Audio offset in seconds (positive = delay, negative = earlier)
   // Future expansion
   attachedImageIds?: string[];  // Multiple image attachments
+  audioAnalysis?: AudioAnalysis; // Precomputed audio analysis data
+}
+
+export interface AudioAnalysis {
+  fps: number;
+  rms: number[];     // Normalized RMS samples (0..1)
+  duration: number; // Seconds
+  sampleRate: number;
+  channels: number;
+  hash?: string;
 }
 
 // Metadata store (file structure)

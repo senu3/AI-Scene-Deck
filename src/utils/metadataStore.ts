@@ -103,6 +103,25 @@ export function updateAssetMetadata(
 }
 
 /**
+ * Update audio analysis for an asset (immutable)
+ * @param store - Current MetadataStore
+ * @param assetId - Audio asset ID
+ * @param analysis - AudioAnalysis data
+ * @returns New MetadataStore with updated audio analysis
+ */
+export function updateAudioAnalysis(
+  store: MetadataStore,
+  assetId: string,
+  analysis: AssetMetadata['audioAnalysis']
+): MetadataStore {
+  const existing = store.metadata[assetId] || { assetId };
+  return updateAssetMetadata(store, {
+    ...existing,
+    audioAnalysis: analysis,
+  });
+}
+
+/**
  * Remove metadata for an asset (immutable)
  * @param store - Current MetadataStore
  * @param assetId - Asset ID to remove metadata for

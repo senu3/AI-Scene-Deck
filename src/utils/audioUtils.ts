@@ -6,6 +6,8 @@
  * AudioManager class for managing audio playback with Web Audio API
  * Provides features like fade in/out, precise seeking, and offset support
  */
+import type { AudioAnalysis } from '../types';
+
 export class AudioManager {
   private audioContext: AudioContext | null = null;
   private audioBuffer: AudioBuffer | null = null;
@@ -357,6 +359,78 @@ export class AudioManager {
       this.audioContext = null;
     }
   }
+}
+
+function computeRmsFromPcm(
+  bytes: Uint8Array,
+  sampleRate: number,
+  channels: number,
+  fps: number
+): number[] {
+  const totalSamples = Math.floor(bytes.byteLength / 2 / channels);
+  if (totalSamples <= 0) return [];
+
+  const hop = Math.max(1, Math.round(sampleRate / fps));
+  const windowSize = hop;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const rms: number[] = [];
+
+  for (let start = 0; start < totalSamples; start += hop) {
+    const end = Math.min(totalSamples, start + windowSize);
+    let sumSq = 0;
+    let count = 0;
+
+    for (let i = start; i < end; i++) {
+      let mono = 0;
+      for (let ch = 0; ch < channels; ch++) {
+        const sampleIndex = (i * channels + ch) * 2;
+        const sample = view.getInt16(sampleIndex, true) / 32768;
+        mono += sample;
+      }
+      mono /= channels;
+      sumSq += mono * mono;
+      count++;
+    }
+
+    const value = count > 0 ? Math.sqrt(sumSq / count) : 0;
+    rms.push(Math.min(1, Math.max(0, value)));
+  }
+
+  return rms;
+}
+
+export async function analyzeAudioRms(
+  filePath: string,
+  fps: number = 60,
+  hash?: string
+): Promise<AudioAnalysis | null> {
+  if (!window.electronAPI?.readAudioPcm) return null;
+
+  const result = await window.electronAPI.readAudioPcm(filePath);
+  if (!result?.success || !result.pcm) {
+    if (result?.error) {
+      console.warn('[Audio] RMS decode failed:', result.error);
+    }
+    return null;
+  }
+
+  const sampleRate = result.sampleRate ?? 44100;
+  const channels = result.channels ?? 2;
+  const bytes = result.pcm instanceof Uint8Array ? result.pcm : new Uint8Array(result.pcm);
+  const totalSamples = Math.floor(bytes.byteLength / 2 / channels);
+  if (totalSamples <= 0) return null;
+
+  const rms = computeRmsFromPcm(bytes, sampleRate, channels, fps);
+  const duration = totalSamples / sampleRate;
+
+  return {
+    fps,
+    rms,
+    duration,
+    sampleRate,
+    channels,
+    hash,
+  };
 }
 
 // NOTE: getAudioDuration using HTMLAudioElement was removed
