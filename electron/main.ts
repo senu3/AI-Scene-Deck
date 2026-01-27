@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol, net } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { pathToFileURL } from 'url';
 import { spawn } from 'child_process';
 import ffmpegPath from 'ffmpeg-static';
+import { Readable } from 'stream';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -27,14 +28,90 @@ protocol.registerSchemesAsPrivileged([
   }
 ]);
 
-// Register custom protocol for local file access
+const mimeTypes: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+  // Audio formats
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
+  '.aac': 'audio/aac',
+  '.flac': 'audio/flac',
+};
+
+// Register custom protocol for local file access (with Range support)
 function registerMediaProtocol() {
   protocol.handle('media', (request) => {
-    // Simply replace media:// with file:// and let net.fetch handle the rest
-    // Do NOT use decodeURIComponent - it breaks the URL
-    const fileUrl = request.url.replace('media://', 'file://');
-    console.log('[Protocol] Fetching:', fileUrl);
-    return net.fetch(fileUrl);
+    try {
+      const parsedUrl = new URL(request.url);
+      let filePath = decodeURI(parsedUrl.pathname);
+
+      // On Windows, pathname starts with /C:/...; strip leading slash
+      if (process.platform === 'win32' && /^[\\/][A-Za-z]:\//.test(filePath)) {
+        filePath = filePath.slice(1);
+      }
+      const stats = fs.statSync(filePath);
+      const fileSize = stats.size;
+      const ext = path.extname(filePath).toLowerCase();
+      const contentType = mimeTypes[ext] || 'application/octet-stream';
+
+      const range = request.headers.get('range');
+      if (range) {
+        const match = /bytes=(\d*)-(\d*)/.exec(range);
+        if (!match) {
+          return new Response(null, { status: 416 });
+        }
+
+        const start = match[1] ? parseInt(match[1], 10) : 0;
+        const end = match[2] ? parseInt(match[2], 10) : fileSize - 1;
+        const safeStart = Number.isNaN(start) ? 0 : Math.max(0, start);
+        const safeEnd = Number.isNaN(end) ? fileSize - 1 : Math.min(end, fileSize - 1);
+
+        if (safeStart >= fileSize || safeStart > safeEnd) {
+          return new Response(null, {
+            status: 416,
+            headers: { 'Content-Range': `bytes */${fileSize}` },
+          });
+        }
+
+        const stream = fs.createReadStream(filePath, { start: safeStart, end: safeEnd });
+        const body = Readable.toWeb(stream) as ReadableStream;
+        return new Response(body, {
+          status: 206,
+          headers: {
+            'Content-Type': contentType,
+            'Content-Length': String(safeEnd - safeStart + 1),
+            'Content-Range': `bytes ${safeStart}-${safeEnd}/${fileSize}`,
+            'Accept-Ranges': 'bytes',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+
+      const stream = fs.createReadStream(filePath);
+      const body = Readable.toWeb(stream) as ReadableStream;
+      return new Response(body, {
+        status: 200,
+        headers: {
+          'Content-Type': contentType,
+          'Content-Length': String(fileSize),
+          'Accept-Ranges': 'bytes',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    } catch (error) {
+      console.error('[Protocol] Failed to serve media:', error);
+      return new Response(null, { status: 404 });
+    }
   });
 }
 
@@ -339,25 +416,6 @@ ipcMain.handle('read-file-as-base64', async (_, filePath: string) => {
   try {
     const buffer = fs.readFileSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      '.png': 'image/png',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-      '.bmp': 'image/bmp',
-      '.svg': 'image/svg+xml',
-      '.mp4': 'video/mp4',
-      '.webm': 'video/webm',
-      '.mov': 'video/quicktime',
-      // Audio formats
-      '.mp3': 'audio/mpeg',
-      '.wav': 'audio/wav',
-      '.ogg': 'audio/ogg',
-      '.m4a': 'audio/mp4',
-      '.aac': 'audio/aac',
-      '.flac': 'audio/flac',
-    };
     const mimeType = mimeTypes[ext] || 'application/octet-stream';
     return `data:${mimeType};base64,${buffer.toString('base64')}`;
   } catch {

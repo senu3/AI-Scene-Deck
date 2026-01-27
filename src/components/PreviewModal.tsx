@@ -22,6 +22,12 @@ const PLAY_SAFE_AHEAD = 2.0; // seconds - minimum buffer required for playback
 const PRELOAD_AHEAD = 30.0; // seconds - preload this much ahead for smoother playback
 const INITIAL_PRELOAD_ITEMS = 5; // number of items to preload initially
 
+function revokeIfBlob(url: string): void {
+  if (url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+  }
+}
+
 interface ResolutionPresetType {
   name: string;
   width: number;
@@ -235,7 +241,7 @@ export default function PreviewModal({
 
     return () => {
       if (videoObjectUrl) {
-        URL.revokeObjectURL(videoObjectUrl);
+        revokeIfBlob(videoObjectUrl);
       }
     };
   }, [isSingleMode, videoObjectUrl]);
@@ -685,7 +691,7 @@ export default function PreviewModal({
 
     for (const [index, url] of videoUrlCacheRef.current) {
       if (index < keepStart) {
-        URL.revokeObjectURL(url);
+        revokeIfBlob(url);
         videoUrlCacheRef.current.delete(index);
         readyItemsRef.current.delete(index);
       }
@@ -745,7 +751,7 @@ export default function PreviewModal({
 
     // Clear all cached URLs when items rebuild
     for (const url of videoUrlCacheRef.current.values()) {
-      URL.revokeObjectURL(url);
+      revokeIfBlob(url);
     }
     videoUrlCacheRef.current.clear();
     readyItemsRef.current.clear();
@@ -824,7 +830,7 @@ export default function PreviewModal({
 
     return () => {
       for (const url of videoUrlCacheRef.current.values()) {
-        URL.revokeObjectURL(url);
+        revokeIfBlob(url);
       }
       videoUrlCacheRef.current.clear();
     };

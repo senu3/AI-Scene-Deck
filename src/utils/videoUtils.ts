@@ -9,7 +9,6 @@ export interface VideoMetadata {
 /**
  * Convert a local file path to a media:// protocol URL for use in Electron
  * This works correctly on both Windows and Linux/Mac
- * Note: This is used for images. For videos, use createVideoObjectUrl instead.
  */
 export function getMediaUrl(filePath: string): string {
   // Normalize path separators to forward slashes
@@ -17,35 +16,91 @@ export function getMediaUrl(filePath: string): string {
 
   // Use encodeURI (NOT encodeURIComponent) to preserve path structure
   // encodeURIComponent breaks the URL by encoding colons and slashes
-  return `media://${encodeURI(normalizedPath)}`;
+  return `media:///${encodeURI(normalizedPath)}`;
+}
+
+function revokeIfBlob(url: string): void {
+  if (url.startsWith('blob:')) {
+    URL.revokeObjectURL(url);
+  }
+}
+
+let sharedVideo: HTMLVideoElement | null = null;
+let sharedCanvas: HTMLCanvasElement | null = null;
+let videoTaskQueue: Promise<void> = Promise.resolve();
+
+function getSharedVideo(): HTMLVideoElement {
+  if (!sharedVideo) {
+    sharedVideo = document.createElement('video');
+    sharedVideo.preload = 'metadata';
+    sharedVideo.crossOrigin = 'anonymous';
+  }
+  return sharedVideo;
+}
+
+function getSharedCanvas(): HTMLCanvasElement {
+  if (!sharedCanvas) {
+    sharedCanvas = document.createElement('canvas');
+  }
+  return sharedCanvas;
+}
+
+function enqueueVideoTask<T>(task: () => Promise<T>): Promise<T> {
+  const run = videoTaskQueue.then(task, task);
+  videoTaskQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+function waitForEvent(target: HTMLVideoElement, eventName: 'loadedmetadata' | 'seeked' | 'error', timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timeoutId = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error(`Timeout waiting for ${eventName}`));
+    }, timeoutMs);
+
+    const onEvent = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+
+    const cleanup = () => {
+      clearTimeout(timeoutId);
+      target.removeEventListener(eventName, onEvent);
+    };
+
+    target.addEventListener(eventName, onEvent, { once: true });
+  });
+}
+
+async function loadVideoForProcessing(videoUrl: string): Promise<HTMLVideoElement> {
+  const video = getSharedVideo();
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+  video.src = videoUrl;
+  await waitForEvent(video, 'loadedmetadata', 15000);
+  return video;
+}
+
+function cleanupVideo(video: HTMLVideoElement, videoUrl: string): void {
+  revokeIfBlob(videoUrl);
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
 }
 
 /**
- * Create an Object URL for a video file
- * This is the recommended approach for video playback in Electron
- * because custom protocols don't handle Range requests properly
+ * Create a streaming URL for a video file
+ * Uses the media:// protocol to avoid loading the entire file into memory
  */
 export async function createVideoObjectUrl(filePath: string): Promise<string | null> {
   try {
-    // Check if electronAPI is available
-    if (!window.electronAPI) {
-      console.error('electronAPI is not available');
-      return null;
-    }
-
-    // Read file as base64 data URL via IPC
-    const dataUrl = await window.electronAPI.readFileAsBase64(filePath);
-    if (!dataUrl) {
-      console.error('Failed to read video file:', filePath);
-      return null;
-    }
-
-    // Convert data URL to Blob
-    const response = await fetch(dataUrl);
-    const blob = await response.blob();
-
-    // Create and return Object URL
-    return URL.createObjectURL(blob);
+    return getMediaUrl(filePath);
   } catch (error) {
     console.error('Failed to create video object URL:', error);
     return null;
@@ -62,26 +117,20 @@ export async function extractVideoMetadata(filePath: string): Promise<VideoMetad
     return null;
   }
 
-  return new Promise((resolve) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.src = objectUrl; // Set src immediately after creation to avoid Empty src error
-
-    video.onloadedmetadata = () => {
+  return enqueueVideoTask(async () => {
+    try {
+      const video = await loadVideoForProcessing(objectUrl);
       const metadata: VideoMetadata = {
         duration: video.duration,
         width: video.videoWidth,
         height: video.videoHeight,
       };
-      URL.revokeObjectURL(objectUrl);
-      resolve(metadata);
-    };
-
-    video.onerror = () => {
-      // Silently handle errors for metadata extraction
-      URL.revokeObjectURL(objectUrl);
-      resolve(null);
-    };
+      cleanupVideo(video, objectUrl);
+      return metadata;
+    } catch {
+      cleanupVideo(getSharedVideo(), objectUrl);
+      return null;
+    }
   });
 }
 
@@ -95,44 +144,29 @@ export async function generateVideoThumbnail(filePath: string, timeOffset: numbe
     return null;
   }
 
-  return new Promise((resolve) => {
-    const video = document.createElement('video');
-    video.preload = 'metadata';
-    video.src = objectUrl; // Set src immediately after creation to avoid Empty src error
-
-    video.onloadedmetadata = () => {
-      // Seek to the desired time (clamped to video duration)
+  return enqueueVideoTask(async () => {
+    try {
+      const video = await loadVideoForProcessing(objectUrl);
       video.currentTime = Math.min(timeOffset, video.duration);
-    };
+      await waitForEvent(video, 'seeked', 15000);
 
-    video.onseeked = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      const canvas = getSharedCanvas();
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          URL.revokeObjectURL(objectUrl);
-          resolve(null);
-          return;
-        }
-
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
-
-        URL.revokeObjectURL(objectUrl);
-        resolve(thumbnail);
-      } catch {
-        URL.revokeObjectURL(objectUrl);
-        resolve(null);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        cleanupVideo(video, objectUrl);
+        return null;
       }
-    };
 
-    video.onerror = () => {
-      // Silently handle errors for thumbnail generation
-      URL.revokeObjectURL(objectUrl);
-      resolve(null);
-    };
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+      cleanupVideo(video, objectUrl);
+      return thumbnail;
+    } catch {
+      cleanupVideo(getSharedVideo(), objectUrl);
+      return null;
+    }
   });
 }
