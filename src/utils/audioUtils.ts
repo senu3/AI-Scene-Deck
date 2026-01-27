@@ -16,6 +16,8 @@ export class AudioManager {
   private startTime: number = 0;      // AudioContext.currentTime when playback started
   private pausePosition: number = 0;  // Playback position when paused (seconds)
   private offset: number = 0;         // Audio offset in seconds (can be negative)
+  private loadId: number = 0;         // Monotonic load id for cancellation
+  private activeLoadId: number = 0;   // Last successful load id
 
   private fadeDuration: number = 0.1; // Fade duration in seconds
   private targetVolume: number = 1;   // Target volume (0-1)
@@ -64,23 +66,46 @@ export class AudioManager {
 
     // Capture context reference to avoid race condition with dispose()
     const ctx = this.audioContext;
+    const currentLoadId = ++this.loadId;
 
     try {
+      console.debug('[Audio] load start', { filePath, loadId: currentLoadId });
       // Stop current playback (DO NOT close context)
       this.stopPlayback();
 
-      // Read audio file as ArrayBuffer directly (most stable for Web Audio API)
-      const arrayBuffer = await window.electronAPI.readAudioFile(filePath);
-      if (!arrayBuffer || arrayBuffer.byteLength === 0) return false;
+      // Read audio as PCM via ffmpeg in main process
+      const pcmResult = await window.electronAPI.readAudioPcm?.(filePath);
+      if (!pcmResult || !pcmResult.pcm || pcmResult.pcm.byteLength === 0) return false;
 
       // Check if disposed during async operation
       if (this.disposed) return false;
+      if (currentLoadId !== this.loadId) return false;
 
       // Check if context was closed (by dispose)
       if ((ctx.state as string) === 'closed') return false;
 
+      const { pcm, sampleRate, channels } = pcmResult;
+      const bytes = pcm instanceof Uint8Array ? pcm : new Uint8Array(pcm);
+      const sampleCount = Math.floor(bytes.byteLength / 2 / channels);
+      if (sampleCount <= 0) return false;
+
+      const audioBuffer = ctx.createBuffer(channels, sampleCount, sampleRate);
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+      for (let ch = 0; ch < channels; ch++) {
+        const channelData = audioBuffer.getChannelData(ch);
+        let frameIndex = 0;
+        for (let i = ch * 2; i < bytes.byteLength; i += channels * 2) {
+          const sample = view.getInt16(i, true);
+          channelData[frameIndex++] = sample / 32768;
+        }
+      }
+
       // Decode audio data (Promise version - errors go to catch)
-      this.audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      this.audioBuffer = audioBuffer;
+      if (currentLoadId !== this.loadId) return false;
+      this.activeLoadId = currentLoadId;
+      console.debug('[Audio] load ok', { filePath, loadId: currentLoadId, duration: this.audioBuffer.duration });
       return true;
     } catch (e) {
       console.warn('Failed to load audio:', e);
@@ -111,6 +136,8 @@ export class AudioManager {
    */
   unload(): void {
     if (this.disposed) return;
+    console.debug('[Audio] unload', { loadId: this.loadId });
+    this.loadId++;
     this.stopPlayback();
   }
 
@@ -282,10 +309,24 @@ export class AudioManager {
   }
 
   /**
+   * Get current load counter
+   */
+  getLoadId(): number {
+    return this.loadId;
+  }
+
+  /**
    * Check if audio is loaded
    */
   isLoaded(): boolean {
     return this.audioBuffer !== null;
+  }
+
+  /**
+   * Return the last successful load id
+   */
+  getActiveLoadId(): number {
+    return this.activeLoadId;
   }
 
   /**
@@ -294,6 +335,7 @@ export class AudioManager {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.loadId++;
 
     this.stop();
     this.audioBuffer = null;

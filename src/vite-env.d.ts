@@ -147,7 +147,8 @@ interface ElectronAPI {
   readFileAsBase64: (filePath: string) => Promise<string | null>;
 
   // Audio file (returns raw ArrayBuffer for Web Audio API)
-  readAudioFile: (filePath: string) => Promise<ArrayBuffer | null>;
+    readAudioFile: (filePath: string) => Promise<ArrayBuffer | Uint8Array | null>;
+    readAudioPcm: (filePath: string) => Promise<{ pcm: Uint8Array; sampleRate: number; channels: number } | null>;
 
   // Image metadata
   readImageMetadata: (filePath: string) => Promise<ImageMetadata | null>;

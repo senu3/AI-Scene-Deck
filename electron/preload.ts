@@ -158,8 +158,11 @@ const electronAPI = {
     ipcRenderer.invoke('read-file-as-base64', filePath),
 
   // Read audio file as ArrayBuffer (for Web Audio API - more stable)
-  readAudioFile: (filePath: string): Promise<ArrayBuffer | null> =>
+  readAudioFile: (filePath: string): Promise<ArrayBuffer | Uint8Array | null> =>
     ipcRenderer.invoke('read-audio-file', filePath),
+
+  readAudioPcm: (filePath: string): Promise<{ pcm: Uint8Array; sampleRate: number; channels: number } | null> =>
+    ipcRenderer.invoke('read-audio-pcm', filePath),
 
   // Image metadata
   readImageMetadata: (filePath: string): Promise<ImageMetadata | null> =>

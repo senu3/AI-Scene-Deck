@@ -221,6 +221,14 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    console.error('[Crash] WebContents render process gone:', details);
+  });
+
+  mainWindow.webContents.on('unresponsive', () => {
+    console.error('[Crash] WebContents unresponsive');
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -230,6 +238,14 @@ app.whenReady().then(() => {
   // Register custom protocol before creating window
   registerMediaProtocol();
   createWindow();
+});
+
+app.on('render-process-gone', (_event, details) => {
+  console.error('[Crash] Render process gone:', details);
+});
+
+app.on('child-process-gone', (_event, details) => {
+  console.error('[Crash] Child process gone:', details);
 });
 
 app.on('window-all-closed', () => {
@@ -506,10 +522,70 @@ ipcMain.handle('read-file-as-base64', async (_, filePath: string) => {
 // Read audio file as ArrayBuffer (for Web Audio API - more stable than base64)
 ipcMain.handle('read-audio-file', async (_, filePath: string) => {
   try {
+    const stats = fs.statSync(filePath);
+    console.log('[Audio] read-audio-file:', filePath, `${stats.size} bytes`);
     const buffer = fs.readFileSync(filePath);
-    // Return raw buffer that can be transferred to renderer
-    return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    // Return a copied Buffer to avoid shared slab issues across IPC
+    return Buffer.from(buffer);
   } catch {
+    console.error('[Audio] read-audio-file failed:', filePath);
+    return null;
+  }
+});
+
+// Decode audio to PCM (s16le) via ffmpeg and return buffer + format
+ipcMain.handle('read-audio-pcm', async (_, filePath: string) => {
+  const ffmpegBinary = ffmpegPath as string | null;
+  if (!ffmpegBinary) {
+    console.error('[Audio] ffmpeg not found');
+    return null;
+  }
+
+  try {
+    const stats = fs.statSync(filePath);
+    console.log('[Audio] read-audio-pcm:', filePath, `${stats.size} bytes`);
+
+    const args = [
+      '-hide_banner',
+      '-i', filePath,
+      '-vn',
+      '-ac', '2',
+      '-ar', '44100',
+      '-f', 's16le',
+      'pipe:1',
+    ];
+
+    return await new Promise((resolve) => {
+      const proc = spawn(ffmpegBinary, args);
+      const chunks: Buffer[] = [];
+      let stderr = '';
+
+      proc.stdout.on('data', (chunk: Buffer) => {
+        chunks.push(chunk);
+      });
+
+      proc.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      proc.on('close', (code: number | null) => {
+        if (code !== 0) {
+          console.error('[Audio] ffmpeg decode failed:', stderr || `exit ${code}`);
+          resolve(null);
+          return;
+        }
+
+        const pcm = Buffer.concat(chunks);
+        resolve({ pcm, sampleRate: 44100, channels: 2 });
+      });
+
+      proc.on('error', (err: Error) => {
+        console.error('[Audio] ffmpeg spawn error:', err.message);
+        resolve(null);
+      });
+    });
+  } catch (error) {
+    console.error('[Audio] read-audio-pcm failed:', error);
     return null;
   }
 });

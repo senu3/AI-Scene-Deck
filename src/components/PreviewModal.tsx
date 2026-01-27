@@ -4,7 +4,7 @@ import { useStore } from '../store/useStore';
 import type { Asset, Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
 import { formatTime, cyclePlaybackSpeed } from '../utils/timeUtils';
-import { getGlobalAudioManager } from '../utils/audioUtils';
+import { AudioManager } from '../utils/audioUtils';
 import {
   TimelineMarkers,
   ClipRangeControls,
@@ -181,17 +181,16 @@ export default function PreviewModal({
   const [singleModeImageData, setSingleModeImageData] = useState<string | null>(null);
 
   // Attached audio state (both modes)
-  // Use global AudioManager singleton - never dispose on component unmount
-  // TODO: 音声紐づけ後にプレビューを開くとクラッシュする問題あり（原因調査中）
-  // ガイドライン（AudioGuideline.md）には沿っているが、他の要因の可能性
-  const audioManagerRef = useRef(getGlobalAudioManager());
+  // Keep separate managers for Single/Sequence to avoid cross-mode races.
+  const singleAudioManagerRef = useRef(new AudioManager());
+  const sequenceAudioManagerRef = useRef(new AudioManager());
   const [audioLoaded, setAudioLoaded] = useState(false);
 
   // Unload audio on unmount (but do NOT dispose the AudioManager)
   useEffect(() => {
     return () => {
-      // Only unload, never dispose - AudioManager is app-scoped singleton
-      audioManagerRef.current.unload();
+      singleAudioManagerRef.current.unload();
+      sequenceAudioManagerRef.current.unload();
     };
   }, []);
 
@@ -545,70 +544,51 @@ export default function PreviewModal({
   // Load attached audio for Single Mode (only when asset changes)
   useEffect(() => {
     if (!isSingleMode || !asset?.id) {
-      // Unload audio if not in single mode or no asset
-      if (audioManagerRef.current) {
-        audioManagerRef.current.unload();
-      }
+      singleAudioManagerRef.current.unload();
       setAudioLoaded(false);
       return;
     }
 
     const attachedAudio = getAttachedAudioForAsset(asset.id);
-
-    // Unload previous audio (reuse same AudioManager)
-    if (audioManagerRef.current) {
-      audioManagerRef.current.unload();
-    }
+    singleAudioManagerRef.current.unload();
     setAudioLoaded(false);
 
-    if (!attachedAudio?.path || !audioManagerRef.current) return;
+    if (!attachedAudio?.path) return;
 
-    let cancelled = false;
-    const manager = audioManagerRef.current;
-
-    // Check if manager is disposed before starting
+    const manager = singleAudioManagerRef.current;
     if (manager.isDisposed()) return;
 
     const loadAudio = async () => {
-      // Set offset
       const offset = getAudioOffsetForAsset(asset.id);
       manager.setOffset(offset);
-
-      // Check again before async operation
-      if (cancelled || manager.isDisposed()) return;
-
+      const expectedLoadId = manager.getLoadId() + 1;
       const loaded = await manager.load(attachedAudio.path);
-      if (cancelled) return;
-
-      if (loaded) {
+      if (!loaded) return;
+      if (manager.getActiveLoadId() === expectedLoadId) {
         setAudioLoaded(true);
       }
     };
 
     loadAudio();
-
-    return () => {
-      cancelled = true;
-    };
   }, [isSingleMode, asset?.id, getAttachedAudioForAsset, getAudioOffsetForAsset]);
 
   // Sync Single Mode audio with video playback (only on play/pause change)
   useEffect(() => {
-    if (!isSingleMode || !audioManagerRef.current || !audioLoaded) return;
+    if (!isSingleMode || !audioLoaded) return;
+    const manager = singleAudioManagerRef.current;
 
     if (isPlaying) {
-      // Get current video time for sync
       const currentTime = videoRef.current?.currentTime ?? 0;
-      audioManagerRef.current.play(currentTime);
+      manager.play(currentTime);
     } else {
-      audioManagerRef.current.pause();
+      manager.pause();
     }
   }, [isSingleMode, isPlaying, audioLoaded]);
 
   // Apply volume to attached audio
   useEffect(() => {
-    if (!audioManagerRef.current) return;
-    audioManagerRef.current.setVolume(globalMuted ? 0 : globalVolume);
+    singleAudioManagerRef.current.setVolume(globalMuted ? 0 : globalVolume);
+    sequenceAudioManagerRef.current.setVolume(globalMuted ? 0 : globalVolume);
   }, [globalVolume, globalMuted]);
 
   // ===== SEQUENCE MODE LOGIC =====
@@ -875,10 +855,7 @@ export default function PreviewModal({
   // Load attached audio when cut changes (Sequence Mode)
   useEffect(() => {
     if (isSingleMode || items.length === 0) {
-      // Unload audio if in single mode or no items
-      if (audioManagerRef.current) {
-        audioManagerRef.current.unload();
-      }
+      sequenceAudioManagerRef.current.unload();
       setAudioLoaded(false);
       return;
     }
@@ -886,61 +863,43 @@ export default function PreviewModal({
     const currentItem = items[currentIndex];
     const assetId = currentItem?.cut?.asset?.id;
     if (!assetId) {
-      // No asset - unload audio (reuse AudioManager)
-      if (audioManagerRef.current) {
-        audioManagerRef.current.unload();
-      }
+      sequenceAudioManagerRef.current.unload();
       setAudioLoaded(false);
       return;
     }
 
     const attachedAudio = getAttachedAudioForAsset(assetId);
-
-    // Unload previous audio (reuse same AudioManager)
-    if (audioManagerRef.current) {
-      audioManagerRef.current.unload();
-    }
+    sequenceAudioManagerRef.current.unload();
     setAudioLoaded(false);
 
-    if (!attachedAudio?.path || !audioManagerRef.current) return;
+    if (!attachedAudio?.path) return;
 
-    let cancelled = false;
-    const manager = audioManagerRef.current;
-
-    // Check if manager is disposed before starting
+    const manager = sequenceAudioManagerRef.current;
     if (manager.isDisposed()) return;
 
     const loadAudio = async () => {
-      // Set offset
       const offset = getAudioOffsetForAsset(assetId);
       manager.setOffset(offset);
-
-      // Check again before async operation
-      if (cancelled || manager.isDisposed()) return;
-
+      const expectedLoadId = manager.getLoadId() + 1;
       const loaded = await manager.load(attachedAudio.path);
-      if (cancelled) return;
-
-      if (loaded) {
+      if (!loaded) return;
+      if (manager.getActiveLoadId() === expectedLoadId) {
         setAudioLoaded(true);
       }
     };
 
     loadAudio();
-
-    return () => {
-      cancelled = true;
-    };
   }, [isSingleMode, currentIndex, items, getAttachedAudioForAsset, getAudioOffsetForAsset]);
 
   // Sync Sequence Mode audio with playback state (separate effect)
   useEffect(() => {
-    if (isSingleMode || !audioManagerRef.current || !audioLoaded) return;
+    if (isSingleMode || !audioLoaded) return;
 
+    const manager = sequenceAudioManagerRef.current;
     if (isPlaying && !isBuffering) {
-      audioManagerRef.current.play();
+      manager.play();
     } else {
-      audioManagerRef.current.pause();
+      manager.pause();
     }
   }, [isSingleMode, isPlaying, isBuffering, audioLoaded]);
 
