@@ -123,9 +123,9 @@ export default function PreviewModal({
 
   // Buffer management state (Sequence Mode)
   const [isBuffering, setIsBuffering] = useState(false);
-  const videoUrlCacheRef = useRef<Map<number, string>>(new Map()); // index -> Object URL
-  const readyItemsRef = useRef<Set<number>>(new Set()); // indices of ready items
-  const preloadingRef = useRef<Set<number>>(new Set()); // indices currently being preloaded
+  const videoUrlCacheRef = useRef<Map<string, string>>(new Map()); // assetId -> URL
+  const readyItemsRef = useRef<Set<string>>(new Set()); // assetIds of ready items
+  const preloadingRef = useRef<Set<string>>(new Set()); // assetIds currently being preloaded
 
   // Single Mode specific state
   const [isLoading, setIsLoading] = useState(isSingleMode);
@@ -613,6 +613,13 @@ export default function PreviewModal({
 
   // ===== SEQUENCE MODE LOGIC =====
 
+  const getVideoAssetId = useCallback((index: number): string | null => {
+    const item = items[index];
+    if (!item) return null;
+    if (item.cut.asset?.type !== 'video') return null;
+    return item.cut.asset?.id ?? item.cut.assetId ?? null;
+  }, [items]);
+
   // Helper: Get items that fall within a time window from given index
   const getItemsInTimeWindow = useCallback((startIndex: number, windowSeconds: number): number[] => {
     const indices: number[] = [];
@@ -632,47 +639,55 @@ export default function PreviewModal({
     if (!item) return false;
 
     if (item.cut.asset?.type === 'video') {
-      return videoUrlCacheRef.current.has(index);
+      const assetId = getVideoAssetId(index);
+      if (!assetId) return false;
+      return videoUrlCacheRef.current.has(assetId);
     } else {
       // Images are ready if thumbnail is available
       return !!item.thumbnail;
     }
-  }, [items]);
+  }, [items, getVideoAssetId]);
 
   // Helper: Preload items (video URLs or image data)
   const preloadItems = useCallback(async (indices: number[]): Promise<void> => {
     const preloadPromises: Promise<void>[] = [];
 
     for (const index of indices) {
-      // Skip if already ready or currently being preloaded
-      if (readyItemsRef.current.has(index) || preloadingRef.current.has(index)) continue;
-
       const item = items[index];
       if (!item) continue;
 
       if (item.cut.asset?.type === 'video' && item.cut.asset.path) {
-        if (!videoUrlCacheRef.current.has(index)) {
-          preloadingRef.current.add(index);
+        const assetId = getVideoAssetId(index);
+        if (!assetId) continue;
+
+        // Skip if already ready or currently being preloaded
+        if (readyItemsRef.current.has(assetId) || preloadingRef.current.has(assetId)) continue;
+
+        if (!videoUrlCacheRef.current.has(assetId)) {
+          preloadingRef.current.add(assetId);
           preloadPromises.push(
             createVideoObjectUrl(item.cut.asset.path).then(url => {
               if (url) {
-                videoUrlCacheRef.current.set(index, url);
-                readyItemsRef.current.add(index);
+                videoUrlCacheRef.current.set(assetId, url);
+                readyItemsRef.current.add(assetId);
               }
-              preloadingRef.current.delete(index);
+              preloadingRef.current.delete(assetId);
             })
           );
         } else {
-          readyItemsRef.current.add(index);
+          readyItemsRef.current.add(assetId);
         }
       } else {
         // Images - consider ready immediately (thumbnail already loaded in buildItems)
-        readyItemsRef.current.add(index);
+        const assetId = item.cut.asset?.id ?? item.cut.assetId;
+        if (assetId) {
+          readyItemsRef.current.add(assetId);
+        }
       }
     }
 
     await Promise.all(preloadPromises);
-  }, [items]);
+  }, [items, getVideoAssetId]);
 
   // Helper: Check if buffer is sufficient for playback
   const checkBufferStatus = useCallback((): { ready: boolean; neededItems: number[] } => {
@@ -689,14 +704,23 @@ export default function PreviewModal({
     const keepBackWindow = 5; // Keep 5 items back for rewind
     const keepStart = Math.max(0, keepFromIndex - keepBackWindow);
 
-    for (const [index, url] of videoUrlCacheRef.current) {
-      if (index < keepStart) {
-        revokeIfBlob(url);
-        videoUrlCacheRef.current.delete(index);
-        readyItemsRef.current.delete(index);
+    const keepAssetIds = new Set<string>();
+    for (let i = keepStart; i < items.length; i++) {
+      const assetId = getVideoAssetId(i);
+      if (assetId) {
+        keepAssetIds.add(assetId);
       }
     }
-  }, []);
+
+    for (const [assetId, url] of videoUrlCacheRef.current) {
+      if (!keepAssetIds.has(assetId)) {
+        revokeIfBlob(url);
+        videoUrlCacheRef.current.delete(assetId);
+        readyItemsRef.current.delete(assetId);
+        preloadingRef.current.delete(assetId);
+      }
+    }
+  }, [items, getVideoAssetId]);
 
   // Build preview items (Sequence Mode only)
   useEffect(() => {
@@ -745,18 +769,27 @@ export default function PreviewModal({
     buildItems();
   }, [isSingleMode, scenes, previewMode, selectedSceneId, getAsset]);
 
-  // Reset cache when items change (Sequence Mode only)
+  // Cleanup cache entries that are no longer present (Sequence Mode only)
   useEffect(() => {
     if (isSingleMode) return;
 
-    // Clear all cached URLs when items rebuild
-    for (const url of videoUrlCacheRef.current.values()) {
-      revokeIfBlob(url);
+    const activeAssetIds = new Set<string>();
+    for (let i = 0; i < items.length; i++) {
+      const assetId = getVideoAssetId(i);
+      if (assetId) {
+        activeAssetIds.add(assetId);
+      }
     }
-    videoUrlCacheRef.current.clear();
-    readyItemsRef.current.clear();
-    preloadingRef.current.clear();
-  }, [isSingleMode, items.length]);
+
+    for (const [assetId, url] of videoUrlCacheRef.current) {
+      if (!activeAssetIds.has(assetId)) {
+        revokeIfBlob(url);
+        videoUrlCacheRef.current.delete(assetId);
+        readyItemsRef.current.delete(assetId);
+        preloadingRef.current.delete(assetId);
+      }
+    }
+  }, [isSingleMode, items, getVideoAssetId]);
 
   // Initial preload when items are loaded (Sequence Mode only)
   useEffect(() => {
@@ -789,18 +822,19 @@ export default function PreviewModal({
       preloadItems(itemsToPreload);
 
       // Update videoObjectUrl from cache
-      const cachedUrl = videoUrlCacheRef.current.get(currentIndex);
       const currentItem = items[currentIndex];
+      const assetId = getVideoAssetId(currentIndex);
+      const cachedUrl = assetId ? videoUrlCacheRef.current.get(assetId) : undefined;
 
       if (currentItem?.cut.asset?.type === 'video') {
         if (cachedUrl && cachedUrl !== videoObjectUrl) {
           setVideoObjectUrl(cachedUrl);
-        } else if (!cachedUrl) {
+        } else if (!cachedUrl && currentItem.cut.asset?.path && assetId) {
           // Fallback: create URL if not in cache (shouldn't happen normally)
-          const url = await createVideoObjectUrl(currentItem.cut.asset.path!);
+          const url = await createVideoObjectUrl(currentItem.cut.asset.path);
           if (url) {
-            videoUrlCacheRef.current.set(currentIndex, url);
-            readyItemsRef.current.add(currentIndex);
+            videoUrlCacheRef.current.set(assetId, url);
+            readyItemsRef.current.add(assetId);
             setVideoObjectUrl(url);
           }
         }
@@ -822,7 +856,7 @@ export default function PreviewModal({
     };
 
     manageBuffer();
-  }, [isSingleMode, items, currentIndex, isPlaying, videoObjectUrl, getItemsInTimeWindow, preloadItems, checkBufferStatus, cleanupOldUrls]);
+  }, [isSingleMode, items, currentIndex, isPlaying, videoObjectUrl, getItemsInTimeWindow, preloadItems, checkBufferStatus, cleanupOldUrls, getVideoAssetId]);
 
   // Cleanup all URLs on unmount (Sequence Mode)
   useEffect(() => {

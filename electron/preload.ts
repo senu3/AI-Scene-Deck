@@ -166,8 +166,11 @@ const electronAPI = {
     ipcRenderer.invoke('read-image-metadata', filePath),
 
   // Video metadata
-  getVideoMetadata: (filePath: string): Promise<{ path: string; fileSize: number; format: string } | null> =>
+  getVideoMetadata: (filePath: string): Promise<{ path: string; fileSize: number; format: string; duration?: number; width?: number; height?: number } | null> =>
     ipcRenderer.invoke('get-video-metadata', filePath),
+
+  generateVideoThumbnail: (filePath: string, timeOffset?: number): Promise<string | null> =>
+    ipcRenderer.invoke('generate-video-thumbnail', { filePath, timeOffset }),
 
   // Vault operations
   selectVault: (): Promise<string | null> =>

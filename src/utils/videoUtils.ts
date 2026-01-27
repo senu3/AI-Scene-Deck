@@ -111,7 +111,22 @@ export async function createVideoObjectUrl(filePath: string): Promise<string | n
  * Extract video metadata (duration, dimensions) by loading it in a video element
  */
 export async function extractVideoMetadata(filePath: string): Promise<VideoMetadata | null> {
-  // Create Object URL for video (required for proper playback in Electron)
+  if (window.electronAPI?.getVideoMetadata) {
+    try {
+      const meta = await window.electronAPI.getVideoMetadata(filePath);
+      if (meta?.duration !== undefined && meta?.width !== undefined && meta?.height !== undefined) {
+        return {
+          duration: meta.duration,
+          width: meta.width,
+          height: meta.height,
+        };
+      }
+    } catch {
+      // Fall back to renderer-side extraction
+    }
+  }
+
+  // Fallback: renderer-side extraction using shared video element
   const objectUrl = await createVideoObjectUrl(filePath);
   if (!objectUrl) {
     return null;
@@ -138,7 +153,16 @@ export async function extractVideoMetadata(filePath: string): Promise<VideoMetad
  * Generate a thumbnail for a video file
  */
 export async function generateVideoThumbnail(filePath: string, timeOffset: number = 1): Promise<string | null> {
-  // Create Object URL for video (required for proper playback in Electron)
+  if (window.electronAPI?.generateVideoThumbnail) {
+    try {
+      const thumbnail = await window.electronAPI.generateVideoThumbnail(filePath, timeOffset);
+      if (thumbnail) return thumbnail;
+    } catch {
+      // Fall back to renderer-side extraction
+    }
+  }
+
+  // Fallback: renderer-side extraction using shared video element
   const objectUrl = await createVideoObjectUrl(filePath);
   if (!objectUrl) {
     return null;

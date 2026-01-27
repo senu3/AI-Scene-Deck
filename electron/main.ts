@@ -6,6 +6,7 @@ import { pathToFileURL } from 'url';
 import { spawn } from 'child_process';
 import ffmpegPath from 'ffmpeg-static';
 import { Readable } from 'stream';
+import * as os from 'os';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -112,6 +113,85 @@ function registerMediaProtocol() {
       console.error('[Protocol] Failed to serve media:', error);
       return new Response(null, { status: 404 });
     }
+  });
+}
+
+function parseFfmpegMetadata(stderr: string): { duration?: number; width?: number; height?: number } {
+  const durationMatch = /Duration:\s*(\d+):(\d+):(\d+(?:\.\d+)?)/.exec(stderr);
+  let duration: number | undefined;
+  if (durationMatch) {
+    const hours = parseInt(durationMatch[1], 10);
+    const minutes = parseInt(durationMatch[2], 10);
+    const seconds = parseFloat(durationMatch[3]);
+    if (!Number.isNaN(hours) && !Number.isNaN(minutes) && !Number.isNaN(seconds)) {
+      duration = (hours * 3600) + (minutes * 60) + seconds;
+    }
+  }
+
+  const sizeMatch = /Video:.*?(\d{2,5})x(\d{2,5})/i.exec(stderr);
+  let width: number | undefined;
+  let height: number | undefined;
+  if (sizeMatch) {
+    const w = parseInt(sizeMatch[1], 10);
+    const h = parseInt(sizeMatch[2], 10);
+    if (!Number.isNaN(w) && !Number.isNaN(h)) {
+      width = w;
+      height = h;
+    }
+  }
+
+  return { duration, width, height };
+}
+
+function probeVideoWithFfmpeg(ffmpegBinary: string, filePath: string): Promise<{ duration?: number; width?: number; height?: number }> {
+  return new Promise((resolve) => {
+    const args = ['-hide_banner', '-i', filePath];
+    const proc = spawn(ffmpegBinary, args);
+    let stderr = '';
+
+    proc.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', () => {
+      resolve(parseFfmpegMetadata(stderr));
+    });
+
+    proc.on('error', () => resolve({}));
+  });
+}
+
+function runFfmpegThumbnail(ffmpegBinary: string, filePath: string, timeOffset: number, outputPath: string): Promise<{ success: boolean; error?: string }> {
+  return new Promise((resolve) => {
+    const safeTime = Math.max(0, timeOffset);
+    const args = [
+      '-hide_banner',
+      '-ss', String(safeTime),
+      '-i', filePath,
+      '-frames:v', '1',
+      '-q:v', '2',
+      '-y',
+      outputPath,
+    ];
+
+    const proc = spawn(ffmpegBinary, args);
+    let stderr = '';
+
+    proc.stderr.on('data', (data: Buffer) => {
+      stderr += data.toString();
+    });
+
+    proc.on('close', (code: number | null) => {
+      if (code === 0 && fs.existsSync(outputPath)) {
+        resolve({ success: true });
+      } else {
+        resolve({ success: false, error: stderr || `ffmpeg exited with code ${code}` });
+      }
+    });
+
+    proc.on('error', (err: Error) => {
+      resolve({ success: false, error: `Failed to start ffmpeg: ${err.message}` });
+    });
   });
 }
 
@@ -466,14 +546,57 @@ ipcMain.handle('get-video-metadata', async (_, filePath: string) => {
   try {
     const stats = fs.statSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
+    const ffmpegBinary = ffmpegPath as string | null;
+    let duration: number | undefined;
+    let width: number | undefined;
+    let height: number | undefined;
+
+    if (ffmpegBinary) {
+      const meta = await probeVideoWithFfmpeg(ffmpegBinary, filePath);
+      duration = meta.duration;
+      width = meta.width;
+      height = meta.height;
+    }
 
     return {
       path: filePath,
       fileSize: stats.size,
       format: ext.replace('.', '').toUpperCase(),
+      duration,
+      width,
+      height,
     };
   } catch {
     return null;
+  }
+});
+
+// Generate video thumbnail via ffmpeg and return as base64 data URL
+ipcMain.handle('generate-video-thumbnail', async (_, options: { filePath: string; timeOffset?: number }) => {
+  const ffmpegBinary = ffmpegPath as string | null;
+  if (!ffmpegBinary) return null;
+
+  const timeOffset = options.timeOffset ?? 1;
+  const tempName = `thumb_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.jpg`;
+  const outputPath = path.join(os.tmpdir(), tempName);
+
+  try {
+    const result = await runFfmpegThumbnail(ffmpegBinary, options.filePath, timeOffset, outputPath);
+    if (!result.success) return null;
+
+    const buffer = fs.readFileSync(outputPath);
+    const base64 = buffer.toString('base64');
+    return `data:image/jpeg;base64,${base64}`;
+  } catch {
+    return null;
+  } finally {
+    try {
+      if (fs.existsSync(outputPath)) {
+        fs.unlinkSync(outputPath);
+      }
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 });
 

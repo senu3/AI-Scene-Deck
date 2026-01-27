@@ -153,7 +153,8 @@ interface ElectronAPI {
   readImageMetadata: (filePath: string) => Promise<ImageMetadata | null>;
 
   // Video metadata
-  getVideoMetadata: (filePath: string) => Promise<{ path: string; fileSize: number; format: string } | null>;
+    getVideoMetadata: (filePath: string) => Promise<{ path: string; fileSize: number; format: string; duration?: number; width?: number; height?: number } | null>;
+    generateVideoThumbnail: (filePath: string, timeOffset?: number) => Promise<string | null>;
 
   // Vault operations
   selectVault: () => Promise<string | null>;
