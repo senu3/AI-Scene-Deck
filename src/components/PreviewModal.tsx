@@ -5,6 +5,7 @@ import type { Asset, Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
 import { formatTime, cyclePlaybackSpeed } from '../utils/timeUtils';
 import { AudioManager } from '../utils/audioUtils';
+import { createImageMediaSource, createVideoMediaSource, type MediaSource } from '../utils/previewMedia';
 import {
   TimelineMarkers,
   ClipRangeControls,
@@ -139,14 +140,15 @@ export default function PreviewModal({
   // Focused marker state for draggable markers
   const [focusedMarker, setFocusedMarker] = useState<FocusedMarker>(null);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number>(0);
-  const elapsedRef = useRef<number>(0);
   const modalRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const sequenceSourceRef = useRef<MediaSource | null>(null);
+  const sequenceEndedRef = useRef(false);
+  const pendingSeekRef = useRef<{ index: number; localTime: number } | null>(null);
   const displayContainerRef = useRef<HTMLDivElement>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
+  const [sequenceMediaElement, setSequenceMediaElement] = useState<JSX.Element | null>(null);
 
   // Ref to prevent repeated stops when reaching OUT point
   const stoppedAtOutPointRef = useRef(false);
@@ -191,6 +193,12 @@ export default function PreviewModal({
     return () => {
       singleAudioManagerRef.current.unload();
       sequenceAudioManagerRef.current.unload();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      sequenceSourceRef.current?.dispose();
     };
   }, []);
 
@@ -390,13 +398,10 @@ export default function PreviewModal({
           const newProgress = (localTime / itemDuration) * 100;
           setCurrentIndex(i);
           setProgress(newProgress);
-          elapsedRef.current = (newProgress / 100) * itemDuration * 1000;
-
-          // If video, seek to correct position
-          if (items[i].cut.asset?.type === 'video' && videoRef.current) {
-            const cut = items[i].cut;
-            const videoStartTime = cut.isClip && cut.inPoint !== undefined ? cut.inPoint : 0;
-            videoRef.current.currentTime = videoStartTime + localTime;
+          if (i === currentIndex) {
+            sequenceSourceRef.current?.seek(localTime);
+          } else {
+            pendingSeekRef.current = { index: i, localTime };
           }
           return;
         }
@@ -949,6 +954,16 @@ export default function PreviewModal({
     return absoluteTime;
   }, [items]);
 
+  const queueSeekToPosition = useCallback((index: number, progressPercent: number) => {
+    if (index < 0 || index >= items.length) return;
+    const localTime = (progressPercent / 100) * items[index].cut.displayTime;
+    if (index === currentIndex) {
+      sequenceSourceRef.current?.seek(localTime);
+    } else {
+      pendingSeekRef.current = { index, localTime };
+    }
+  }, [items, currentIndex]);
+
   // Helper: Find position (index + progress) from absolute time
   const findPositionFromTime = useCallback((targetTime: number) => {
     let accumulated = 0;
@@ -986,14 +1001,8 @@ export default function PreviewModal({
         const loopPosition = findPositionFromTime(effectiveInPoint);
         setCurrentIndex(loopPosition.index);
         setProgress(loopPosition.progress);
-
-        // If the target item is a video, seek to correct position
-        if (items[loopPosition.index]?.cut.asset?.type === 'video' && videoRef.current) {
-          const cut = items[loopPosition.index].cut;
-          const videoStartTime = cut.isClip && cut.inPoint !== undefined ? cut.inPoint : 0;
-          const localTime = (loopPosition.progress / 100) * cut.displayTime;
-          videoRef.current.currentTime = videoStartTime + localTime;
-        }
+        queueSeekToPosition(loopPosition.index, loopPosition.progress);
+        // Media source seek will be applied after state updates.
       } else {
         setIsPlaying(false);
       }
@@ -1009,13 +1018,8 @@ export default function PreviewModal({
         const loopPosition = findPositionFromTime(effectiveInPoint);
         setCurrentIndex(loopPosition.index);
         setProgress(loopPosition.progress);
-
-        if (items[loopPosition.index]?.cut.asset?.type === 'video' && videoRef.current) {
-          const cut = items[loopPosition.index].cut;
-          const videoStartTime = cut.isClip && cut.inPoint !== undefined ? cut.inPoint : 0;
-          const localTime = (loopPosition.progress / 100) * cut.displayTime;
-          videoRef.current.currentTime = videoStartTime + localTime;
-        }
+        queueSeekToPosition(loopPosition.index, loopPosition.progress);
+        // Media source seek will be applied after state updates.
       } else {
         setIsPlaying(false);
       }
@@ -1025,7 +1029,7 @@ export default function PreviewModal({
     stoppedAtOutPointRef.current = false;
     setCurrentIndex(prev => prev + 1);
     setProgress(0);
-  }, [currentIndex, items, isLooping, inPoint, outPoint, calculateAbsoluteTime, findPositionFromTime]);
+  }, [currentIndex, items, isLooping, inPoint, outPoint, calculateAbsoluteTime, findPositionFromTime, queueSeekToPosition]);
 
   const goToPrev = useCallback(() => {
     stoppedAtOutPointRef.current = false;
@@ -1034,10 +1038,8 @@ export default function PreviewModal({
   }, []);
 
   // Handle play/pause with restart from beginning when at end
-  // Also pause/play video element
+  // Also pause/play media source
   const handlePlayPause = useCallback(() => {
-    const video = videoRef.current;
-
     // When starting playback
     if (!isPlaying) {
       stoppedAtOutPointRef.current = false;
@@ -1053,15 +1055,9 @@ export default function PreviewModal({
           const loopPosition = findPositionFromTime(effectiveInPoint);
           setCurrentIndex(loopPosition.index);
           setProgress(loopPosition.progress);
-          initialProgressRef.current = loopPosition.progress;
+          queueSeekToPosition(loopPosition.index, loopPosition.progress);
 
-          // Seek video if needed
-          if (items[loopPosition.index]?.cut.asset?.type === 'video' && video) {
-            const cut = items[loopPosition.index].cut;
-            const videoStartTime = cut.isClip && cut.inPoint !== undefined ? cut.inPoint : 0;
-            const localTime = (loopPosition.progress / 100) * cut.displayTime;
-            video.currentTime = videoStartTime + localTime;
-          }
+          // Media source seek will be applied after state updates.
         }
       }
 
@@ -1069,222 +1065,213 @@ export default function PreviewModal({
       if (inPoint === null && outPoint === null && currentIndex >= items.length - 1 && progress >= 99) {
         setCurrentIndex(0);
         setProgress(0);
-      }
-    }
-
-    // Control video playback
-    if (video && items[currentIndex]?.cut.asset?.type === 'video') {
-      if (isPlaying) {
-        video.pause();
-      } else {
-        video.play().catch(() => {});
+        queueSeekToPosition(0, 0);
       }
     }
 
     setIsPlaying(!isPlaying);
-  }, [isPlaying, currentIndex, items, progress, inPoint, outPoint, calculateAbsoluteTime, findPositionFromTime]);
+  }, [isSingleMode, isPlaying, currentIndex, items, progress, inPoint, outPoint, calculateAbsoluteTime, findPositionFromTime, queueSeekToPosition]);
 
-  // Video clip handlers
-  const handleVideoLoadedMetadata = useCallback(() => {
-    const video = videoRef.current;
+  const handleSequenceEnded = useCallback(() => {
+    if (sequenceEndedRef.current) return;
+    sequenceEndedRef.current = true;
+    goToNext();
+  }, [goToNext]);
+
+  const handleSequenceTimeUpdate = useCallback((localTime: number) => {
     const currentItem = items[currentIndex];
-    if (!video || !currentItem) return;
-
-    const cut = currentItem.cut;
-    if (cut.isClip && cut.inPoint !== undefined) {
-      video.currentTime = cut.inPoint;
-    }
-
-    // Apply playback state
-    if (isPlaying) {
-      video.play().catch(() => {});
-    }
-  }, [items, currentIndex, isPlaying]);
-
-  const handleVideoTimeUpdate = useCallback(() => {
-    const video = videoRef.current;
-    const currentItem = items[currentIndex];
-    if (!video || !currentItem) return;
+    if (!currentItem) return;
 
     // Skip if already stopped at OUT point
     if (stoppedAtOutPointRef.current) return;
 
-    const cut = currentItem.cut;
+    const duration = currentItem.cut.displayTime;
+    const clampedLocalTime = Math.max(0, Math.min(duration, localTime));
+    if (clampedLocalTime < duration - 0.05) {
+      sequenceEndedRef.current = false;
+    }
+    const newProgress = duration > 0 ? (clampedLocalTime / duration) * 100 : 0;
+    setProgress(Math.min(100, Math.max(0, newProgress)));
 
-    // Calculate progress within this cut
-    const cutInPoint = cut.isClip && cut.inPoint !== undefined ? cut.inPoint : 0;
-    const cutOutPoint = cut.isClip && cut.outPoint !== undefined ? cut.outPoint : video.duration;
-    const clipDuration = cutOutPoint - cutInPoint;
+    // Check against global IN/OUT range
+    if (inPoint !== null && outPoint !== null) {
+      const currentAbsTime = calculateAbsoluteTime(currentIndex, newProgress);
+      const effectiveOutPoint = Math.max(inPoint, outPoint);
+      const effectiveInPoint = Math.min(inPoint, outPoint);
 
-    if (clipDuration > 0) {
-      const elapsed = video.currentTime - cutInPoint;
-      const newProgress = Math.min(100, Math.max(0, (elapsed / clipDuration) * 100));
-      setProgress(newProgress);
-
-      // Check against global IN/OUT range
-      if (inPoint !== null && outPoint !== null) {
-        const currentAbsTime = calculateAbsoluteTime(currentIndex, newProgress);
-        const effectiveOutPoint = Math.max(inPoint, outPoint);
-        const effectiveInPoint = Math.min(inPoint, outPoint);
-
-        if (currentAbsTime >= effectiveOutPoint) {
-          video.pause();
-          if (isLooping) {
-            const loopPosition = findPositionFromTime(effectiveInPoint);
-            setCurrentIndex(loopPosition.index);
-            setProgress(loopPosition.progress);
-
-            // Seek video if looping back to a video item
-            if (items[loopPosition.index]?.cut.asset?.type === 'video') {
-              const loopCut = items[loopPosition.index].cut;
-              const videoStartTime = loopCut.isClip && loopCut.inPoint !== undefined ? loopCut.inPoint : 0;
-              const localTime = (loopPosition.progress / 100) * loopCut.displayTime;
-              video.currentTime = videoStartTime + localTime;
-              video.play().catch(() => {});
-            }
-          } else {
-            stoppedAtOutPointRef.current = true;
-            setIsPlaying(false);
-          }
-          return;
+      if (currentAbsTime >= effectiveOutPoint) {
+        sequenceSourceRef.current?.pause();
+        if (isLooping) {
+          const loopPosition = findPositionFromTime(effectiveInPoint);
+          stoppedAtOutPointRef.current = false;
+          setCurrentIndex(loopPosition.index);
+          setProgress(loopPosition.progress);
+          queueSeekToPosition(loopPosition.index, loopPosition.progress);
+        } else {
+          stoppedAtOutPointRef.current = true;
+          setIsPlaying(false);
         }
+        return;
       }
     }
 
-    // Check if we've reached the cut's out point (clip trimming)
-    if (cut.isClip && cut.outPoint !== undefined) {
-      if (video.currentTime >= cut.outPoint) {
-        video.pause();
-        goToNext();
-      }
+    if (clampedLocalTime >= duration - 0.01) {
+      handleSequenceEnded();
     }
-  }, [items, currentIndex, goToNext, inPoint, outPoint, isLooping, calculateAbsoluteTime, findPositionFromTime]);
+  }, [items, currentIndex, inPoint, outPoint, isLooping, calculateAbsoluteTime, findPositionFromTime, handleSequenceEnded, queueSeekToPosition]);
 
-  const handleVideoEnded = useCallback(() => {
-    goToNext();
-  }, [goToNext]);
-
-  // Control video when isPlaying changes
   useEffect(() => {
-    const video = videoRef.current;
-    const currentItem = items[currentIndex];
-    if (!video || currentItem?.cut.asset?.type !== 'video') return;
+    if (isSingleMode) return;
+    sequenceEndedRef.current = false;
+  }, [isSingleMode, currentIndex, items]);
 
-    // Don't play if buffering
-    if (isPlaying && !isBuffering) {
-      video.play().catch(() => {});
-    } else {
-      video.pause();
+  useEffect(() => {
+    if (isSingleMode) return;
+    stoppedAtOutPointRef.current = false;
+  }, [isSingleMode, currentIndex]);
+
+  useEffect(() => {
+    if (isSingleMode) {
+      sequenceSourceRef.current?.dispose();
+      sequenceSourceRef.current = null;
+      setSequenceMediaElement(null);
+      return;
     }
-  }, [isPlaying, isBuffering, currentIndex, items]);
+
+    sequenceSourceRef.current?.dispose();
+    sequenceSourceRef.current = null;
+    setSequenceMediaElement(null);
+    sequenceEndedRef.current = false;
+
+    const currentItem = items[currentIndex];
+    const asset = currentItem?.cut?.asset;
+    if (!currentItem || !asset) return;
+
+    if (asset.type === 'video') {
+      if (!videoObjectUrl) return;
+
+      const clipInPoint = currentItem.cut.isClip && currentItem.cut.inPoint !== undefined
+        ? currentItem.cut.inPoint
+        : 0;
+      const clipOutPoint = currentItem.cut.isClip && currentItem.cut.outPoint !== undefined
+        ? currentItem.cut.outPoint
+        : undefined;
+
+      const source = createVideoMediaSource({
+        src: videoObjectUrl,
+        key: videoObjectUrl,
+        className: 'preview-media',
+        muted: globalMuted,
+        refObject: videoRef,
+        inPoint: clipInPoint,
+        outPoint: clipOutPoint,
+        onTimeUpdate: handleSequenceTimeUpdate,
+        onEnded: handleSequenceEnded,
+      });
+      sequenceSourceRef.current = source;
+      setSequenceMediaElement(source.element);
+      const pendingSeek = pendingSeekRef.current;
+      if (pendingSeek && pendingSeek.index === currentIndex) {
+        source.seek(pendingSeek.localTime);
+        pendingSeekRef.current = null;
+      }
+      source.setRate(playbackSpeed);
+      return;
+    }
+
+    if (asset.type === 'image' && currentItem.thumbnail) {
+      const source = createImageMediaSource({
+        src: currentItem.thumbnail,
+        alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
+        className: 'preview-media',
+        duration: currentItem.cut.displayTime,
+        onTimeUpdate: handleSequenceTimeUpdate,
+        onEnded: handleSequenceEnded,
+      });
+      sequenceSourceRef.current = source;
+      setSequenceMediaElement(source.element);
+      const pendingSeek = pendingSeekRef.current;
+      if (pendingSeek && pendingSeek.index === currentIndex) {
+        source.seek(pendingSeek.localTime);
+        pendingSeekRef.current = null;
+      }
+      source.setRate(playbackSpeed);
+    }
+  }, [
+    isSingleMode,
+    items,
+    currentIndex,
+    videoObjectUrl,
+    playbackSpeed,
+    isPlaying,
+    isBuffering,
+    handleSequenceTimeUpdate,
+    handleSequenceEnded,
+  ]);
+
+  useEffect(() => {
+    if (isSingleMode) return;
+    const source = sequenceSourceRef.current;
+    if (!source) return;
+
+    if (isPlaying && !isBuffering) {
+      source.play();
+    } else {
+      source.pause();
+    }
+  }, [isSingleMode, isPlaying, isBuffering, currentIndex, items, sequenceMediaElement]);
+
+  useEffect(() => {
+    if (isSingleMode || !isPlaying || isBuffering) return;
+    const source = sequenceSourceRef.current;
+    const currentItem = items[currentIndex];
+    if (!source || source.kind !== 'image' || !currentItem) return;
+
+    let rafId = 0;
+    const tick = () => {
+      const duration = currentItem.cut.displayTime;
+      const localTime = source.getCurrentTime();
+      const newProgress = duration > 0 ? (localTime / duration) * 100 : 0;
+      setProgress(Math.max(0, Math.min(100, newProgress)));
+      rafId = requestAnimationFrame(tick);
+    };
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, [isSingleMode, isPlaying, isBuffering, currentIndex, items, sequenceMediaElement]);
+
+  useEffect(() => {
+    if (isSingleMode || items.length === 0) return;
+    const source = sequenceSourceRef.current;
+    if (!source) return;
+
+    if (!isPlaying || isDragging) {
+      const localTime = (progress / 100) * items[currentIndex].cut.displayTime;
+      source.seek(localTime);
+    }
+  }, [isSingleMode, items, currentIndex, progress, isPlaying, isDragging]);
+
+  useEffect(() => {
+    if (isSingleMode) return;
+    sequenceSourceRef.current?.setRate(playbackSpeed);
+  }, [isSingleMode, playbackSpeed, currentIndex]);
 
   // Auto pause/resume based on buffer status (Sequence Mode)
   useEffect(() => {
     if (isSingleMode || items.length === 0) return;
 
-    const video = videoRef.current;
     const { ready } = checkBufferStatus();
 
     if (isPlaying && !ready && !isBuffering) {
       // Buffer depleted - pause and show loading
       setIsBuffering(true);
-      if (video) {
-        video.pause();
-      }
+      sequenceSourceRef.current?.pause();
     } else if (isPlaying && ready && isBuffering) {
       // Buffer restored - resume playback
       setIsBuffering(false);
-      if (video && items[currentIndex]?.cut.asset?.type === 'video') {
-        video.play().catch(() => {});
-      }
+      sequenceSourceRef.current?.play();
     }
   }, [isSingleMode, items, currentIndex, isPlaying, isBuffering, checkBufferStatus]);
-
-  // Use ref to track initial progress to avoid re-running effect on every progress update
-  const initialProgressRef = useRef(progress);
-  useEffect(() => {
-    initialProgressRef.current = progress;
-  }, [currentIndex]); // Only update when changing items
-
-  useEffect(() => {
-    if (!isPlaying || items.length === 0 || isDragging || isBuffering) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      return;
-    }
-
-    const currentItem = items[currentIndex];
-    if (!currentItem) return;
-
-    // Skip timer for videos - they have their own playback
-    if (currentItem.cut.asset?.type === 'video') {
-      return;
-    }
-
-    const duration = (currentItem.cut.displayTime * 1000) / playbackSpeed;
-    const initialProgress = initialProgressRef.current;
-    const remainingDuration = duration * (1 - initialProgress / 100);
-    startTimeRef.current = Date.now();
-    elapsedRef.current = (initialProgress / 100) * duration;
-
-    // Calculate effective OUT point for range checking
-    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
-    const effectiveOutPoint = (inPoint !== null && outPoint !== null)
-      ? Math.max(inPoint, outPoint)
-      : totalDuration;
-    const effectiveInPoint = (inPoint !== null && outPoint !== null)
-      ? Math.min(inPoint, outPoint)
-      : 0;
-
-    let stopped = false; // Prevent multiple stops
-
-    const progressInterval = setInterval(() => {
-      if (stopped) return;
-
-      const elapsed = elapsedRef.current + (Date.now() - startTimeRef.current);
-      const newProgress = Math.min(100, (elapsed / duration) * 100);
-      setProgress(newProgress);
-
-      // Check if we've exceeded OUT point
-      if (inPoint !== null && outPoint !== null) {
-        const currentAbsTime = calculateAbsoluteTime(currentIndex, newProgress);
-        if (currentAbsTime >= effectiveOutPoint) {
-          stopped = true;
-          clearInterval(progressInterval);
-          if (timerRef.current) {
-            clearTimeout(timerRef.current);
-            timerRef.current = null;
-          }
-
-          if (isLooping) {
-            const loopPosition = findPositionFromTime(effectiveInPoint);
-            setCurrentIndex(loopPosition.index);
-            setProgress(loopPosition.progress);
-            initialProgressRef.current = loopPosition.progress;
-            elapsedRef.current = (loopPosition.progress / 100) * items[loopPosition.index].cut.displayTime * 1000;
-          } else {
-            setIsPlaying(false);
-          }
-        }
-      }
-    }, 50);
-
-    timerRef.current = setTimeout(() => {
-      if (!stopped) {
-        clearInterval(progressInterval);
-        goToNext();
-      }
-    }, remainingDuration);
-
-    return () => {
-      clearInterval(progressInterval);
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, [isPlaying, currentIndex, items, goToNext, playbackSpeed, isDragging, isBuffering, inPoint, outPoint, isLooping, calculateAbsoluteTime, findPositionFromTime]);
 
   // Cycle playback speed
   const cycleSpeed = useCallback((direction: 'up' | 'down') => {
@@ -1649,7 +1636,6 @@ export default function PreviewModal({
     const { index, localProgress } = calculateGlobalPositionFromProgress(constrainedPercent);
     setCurrentIndex(index);
     setProgress(localProgress);
-    elapsedRef.current = (localProgress / 100) * items[index].cut.displayTime * 1000;
   }, [items, calculateGlobalPositionFromProgress, focusedMarker, inPoint, outPoint]);
 
   const handleProgressBarMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -1668,7 +1654,6 @@ export default function PreviewModal({
     const { index, localProgress } = calculateGlobalPositionFromProgress(progressPercent);
     setCurrentIndex(index);
     setProgress(localProgress);
-    elapsedRef.current = (localProgress / 100) * items[index].cut.displayTime * 1000;
   }, [isDragging, items, calculateGlobalPositionFromProgress]);
 
   const handleProgressBarMouseUp = useCallback(() => {
@@ -2034,36 +2019,20 @@ export default function PreviewModal({
         <div className="preview-display" ref={displayContainerRef}>
           {(() => {
             const viewportStyle = getViewportStyle();
-            const content = currentItem?.cut.asset?.type === 'video' && currentItem.cut.asset.path ? (
-              videoObjectUrl ? (
-                <video
-                  ref={videoRef}
-                  key={videoObjectUrl}
-                  src={videoObjectUrl}
-                  className="preview-media"
-                  autoPlay={isPlaying && !isBuffering}
-                  muted={globalMuted}
-                  loop={false}
-                  onLoadedMetadata={handleVideoLoadedMetadata}
-                  onTimeUpdate={handleVideoTimeUpdate}
-                  onEnded={handleVideoEnded}
-                />
-              ) : (
+            const content = sequenceMediaElement ?? (() => {
+              if (currentItem?.cut.asset?.type === 'video') {
+                return (
+                  <div className="preview-placeholder">
+                    <p>Loading video...</p>
+                  </div>
+                );
+              }
+              return (
                 <div className="preview-placeholder">
-                  <p>Loading video...</p>
+                  <p>No preview available</p>
                 </div>
-              )
-            ) : currentItem?.thumbnail ? (
-              <img
-                src={currentItem.thumbnail}
-                alt={`${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`}
-                className="preview-media"
-              />
-            ) : (
-              <div className="preview-placeholder">
-                <p>No preview available</p>
-              </div>
-            );
+              );
+            })();
 
             if (viewportStyle) {
               return (
