@@ -8,8 +8,6 @@ import { AddCutCommand, AddSceneCommand, RemoveSceneCommand, RenameSceneCommand 
 import CutCard from './CutCard';
 import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
-import { importFileToVault } from '../utils/assetPath';
-import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
 import './Storyline.css';
 
 // Placeholder state for external file drops and cross-scene moves
@@ -35,7 +33,7 @@ interface StorylineProps {
 }
 
 export default function Storyline({ activeId }: StorylineProps) {
-  const { scenes, selectedSceneId, selectScene, vaultPath, addLoadingCutToScene, updateCutWithAsset, refreshAllSourceFolders, removeCut } = useStore();
+  const { scenes, selectedSceneId, selectScene, vaultPath, createCutFromImport } = useStore();
   const { executeCommand } = useHistoryStore();
   const { active, over } = useDndContext();
 
@@ -111,64 +109,13 @@ export default function Storyline({ activeId }: StorylineProps) {
         // If vault path is set and asset has originalPath (dragged from Sidebar), import to vault first
         if (vaultPath && asset.originalPath && !asset.vaultRelativePath) {
           // Create empty loading cut card immediately
-          const cutId = addLoadingCutToScene(sceneId, asset.id, asset.name, insertIndex);
-
-          // Import file in background
-          (async () => {
-            try {
-              // Extract video metadata if it's a video
-              let duration: number | undefined = asset.duration;
-              let videoWidth: number | undefined;
-              let videoHeight: number | undefined;
-              let thumbnail: string | undefined = asset.thumbnail;
-
-              if (asset.type === 'video' && !duration) {
-                const videoMeta = await extractVideoMetadata(asset.originalPath!);
-                if (videoMeta) {
-                  duration = videoMeta.duration;
-                  videoWidth = videoMeta.width;
-                  videoHeight = videoMeta.height;
-                }
-                if (!thumbnail) {
-                  const thumb = await generateVideoThumbnail(asset.originalPath!, 0);
-                  if (thumb) {
-                    thumbnail = thumb;
-                  }
-                }
-              }
-
-              const importedAsset = await importFileToVault(
-                asset.originalPath!,
-                vaultPath,
-                asset.id,
-                {
-                  name: asset.name,
-                  type: asset.type,
-                  thumbnail,
-                  duration,
-                  metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : asset.metadata,
-                }
-              );
-
-              let finalAsset = asset;
-              if (importedAsset) {
-                finalAsset = importedAsset;
-              } else {
-                console.warn('Failed to import to vault, using original path');
-              }
-
-              // Update the loading cut with actual asset data
-              const displayTime = finalAsset.type === 'video' && (finalAsset.duration || duration) ? (finalAsset.duration || duration || 1.0) : 1.0;
-              updateCutWithAsset(sceneId, cutId, finalAsset, displayTime);
-
-              // Refresh sidebar to show new file in assets folder
-              refreshAllSourceFolders();
-            } catch (error) {
-              console.error('Failed to import file:', error);
-              // Remove the loading cut on error
-              removeCut(sceneId, cutId);
-            }
-          })();
+          createCutFromImport(sceneId, {
+            assetId: asset.id,
+            name: asset.name,
+            sourcePath: asset.originalPath,
+            type: asset.type,
+            existingAsset: asset,
+          }, insertIndex, vaultPath).catch(() => {});
         } else {
           // Asset already in vault or no vault set - add directly
           // Use command for undo/redo support
@@ -187,82 +134,13 @@ export default function Storyline({ activeId }: StorylineProps) {
         if (!filePath || !mediaType) continue;
 
         const assetId = uuidv4();
-        const cutId = addLoadingCutToScene(sceneId, assetId, file.name, insertIndex);
-
-        // Import file in background
-        (async () => {
-          try {
-            let duration: number | undefined;
-            let thumbnail: string | undefined;
-            let videoWidth: number | undefined;
-            let videoHeight: number | undefined;
-
-            if (mediaType === 'video') {
-              const videoMeta = await extractVideoMetadata(filePath);
-              if (videoMeta) {
-                duration = videoMeta.duration;
-                videoWidth = videoMeta.width;
-                videoHeight = videoMeta.height;
-              }
-              const thumb = await generateVideoThumbnail(filePath, 0);
-              if (thumb) {
-                thumbnail = thumb;
-              }
-            }
-
-            let asset: Asset;
-            const fileSize = file.size;
-
-            if (vaultPath) {
-              const importedAsset = await importFileToVault(
-                filePath,
-                vaultPath,
-                assetId,
-                {
-                  name: file.name,
-                  type: mediaType,
-                  duration,
-                  thumbnail,
-                  fileSize,
-                  metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-                }
-              );
-
-              if (importedAsset) {
-                asset = importedAsset;
-              } else {
-                asset = {
-                  id: assetId,
-                  name: file.name,
-                  path: filePath,
-                  type: mediaType,
-                  duration,
-                  thumbnail,
-                  fileSize,
-                  metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-                };
-              }
-            } else {
-              asset = {
-                id: assetId,
-                name: file.name,
-                path: filePath,
-                type: mediaType,
-                duration,
-                thumbnail,
-                fileSize,
-                metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-              };
-            }
-
-            const displayTime = mediaType === 'video' && duration ? duration : 1.0;
-            updateCutWithAsset(sceneId, cutId, asset, displayTime);
-            refreshAllSourceFolders();
-          } catch (error) {
-            console.error('Failed to import file:', error);
-            removeCut(sceneId, cutId);
-          }
-        })();
+        createCutFromImport(sceneId, {
+          assetId,
+          name: file.name,
+          sourcePath: filePath,
+          type: mediaType,
+          fileSize: file.size,
+        }, insertIndex, vaultPath).catch(() => {});
       }
     } catch (error) {
       console.error('Failed to add cut:', error);

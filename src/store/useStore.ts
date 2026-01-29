@@ -3,6 +3,8 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore } from '../types';
 import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis } from '../utils/metadataStore';
 import { analyzeAudioRms } from '../utils/audioUtils';
+import type { CutImportSource } from '../utils/cutImport';
+import { buildAssetForCut } from '../utils/cutImport';
 
 export interface SourceFolder {
   path: string;
@@ -108,6 +110,12 @@ interface AppState {
   addCutToScene: (sceneId: string, asset: Asset, insertIndex?: number) => string; // Returns cutId
   addLoadingCutToScene: (sceneId: string, assetId: string, loadingName: string, insertIndex?: number) => string; // Returns cutId for loading cut
   updateCutWithAsset: (sceneId: string, cutId: string, asset: Asset, displayTime?: number) => void; // Update loading cut with actual asset
+  createCutFromImport: (
+    sceneId: string,
+    source: CutImportSource,
+    insertIndex?: number,
+    vaultPathOverride?: string | null
+  ) => Promise<string>;
   removeCut: (sceneId: string, cutId: string) => Cut | null;
   updateCutDisplayTime: (sceneId: string, cutId: string, time: number) => void;
   reorderCuts: (sceneId: string, cutId: string, newIndex: number, fromSceneId: string, oldIndex: number) => void;
@@ -580,6 +588,21 @@ export const useStore = create<AppState>((set, get) => ({
         assetCache: newCache,
       };
     });
+  },
+
+  createCutFromImport: async (sceneId, source, insertIndex, vaultPathOverride) => {
+    const cutId = get().addLoadingCutToScene(sceneId, source.assetId, source.name, insertIndex);
+    try {
+      const vaultPath = vaultPathOverride ?? get().vaultPath;
+      const { asset, displayTime } = await buildAssetForCut(source, vaultPath);
+      get().updateCutWithAsset(sceneId, cutId, asset, displayTime);
+      await get().refreshAllSourceFolders();
+    } catch (error) {
+      console.error('Failed to import file:', error);
+      get().removeCut(sceneId, cutId);
+      throw error;
+    }
+    return cutId;
   },
 
   removeCut: (sceneId, cutId) => {

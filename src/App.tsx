@@ -13,8 +13,7 @@ import StartupModal from './components/StartupModal';
 import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
-import { importFileToVault } from './utils/assetPath';
-import { extractVideoMetadata, generateVideoThumbnail } from './utils/videoUtils';
+import { generateVideoThumbnail } from './utils/videoUtils';
 import './styles/App.css';
 
 function TrashZone({ isActive }: { isActive: boolean }) {
@@ -80,8 +79,7 @@ function App() {
     closeVideoPreview,
     cacheAsset,
     updateCutAsset,
-    addLoadingCutToScene,
-    updateCutWithAsset,
+    createCutFromImport,
     refreshAllSourceFolders,
   } = useStore();
 
@@ -326,96 +324,15 @@ function App() {
       const assetId = uuidv4();
 
       // Create empty loading cut card immediately
-      const cutId = addLoadingCutToScene(targetSceneId, assetId, file.name);
-
-      // Import file in background
-      (async () => {
-        try {
-          // Extract video metadata and thumbnail if it's a video
-          let duration: number | undefined;
-          let thumbnail: string | undefined;
-          let videoWidth: number | undefined;
-          let videoHeight: number | undefined;
-
-          if (mediaType === 'video') {
-            const videoMeta = await extractVideoMetadata(filePath);
-            if (videoMeta) {
-              duration = videoMeta.duration;
-              videoWidth = videoMeta.width;
-              videoHeight = videoMeta.height;
-            }
-            // Generate thumbnail from first frame (timeOffset=0)
-            const thumb = await generateVideoThumbnail(filePath, 0);
-            if (thumb) {
-              thumbnail = thumb;
-            }
-          }
-
-          let asset: Asset;
-
-          // Get file size
-          const fileSize = file.size;
-
-          // If vault path is set, import to vault first (always copy now)
-          if (vaultPath) {
-            const importedAsset = await importFileToVault(
-              filePath,
-              vaultPath,
-              assetId,
-              {
-                name: file.name,
-                type: mediaType,
-                duration,
-                thumbnail,
-                fileSize,
-                metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-              }
-            );
-
-            if (importedAsset) {
-              asset = importedAsset;
-            } else {
-              // Fallback to original path if import fails
-              console.warn('Failed to import to vault, using original path');
-              asset = {
-                id: assetId,
-                name: file.name,
-                path: filePath,
-                type: mediaType,
-                duration,
-                thumbnail,
-                fileSize,
-                metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-              };
-            }
-          } else {
-            // No vault set, use original path
-            asset = {
-              id: assetId,
-              name: file.name,
-              path: filePath,
-              type: mediaType,
-              duration,
-              thumbnail,
-              fileSize,
-              metadata: videoWidth && videoHeight ? { width: videoWidth, height: videoHeight } : undefined,
-            };
-          }
-
-          // Update the loading cut with actual asset data
-          const displayTime = mediaType === 'video' && duration ? duration : 1.0;
-          updateCutWithAsset(targetSceneId, cutId, asset, displayTime);
-
-          // Refresh sidebar to show new file in assets folder
-          refreshAllSourceFolders();
-        } catch (error) {
-          console.error('Failed to import file:', error);
-          // Remove the loading cut on error
-          removeCut(targetSceneId, cutId);
-        }
-      })();
+      createCutFromImport(targetSceneId, {
+        assetId,
+        name: file.name,
+        sourcePath: filePath,
+        type: mediaType,
+        fileSize: file.size,
+      }).catch(() => {});
     }
-  }, [selectedSceneId, scenes, vaultPath, addLoadingCutToScene, updateCutWithAsset, refreshAllSourceFolders, removeCut]);
+  }, [selectedSceneId, scenes, createCutFromImport]);
 
   // Export sequence from PlaybackControls
   const handleExportFromControls = useCallback(async () => {
