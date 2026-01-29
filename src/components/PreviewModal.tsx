@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { X, Play, Pause, SkipBack, SkipForward, Download, Loader2 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
 import { formatTime, cyclePlaybackSpeed } from '../utils/timeUtils';
 import { AudioManager } from '../utils/audioUtils';
-import { createImageMediaSource, createVideoMediaSource, type MediaSource } from '../utils/previewMedia';
+import { createImageMediaSource, createVideoMediaSource } from '../utils/previewMedia';
+import { useSequencePlaybackController } from '../utils/previewPlaybackController';
 import {
   TimelineMarkers,
   ClipRangeControls,
@@ -108,22 +109,19 @@ export default function PreviewModal({
   const isSingleMode = !!asset;
 
   const [items, setItems] = useState<PreviewItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(!isSingleMode); // Single mode starts paused
+  const [singleModeIsPlaying, setSingleModeIsPlaying] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [progress, setProgress] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [hoverTime, setHoverTime] = useState<string | null>(null);
-  const [videoObjectUrl, setVideoObjectUrl] = useState<string | null>(null);
-  const [isLooping, setIsLooping] = useState(false);
+  const [videoObjectUrl, setVideoObjectUrl] = useState<{ assetId: string; url: string } | null>(null);
+  const [singleModeIsLooping, setSingleModeIsLooping] = useState(false);
   const [selectedResolution, setSelectedResolution] = useState<ResolutionPreset>(
     exportResolution ? { ...exportResolution } : RESOLUTION_PRESETS[0]
   );
   const [isExporting, setIsExporting] = useState(false);
 
   // Buffer management state (Sequence Mode)
-  const [isBuffering, setIsBuffering] = useState(false);
   const videoUrlCacheRef = useRef<Map<string, string>>(new Map()); // assetId -> URL
   const readyItemsRef = useRef<Set<string>>(new Set()); // assetIds of ready items
   const preloadingRef = useRef<Set<string>>(new Set()); // assetIds currently being preloaded
@@ -134,8 +132,35 @@ export default function PreviewModal({
   const [singleModeCurrentTime, setSingleModeCurrentTime] = useState(0);
 
   // IN/OUT point state - initialize from props for Single Mode
-  const [inPoint, setInPoint] = useState<number | null>(initialInPoint ?? null);
-  const [outPoint, setOutPoint] = useState<number | null>(initialOutPoint ?? null);
+  const [singleModeInPoint, setSingleModeInPoint] = useState<number | null>(initialInPoint ?? null);
+  const [singleModeOutPoint, setSingleModeOutPoint] = useState<number | null>(initialOutPoint ?? null);
+
+  const sequenceDurations = useMemo(() => items.map(item => item.cut.displayTime), [items]);
+  const sequencePlayback = useSequencePlaybackController(sequenceDurations);
+  const {
+    state: sequenceState,
+    setSource: setSequenceSource,
+    setRate: setSequenceRate,
+    tick: sequenceTick,
+    goToNext: sequenceGoToNext,
+    goToPrev: sequenceGoToPrev,
+    toggle: sequenceToggle,
+    pause: sequencePause,
+    setLooping: setSequenceLooping,
+    setRange: setSequenceRange,
+    setBuffering: setSequenceBuffering,
+    seekAbsolute: seekSequenceAbsolute,
+    seekPercent: seekSequencePercent,
+    skip: skipSequence,
+    selectors: sequenceSelectors,
+  } = sequencePlayback;
+
+  const currentIndex = isSingleMode ? 0 : sequenceState.currentIndex;
+  const isPlaying = isSingleMode ? singleModeIsPlaying : sequenceState.isPlaying;
+  const isLooping = isSingleMode ? singleModeIsLooping : sequenceState.isLooping;
+  const inPoint = isSingleMode ? singleModeInPoint : sequenceState.inPoint;
+  const outPoint = isSingleMode ? singleModeOutPoint : sequenceState.outPoint;
+  const isBuffering = isSingleMode ? false : sequenceState.isBuffering;
 
   // Focused marker state for draggable markers
   const [focusedMarker, setFocusedMarker] = useState<FocusedMarker>(null);
@@ -143,15 +168,9 @@ export default function PreviewModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const sequenceSourceRef = useRef<MediaSource | null>(null);
-  const sequenceEndedRef = useRef(false);
-  const pendingSeekRef = useRef<{ index: number; localTime: number } | null>(null);
   const displayContainerRef = useRef<HTMLDivElement>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
   const [sequenceMediaElement, setSequenceMediaElement] = useState<JSX.Element | null>(null);
-
-  // Ref to prevent repeated stops when reaching OUT point
-  const stoppedAtOutPointRef = useRef(false);
 
   // Frame stepping constant (assuming 30fps)
   const FRAME_DURATION = 1 / 30;
@@ -186,6 +205,7 @@ export default function PreviewModal({
   // Keep separate managers for Single/Sequence to avoid cross-mode races.
   const singleAudioManagerRef = useRef(new AudioManager());
   const sequenceAudioManagerRef = useRef(new AudioManager());
+  const sequenceAudioPlayingRef = useRef(false);
   const [audioLoaded, setAudioLoaded] = useState(false);
 
   // Unload audio on unmount (but do NOT dispose the AudioManager)
@@ -193,12 +213,6 @@ export default function PreviewModal({
     return () => {
       singleAudioManagerRef.current.unload();
       sequenceAudioManagerRef.current.unload();
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      sequenceSourceRef.current?.dispose();
     };
   }, []);
 
@@ -214,7 +228,7 @@ export default function PreviewModal({
       if (asset.type === 'video') {
         const url = await createVideoObjectUrl(asset.path);
         if (isMounted && url) {
-          setVideoObjectUrl(url);
+          setVideoObjectUrl({ assetId: asset.id, url });
         }
       } else if (asset.type === 'image') {
         // Load image as base64
@@ -247,8 +261,8 @@ export default function PreviewModal({
     if (!isSingleMode) return;
 
     return () => {
-      if (videoObjectUrl) {
-        revokeIfBlob(videoObjectUrl);
+      if (videoObjectUrl?.url) {
+        revokeIfBlob(videoObjectUrl.url);
       }
     };
   }, [isSingleMode, videoObjectUrl]);
@@ -260,7 +274,11 @@ export default function PreviewModal({
     // Pause video when stepping frames
     if (isPlaying) {
       videoRef.current.pause();
-      setIsPlaying(false);
+      if (isSingleMode) {
+        setSingleModeIsPlaying(false);
+      } else {
+        sequencePause();
+      }
     }
 
     const duration = isSingleMode ? singleModeDuration : videoRef.current.duration;
@@ -270,7 +288,7 @@ export default function PreviewModal({
     if (isSingleMode) {
       setSingleModeCurrentTime(videoRef.current.currentTime);
     }
-  }, [isSingleMode, singleModeDuration, isPlaying, FRAME_DURATION]);
+  }, [isSingleMode, singleModeDuration, isPlaying, FRAME_DURATION, sequencePause]);
 
   // Step focused marker by one frame
   const stepFocusedMarker = useCallback((direction: number) => {
@@ -283,7 +301,12 @@ export default function PreviewModal({
       // Constrain IN marker to not go past OUT point
       const maxTime = outPoint !== null ? outPoint : duration;
       const newTime = Math.max(0, Math.min(maxTime, inPoint + stepAmount));
-      setInPoint(newTime);
+      if (isSingleMode) {
+        setSingleModeInPoint(newTime);
+      } else {
+        setSequenceRange(newTime, outPoint ?? null);
+        seekSequenceAbsolute(newTime);
+      }
       // Also move playback position
       if (isSingleMode && videoRef.current) {
         videoRef.current.currentTime = newTime;
@@ -293,14 +316,19 @@ export default function PreviewModal({
       // Constrain OUT marker to not go before IN point
       const minTime = inPoint !== null ? inPoint : 0;
       const newTime = Math.max(minTime, Math.min(duration, outPoint + stepAmount));
-      setOutPoint(newTime);
+      if (isSingleMode) {
+        setSingleModeOutPoint(newTime);
+      } else {
+        setSequenceRange(inPoint ?? null, newTime);
+        seekSequenceAbsolute(newTime);
+      }
       // Also move playback position
       if (isSingleMode && videoRef.current) {
         videoRef.current.currentTime = newTime;
         setSingleModeCurrentTime(newTime);
       }
     }
-  }, [focusedMarker, inPoint, outPoint, isSingleMode, singleModeDuration, items, FRAME_DURATION]);
+  }, [focusedMarker, inPoint, outPoint, isSingleMode, singleModeDuration, items, FRAME_DURATION, setSequenceRange, seekSequenceAbsolute]);
 
   // Handle marker focus
   const handleMarkerFocus = useCallback((marker: FocusedMarker) => {
@@ -322,9 +350,17 @@ export default function PreviewModal({
     }
 
     if (marker === 'in') {
-      setInPoint(clampedTime);
+      if (isSingleMode) {
+        setSingleModeInPoint(clampedTime);
+      } else {
+        setSequenceRange(clampedTime, outPoint ?? null);
+      }
     } else {
-      setOutPoint(clampedTime);
+      if (isSingleMode) {
+        setSingleModeOutPoint(clampedTime);
+      } else {
+        setSequenceRange(inPoint ?? null, clampedTime);
+      }
     }
 
     // Also update playback position
@@ -332,20 +368,9 @@ export default function PreviewModal({
       videoRef.current.currentTime = clampedTime;
       setSingleModeCurrentTime(clampedTime);
     } else if (!isSingleMode && items.length > 0) {
-      // Sequence mode: calculate current index and progress from time
-      let accumulatedTime = 0;
-      for (let i = 0; i < items.length; i++) {
-        const itemDuration = items[i].cut.displayTime;
-        if (accumulatedTime + itemDuration > clampedTime) {
-          const localProgress = ((clampedTime - accumulatedTime) / itemDuration) * 100;
-          setCurrentIndex(i);
-          setProgress(Math.max(0, Math.min(100, localProgress)));
-          break;
-        }
-        accumulatedTime += itemDuration;
-      }
+      seekSequenceAbsolute(clampedTime);
     }
-  }, [isSingleMode, singleModeDuration, items, inPoint, outPoint]);
+  }, [isSingleMode, singleModeDuration, items, inPoint, outPoint, setSequenceRange, seekSequenceAbsolute]);
 
   // Handle marker drag end
   const handleMarkerDragEnd = useCallback(() => {
@@ -375,44 +400,9 @@ export default function PreviewModal({
       videoRef.current.currentTime = newTime;
       setSingleModeCurrentTime(newTime);
     } else {
-      // Sequence Mode: calculate position across all cuts
-      const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
-      if (totalDuration === 0) return;
-
-      // Calculate current absolute time
-      let currentAbsoluteTime = 0;
-      for (let i = 0; i < currentIndex; i++) {
-        currentAbsoluteTime += items[i].cut.displayTime;
-      }
-      currentAbsoluteTime += (progress / 100) * items[currentIndex].cut.displayTime;
-
-      // Calculate new absolute time
-      const newAbsoluteTime = Math.max(0, Math.min(totalDuration, currentAbsoluteTime + seconds));
-
-      // Find the new index and local progress
-      let accumulated = 0;
-      for (let i = 0; i < items.length; i++) {
-        const itemDuration = items[i].cut.displayTime;
-        if (accumulated + itemDuration > newAbsoluteTime) {
-          const localTime = newAbsoluteTime - accumulated;
-          const newProgress = (localTime / itemDuration) * 100;
-          setCurrentIndex(i);
-          setProgress(newProgress);
-          if (i === currentIndex) {
-            sequenceSourceRef.current?.seek(localTime);
-          } else {
-            pendingSeekRef.current = { index: i, localTime };
-          }
-          return;
-        }
-        accumulated += itemDuration;
-      }
-
-      // If we reach here, go to the end
-      setCurrentIndex(items.length - 1);
-      setProgress(100);
+      skipSequence(seconds);
     }
-  }, [isSingleMode, singleModeDuration, items, currentIndex, progress]);
+  }, [isSingleMode, singleModeDuration, skipSequence]);
 
   // Single Mode video event handlers
   const handleSingleModeTimeUpdate = useCallback(() => {
@@ -429,7 +419,7 @@ export default function PreviewModal({
           videoRef.current.currentTime = clipStart;
         } else {
           videoRef.current.pause();
-          setIsPlaying(false);
+          setSingleModeIsPlaying(false);
           videoRef.current.currentTime = clipStart;
         }
       }
@@ -456,7 +446,7 @@ export default function PreviewModal({
       videoRef.current.currentTime = loopStart;
       videoRef.current.play();
     } else {
-      setIsPlaying(false);
+      setSingleModeIsPlaying(false);
     }
   }, [isSingleMode, isLooping, inPoint, outPoint]);
 
@@ -474,13 +464,13 @@ export default function PreviewModal({
       if (outPoint !== null) {
         newTime = Math.min(newTime, outPoint);
       }
-      setInPoint(newTime);
+      setSingleModeInPoint(newTime);
     } else if (focusedMarker === 'out') {
       // Constrain OUT marker to not go before IN point
       if (inPoint !== null) {
         newTime = Math.max(newTime, inPoint);
       }
-      setOutPoint(newTime);
+      setSingleModeOutPoint(newTime);
     }
 
     // Always update playback position
@@ -491,13 +481,13 @@ export default function PreviewModal({
   // Single Mode IN/OUT handlers
   const handleSingleModeSetInPoint = useCallback(() => {
     if (!isSingleMode) return;
-    setInPoint(singleModeCurrentTime);
+    setSingleModeInPoint(singleModeCurrentTime);
     onInPointSet?.(singleModeCurrentTime);
   }, [isSingleMode, singleModeCurrentTime, onInPointSet]);
 
   const handleSingleModeSetOutPoint = useCallback(() => {
     if (!isSingleMode) return;
-    setOutPoint(singleModeCurrentTime);
+    setSingleModeOutPoint(singleModeCurrentTime);
     onOutPointSet?.(singleModeCurrentTime);
   }, [isSingleMode, singleModeCurrentTime, onOutPointSet]);
 
@@ -521,13 +511,13 @@ export default function PreviewModal({
   const toggleSingleModePlay = useCallback(() => {
     if (!videoRef.current || !isSingleMode) return;
 
-    if (isPlaying) {
+    if (singleModeIsPlaying) {
       videoRef.current.pause();
     } else {
       videoRef.current.play();
     }
-    setIsPlaying(!isPlaying);
-  }, [isSingleMode, isPlaying]);
+    setSingleModeIsPlaying(!singleModeIsPlaying);
+  }, [isSingleMode, singleModeIsPlaying]);
 
   // Apply playback speed (Single Mode)
   useEffect(() => {
@@ -582,13 +572,13 @@ export default function PreviewModal({
     if (!isSingleMode || !audioLoaded) return;
     const manager = singleAudioManagerRef.current;
 
-    if (isPlaying) {
+    if (singleModeIsPlaying) {
       const currentTime = videoRef.current?.currentTime ?? 0;
       manager.play(currentTime);
     } else {
       manager.pause();
     }
-  }, [isSingleMode, isPlaying, audioLoaded]);
+  }, [isSingleMode, singleModeIsPlaying, audioLoaded]);
 
   // Apply volume to attached audio
   useEffect(() => {
@@ -812,15 +802,15 @@ export default function PreviewModal({
       const cachedUrl = assetId ? videoUrlCacheRef.current.get(assetId) : undefined;
 
       if (currentItem?.cut.asset?.type === 'video') {
-        if (cachedUrl && cachedUrl !== videoObjectUrl) {
-          setVideoObjectUrl(cachedUrl);
+        if (cachedUrl && (!videoObjectUrl || videoObjectUrl.assetId !== assetId || videoObjectUrl.url !== cachedUrl)) {
+          setVideoObjectUrl({ assetId, url: cachedUrl });
         } else if (!cachedUrl && currentItem.cut.asset?.path && assetId) {
           // Fallback: create URL if not in cache (shouldn't happen normally)
           const url = await createVideoObjectUrl(currentItem.cut.asset.path);
           if (url) {
             videoUrlCacheRef.current.set(assetId, url);
             readyItemsRef.current.add(assetId);
-            setVideoObjectUrl(url);
+            setVideoObjectUrl({ assetId, url });
           }
         }
       } else {
@@ -829,11 +819,14 @@ export default function PreviewModal({
       }
 
       // Check buffer status and update buffering state
-      const { ready } = checkBufferStatus();
-      if (isPlaying && !ready) {
-        setIsBuffering(true);
-      } else if (ready) {
-        setIsBuffering(false);
+      const { ready, neededItems } = checkBufferStatus();
+      const currentReady = isItemReady(currentIndex);
+      if (sequenceState.isPlaying && !ready && !sequenceState.isBuffering) {
+        if (!currentReady) {
+          setSequenceBuffering(true);
+        }
+      } else if (sequenceState.isPlaying && (ready || currentReady) && sequenceState.isBuffering) {
+        setSequenceBuffering(false);
       }
 
       // Cleanup old URLs (keep more items for rewinding)
@@ -841,7 +834,21 @@ export default function PreviewModal({
     };
 
     manageBuffer();
-  }, [isSingleMode, items, currentIndex, isPlaying, videoObjectUrl, getItemsInTimeWindow, preloadItems, checkBufferStatus, cleanupOldUrls, getVideoAssetId]);
+  }, [
+    isSingleMode,
+    items,
+    currentIndex,
+    videoObjectUrl,
+    getItemsInTimeWindow,
+    preloadItems,
+    cleanupOldUrls,
+    getVideoAssetId,
+    checkBufferStatus,
+    isItemReady,
+    sequenceState.isPlaying,
+    sequenceState.isBuffering,
+    setSequenceBuffering,
+  ]);
 
   // Cleanup all URLs on unmount (Sequence Mode)
   useEffect(() => {
@@ -862,6 +869,7 @@ export default function PreviewModal({
     if (isSingleMode || items.length === 0) {
       sequenceAudioManagerRef.current.unload();
       setAudioLoaded(false);
+      sequenceAudioPlayingRef.current = false;
       return;
     }
 
@@ -870,12 +878,14 @@ export default function PreviewModal({
     if (!assetId) {
       sequenceAudioManagerRef.current.unload();
       setAudioLoaded(false);
+      sequenceAudioPlayingRef.current = false;
       return;
     }
 
     const attachedAudio = getAttachedAudioForAsset(assetId);
     sequenceAudioManagerRef.current.unload();
     setAudioLoaded(false);
+    sequenceAudioPlayingRef.current = false;
 
     if (!attachedAudio?.path) return;
 
@@ -901,12 +911,16 @@ export default function PreviewModal({
     if (isSingleMode || !audioLoaded) return;
 
     const manager = sequenceAudioManagerRef.current;
-    if (isPlaying && !isBuffering) {
-      manager.play();
-    } else {
+    if (sequenceState.isPlaying && !sequenceState.isBuffering) {
+      if (!sequenceAudioPlayingRef.current) {
+        manager.play(Math.max(0, sequenceSelectors.getAbsoluteTime()));
+        sequenceAudioPlayingRef.current = true;
+      }
+    } else if (sequenceAudioPlayingRef.current) {
       manager.pause();
+      sequenceAudioPlayingRef.current = false;
     }
-  }, [isSingleMode, isPlaying, isBuffering, audioLoaded]);
+  }, [isSingleMode, audioLoaded, sequenceState.isPlaying, sequenceState.isBuffering, sequenceSelectors]);
 
   // Calculate display size for resolution simulation
   useLayoutEffect(() => {
@@ -942,213 +956,54 @@ export default function PreviewModal({
     };
   }, [selectedResolution, displaySize]);
 
-  // Helper: Calculate absolute time from index and progress
-  const calculateAbsoluteTime = useCallback((itemIndex: number, itemProgress: number) => {
-    let absoluteTime = 0;
-    for (let i = 0; i < itemIndex && i < items.length; i++) {
-      absoluteTime += items[i].cut.displayTime;
-    }
-    if (itemIndex < items.length) {
-      absoluteTime += (itemProgress / 100) * items[itemIndex].cut.displayTime;
-    }
-    return absoluteTime;
-  }, [items]);
-
-  const queueSeekToPosition = useCallback((index: number, progressPercent: number) => {
-    if (index < 0 || index >= items.length) return;
-    const localTime = (progressPercent / 100) * items[index].cut.displayTime;
-    if (index === currentIndex) {
-      sequenceSourceRef.current?.seek(localTime);
-    } else {
-      pendingSeekRef.current = { index, localTime };
-    }
-  }, [items, currentIndex]);
-
-  // Helper: Find position (index + progress) from absolute time
-  const findPositionFromTime = useCallback((targetTime: number) => {
-    let accumulated = 0;
-    for (let i = 0; i < items.length; i++) {
-      const itemDuration = items[i].cut.displayTime;
-      if (accumulated + itemDuration > targetTime) {
-        const localProgress = ((targetTime - accumulated) / itemDuration) * 100;
-        return { index: i, progress: Math.max(0, Math.min(100, localProgress)) };
-      }
-      accumulated += itemDuration;
-    }
-    return { index: items.length - 1, progress: 100 };
-  }, [items]);
-
-  // Playback logic
   const goToNext = useCallback(() => {
-    // Calculate total duration
-    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
-
-    // Determine the effective OUT point
-    const effectiveOutPoint = (inPoint !== null && outPoint !== null)
-      ? Math.max(inPoint, outPoint)
-      : totalDuration;
-
-    // Determine the effective IN point
-    const effectiveInPoint = (inPoint !== null && outPoint !== null)
-      ? Math.min(inPoint, outPoint)
-      : 0;
-
-    if (currentIndex >= items.length - 1) {
-      // At the last item
-      if (isLooping) {
-        // Loop back to IN point (or beginning if no IN/OUT set)
-        stoppedAtOutPointRef.current = false;
-        const loopPosition = findPositionFromTime(effectiveInPoint);
-        setCurrentIndex(loopPosition.index);
-        setProgress(loopPosition.progress);
-        queueSeekToPosition(loopPosition.index, loopPosition.progress);
-        // Media source seek will be applied after state updates.
-      } else {
-        setIsPlaying(false);
-      }
-      return;
-    }
-
-    // Check if next item would exceed OUT point
-    const nextItemStartTime = calculateAbsoluteTime(currentIndex + 1, 0);
-    if (inPoint !== null && outPoint !== null && nextItemStartTime >= effectiveOutPoint) {
-      // Would exceed OUT point
-      if (isLooping) {
-        stoppedAtOutPointRef.current = false;
-        const loopPosition = findPositionFromTime(effectiveInPoint);
-        setCurrentIndex(loopPosition.index);
-        setProgress(loopPosition.progress);
-        queueSeekToPosition(loopPosition.index, loopPosition.progress);
-        // Media source seek will be applied after state updates.
-      } else {
-        setIsPlaying(false);
-      }
-      return;
-    }
-
-    stoppedAtOutPointRef.current = false;
-    setCurrentIndex(prev => prev + 1);
-    setProgress(0);
-  }, [currentIndex, items, isLooping, inPoint, outPoint, calculateAbsoluteTime, findPositionFromTime, queueSeekToPosition]);
+    if (isSingleMode) return;
+    sequenceGoToNext();
+  }, [isSingleMode, sequenceGoToNext]);
 
   const goToPrev = useCallback(() => {
-    stoppedAtOutPointRef.current = false;
-    setCurrentIndex(prev => Math.max(0, prev - 1));
-    setProgress(0);
-  }, []);
+    if (isSingleMode) return;
+    sequenceGoToPrev();
+  }, [isSingleMode, sequenceGoToPrev]);
 
-  // Handle play/pause with restart from beginning when at end
-  // Also pause/play media source
   const handlePlayPause = useCallback(() => {
-    // When starting playback
-    if (!isPlaying) {
-      stoppedAtOutPointRef.current = false;
-
-      // If IN/OUT range is set, check if we need to seek to IN point
-      if (inPoint !== null && outPoint !== null) {
-        const currentAbsTime = calculateAbsoluteTime(currentIndex, progress);
-        const effectiveOutPoint = Math.max(inPoint, outPoint);
-        const effectiveInPoint = Math.min(inPoint, outPoint);
-
-        // If at or past OUT point, seek to IN point
-        if (currentAbsTime >= effectiveOutPoint - 0.1) { // Small tolerance
-          const loopPosition = findPositionFromTime(effectiveInPoint);
-          setCurrentIndex(loopPosition.index);
-          setProgress(loopPosition.progress);
-          queueSeekToPosition(loopPosition.index, loopPosition.progress);
-
-          // Media source seek will be applied after state updates.
-        }
-      }
-
-      // Restart from beginning if at end (without IN/OUT range)
-      if (inPoint === null && outPoint === null && currentIndex >= items.length - 1 && progress >= 99) {
-        setCurrentIndex(0);
-        setProgress(0);
-        queueSeekToPosition(0, 0);
-      }
-    }
-
-    setIsPlaying(!isPlaying);
-  }, [isSingleMode, isPlaying, currentIndex, items, progress, inPoint, outPoint, calculateAbsoluteTime, findPositionFromTime, queueSeekToPosition]);
-
-  const handleSequenceEnded = useCallback(() => {
-    if (sequenceEndedRef.current) return;
-    sequenceEndedRef.current = true;
-    goToNext();
-  }, [goToNext]);
-
-  const handleSequenceTimeUpdate = useCallback((localTime: number) => {
-    const currentItem = items[currentIndex];
-    if (!currentItem) return;
-
-    // Skip if already stopped at OUT point
-    if (stoppedAtOutPointRef.current) return;
-
-    const duration = currentItem.cut.displayTime;
-    const clampedLocalTime = Math.max(0, Math.min(duration, localTime));
-    if (clampedLocalTime < duration - 0.05) {
-      sequenceEndedRef.current = false;
-    }
-    const newProgress = duration > 0 ? (clampedLocalTime / duration) * 100 : 0;
-    setProgress(Math.min(100, Math.max(0, newProgress)));
-
-    // Check against global IN/OUT range
-    if (inPoint !== null && outPoint !== null) {
-      const currentAbsTime = calculateAbsoluteTime(currentIndex, newProgress);
-      const effectiveOutPoint = Math.max(inPoint, outPoint);
-      const effectiveInPoint = Math.min(inPoint, outPoint);
-
-      if (currentAbsTime >= effectiveOutPoint) {
-        sequenceSourceRef.current?.pause();
-        if (isLooping) {
-          const loopPosition = findPositionFromTime(effectiveInPoint);
-          stoppedAtOutPointRef.current = false;
-          setCurrentIndex(loopPosition.index);
-          setProgress(loopPosition.progress);
-          queueSeekToPosition(loopPosition.index, loopPosition.progress);
-        } else {
-          stoppedAtOutPointRef.current = true;
-          setIsPlaying(false);
-        }
-        return;
-      }
-    }
-
-    if (clampedLocalTime >= duration - 0.01) {
-      handleSequenceEnded();
-    }
-  }, [items, currentIndex, inPoint, outPoint, isLooping, calculateAbsoluteTime, findPositionFromTime, handleSequenceEnded, queueSeekToPosition]);
-
-  useEffect(() => {
     if (isSingleMode) return;
-    sequenceEndedRef.current = false;
-  }, [isSingleMode, currentIndex, items]);
 
-  useEffect(() => {
-    if (isSingleMode) return;
-    stoppedAtOutPointRef.current = false;
-  }, [isSingleMode, currentIndex]);
+    if (!sequenceState.isPlaying) {
+      const currentAbsTime = sequenceSelectors.getAbsoluteTime();
+      if (sequenceState.inPoint !== null && sequenceState.outPoint !== null) {
+        const effectiveOutPoint = Math.max(sequenceState.inPoint, sequenceState.outPoint);
+        const effectiveInPoint = Math.min(sequenceState.inPoint, sequenceState.outPoint);
+        if (currentAbsTime >= effectiveOutPoint - 0.1) {
+          seekSequenceAbsolute(effectiveInPoint);
+        }
+      } else if (sequenceState.currentIndex >= items.length - 1 && sequenceState.localProgress >= 99) {
+        seekSequenceAbsolute(0);
+      }
+    }
+
+    sequenceToggle();
+  }, [isSingleMode, sequenceState, sequenceSelectors, sequenceToggle, seekSequenceAbsolute, items.length]);
 
   useEffect(() => {
     if (isSingleMode) {
-      sequenceSourceRef.current?.dispose();
-      sequenceSourceRef.current = null;
+      setSequenceSource(null);
       setSequenceMediaElement(null);
       return;
     }
 
-    sequenceSourceRef.current?.dispose();
-    sequenceSourceRef.current = null;
+    setSequenceSource(null);
     setSequenceMediaElement(null);
-    sequenceEndedRef.current = false;
 
-    const currentItem = items[currentIndex];
+    const currentItem = items[sequenceState.currentIndex];
     const asset = currentItem?.cut?.asset;
     if (!currentItem || !asset) return;
 
     if (asset.type === 'video') {
-      if (!videoObjectUrl) return;
+      const assetId = currentItem.cut.asset?.id ?? currentItem.cut.assetId ?? null;
+      if (!videoObjectUrl || !assetId || videoObjectUrl.assetId !== assetId) {
+        return;
+      }
 
       const clipInPoint = currentItem.cut.isClip && currentItem.cut.inPoint !== undefined
         ? currentItem.cut.inPoint
@@ -1158,24 +1013,19 @@ export default function PreviewModal({
         : undefined;
 
       const source = createVideoMediaSource({
-        src: videoObjectUrl,
-        key: videoObjectUrl,
+        src: videoObjectUrl.url,
+        key: videoObjectUrl.url,
         className: 'preview-media',
         muted: globalMuted,
         refObject: videoRef,
         inPoint: clipInPoint,
         outPoint: clipOutPoint,
-        onTimeUpdate: handleSequenceTimeUpdate,
-        onEnded: handleSequenceEnded,
+        onTimeUpdate: sequenceTick,
+        onEnded: sequenceGoToNext,
       });
-      sequenceSourceRef.current = source;
+      setSequenceSource(source);
       setSequenceMediaElement(source.element);
-      const pendingSeek = pendingSeekRef.current;
-      if (pendingSeek && pendingSeek.index === currentIndex) {
-        source.seek(pendingSeek.localTime);
-        pendingSeekRef.current = null;
-      }
-      source.setRate(playbackSpeed);
+      setSequenceRate(playbackSpeed);
       return;
     }
 
@@ -1185,76 +1035,30 @@ export default function PreviewModal({
         alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
         className: 'preview-media',
         duration: currentItem.cut.displayTime,
-        onTimeUpdate: handleSequenceTimeUpdate,
-        onEnded: handleSequenceEnded,
+        onTimeUpdate: sequenceTick,
+        onEnded: sequenceGoToNext,
       });
-      sequenceSourceRef.current = source;
+      setSequenceSource(source);
       setSequenceMediaElement(source.element);
-      const pendingSeek = pendingSeekRef.current;
-      if (pendingSeek && pendingSeek.index === currentIndex) {
-        source.seek(pendingSeek.localTime);
-        pendingSeekRef.current = null;
-      }
-      source.setRate(playbackSpeed);
+      setSequenceRate(playbackSpeed);
     }
   }, [
     isSingleMode,
     items,
-    currentIndex,
+    sequenceState.currentIndex,
     videoObjectUrl,
     playbackSpeed,
-    isPlaying,
-    isBuffering,
-    handleSequenceTimeUpdate,
-    handleSequenceEnded,
+    globalMuted,
+    setSequenceSource,
+    sequenceTick,
+    sequenceGoToNext,
+    setSequenceRate,
   ]);
 
   useEffect(() => {
     if (isSingleMode) return;
-    const source = sequenceSourceRef.current;
-    if (!source) return;
-
-    if (isPlaying && !isBuffering) {
-      source.play();
-    } else {
-      source.pause();
-    }
-  }, [isSingleMode, isPlaying, isBuffering, currentIndex, items, sequenceMediaElement]);
-
-  useEffect(() => {
-    if (isSingleMode || !isPlaying || isBuffering) return;
-    const source = sequenceSourceRef.current;
-    const currentItem = items[currentIndex];
-    if (!source || source.kind !== 'image' || !currentItem) return;
-
-    let rafId = 0;
-    const tick = () => {
-      const duration = currentItem.cut.displayTime;
-      const localTime = source.getCurrentTime();
-      const newProgress = duration > 0 ? (localTime / duration) * 100 : 0;
-      setProgress(Math.max(0, Math.min(100, newProgress)));
-      rafId = requestAnimationFrame(tick);
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [isSingleMode, isPlaying, isBuffering, currentIndex, items, sequenceMediaElement]);
-
-  useEffect(() => {
-    if (isSingleMode || items.length === 0) return;
-    const source = sequenceSourceRef.current;
-    if (!source) return;
-
-    if (!isPlaying || isDragging) {
-      const localTime = (progress / 100) * items[currentIndex].cut.displayTime;
-      source.seek(localTime);
-    }
-  }, [isSingleMode, items, currentIndex, progress, isPlaying, isDragging]);
-
-  useEffect(() => {
-    if (isSingleMode) return;
-    sequenceSourceRef.current?.setRate(playbackSpeed);
-  }, [isSingleMode, playbackSpeed, currentIndex]);
+    setSequenceRate(playbackSpeed);
+  }, [isSingleMode, playbackSpeed, setSequenceRate]);
 
   // Auto pause/resume based on buffer status (Sequence Mode)
   useEffect(() => {
@@ -1262,47 +1066,55 @@ export default function PreviewModal({
 
     const { ready } = checkBufferStatus();
 
-    if (isPlaying && !ready && !isBuffering) {
-      // Buffer depleted - pause and show loading
-      setIsBuffering(true);
-      sequenceSourceRef.current?.pause();
-    } else if (isPlaying && ready && isBuffering) {
-      // Buffer restored - resume playback
-      setIsBuffering(false);
-      sequenceSourceRef.current?.play();
+    if (sequenceState.isPlaying && !ready && !sequenceState.isBuffering) {
+      setSequenceBuffering(true);
+    } else if (sequenceState.isPlaying && ready && sequenceState.isBuffering) {
+      setSequenceBuffering(false);
     }
-  }, [isSingleMode, items, currentIndex, isPlaying, isBuffering, checkBufferStatus]);
+  }, [isSingleMode, items, sequenceState.isPlaying, sequenceState.isBuffering, checkBufferStatus, setSequenceBuffering]);
 
   // Cycle playback speed
   const cycleSpeed = useCallback((direction: 'up' | 'down') => {
     setPlaybackSpeed(current => cyclePlaybackSpeed(current, direction));
   }, []);
 
+  const toggleLooping = useCallback(() => {
+    if (isSingleMode) {
+      setSingleModeIsLooping(prev => !prev);
+    } else {
+      setSequenceLooping(!sequenceState.isLooping);
+    }
+  }, [isSingleMode, sequenceState.isLooping, setSequenceLooping]);
+
   // IN/OUT point handlers
   const handleSetInPoint = useCallback(() => {
     if (items.length === 0) return;
-    let elapsedDuration = 0;
-    for (let i = 0; i < currentIndex; i++) {
-      elapsedDuration += items[i].cut.displayTime;
+    if (isSingleMode) {
+      setSingleModeInPoint(singleModeCurrentTime);
+      return;
     }
-    elapsedDuration += (progress / 100) * items[currentIndex].cut.displayTime;
-    setInPoint(elapsedDuration);
-  }, [items, currentIndex, progress]);
+    const elapsedDuration = sequenceSelectors.getAbsoluteTime();
+    setSequenceRange(elapsedDuration, outPoint ?? null);
+  }, [items, isSingleMode, singleModeCurrentTime, outPoint, sequenceSelectors, setSequenceRange]);
 
   const handleSetOutPoint = useCallback(() => {
     if (items.length === 0) return;
-    let elapsedDuration = 0;
-    for (let i = 0; i < currentIndex; i++) {
-      elapsedDuration += items[i].cut.displayTime;
+    if (isSingleMode) {
+      setSingleModeOutPoint(singleModeCurrentTime);
+      return;
     }
-    elapsedDuration += (progress / 100) * items[currentIndex].cut.displayTime;
-    setOutPoint(elapsedDuration);
-  }, [items, currentIndex, progress]);
+    const elapsedDuration = sequenceSelectors.getAbsoluteTime();
+    setSequenceRange(inPoint ?? null, elapsedDuration);
+  }, [items, isSingleMode, singleModeCurrentTime, inPoint, sequenceSelectors, setSequenceRange]);
 
   const handleClearPoints = useCallback(() => {
-    setInPoint(null);
-    setOutPoint(null);
-  }, []);
+    if (isSingleMode) {
+      setSingleModeInPoint(null);
+      setSingleModeOutPoint(null);
+      return;
+    }
+    setSequenceRange(null, null);
+  }, [isSingleMode, setSequenceRange]);
 
   // Keyboard controls - unified for both modes
   useEffect(() => {
@@ -1379,7 +1191,7 @@ export default function PreviewModal({
           toggleFullscreen();
           break;
         case 'l':
-          setIsLooping(prev => !prev);
+          toggleLooping();
           break;
         case 'i':
           if (isSingleMode) {
@@ -1437,7 +1249,11 @@ export default function PreviewModal({
     if (!window.electronAPI || items.length === 0) return;
 
     setIsExporting(true);
-    setIsPlaying(false);
+    if (isSingleMode) {
+      setSingleModeIsPlaying(false);
+    } else {
+      sequencePause();
+    }
 
     try {
       const exportWidth = selectedResolution.width > 0 ? selectedResolution.width : 1920;
@@ -1478,7 +1294,7 @@ export default function PreviewModal({
     } finally {
       setIsExporting(false);
     }
-  }, [items, selectedResolution]);
+  }, [items, selectedResolution, isSingleMode, sequencePause]);
 
   // Export with IN/OUT range (Save button) - kept for future UI implementation
   const _handleExportRange = useCallback(async () => {
@@ -1486,7 +1302,11 @@ export default function PreviewModal({
     if (inPoint === null || outPoint === null) return;
 
     setIsExporting(true);
-    setIsPlaying(false);
+    if (isSingleMode) {
+      setSingleModeIsPlaying(false);
+    } else {
+      sequencePause();
+    }
 
     try {
       const exportWidth = selectedResolution.width > 0 ? selectedResolution.width : 1920;
@@ -1568,52 +1388,20 @@ export default function PreviewModal({
     } finally {
       setIsExporting(false);
     }
-  }, [items, selectedResolution, inPoint, outPoint]);
+  }, [items, selectedResolution, inPoint, outPoint, isSingleMode, sequencePause]);
   // Suppress unused variable warning - code kept for future use
   void _handleExportRange;
-
-  // Calculate global position from progress percentage
-  const calculateGlobalPositionFromProgress = useCallback((progressPercent: number) => {
-    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
-    const targetTime = (progressPercent / 100) * totalDuration;
-
-    let accumulatedTime = 0;
-    for (let i = 0; i < items.length; i++) {
-      const itemDuration = items[i].cut.displayTime;
-      if (accumulatedTime + itemDuration > targetTime) {
-        const localProgress = ((targetTime - accumulatedTime) / itemDuration) * 100;
-        return { index: i, localProgress };
-      }
-      accumulatedTime += itemDuration;
-    }
-
-    return { index: items.length - 1, localProgress: 100 };
-  }, [items]);
-
-  // Calculate global progress percentage
-  const calculateGlobalProgress = useCallback(() => {
-    if (items.length === 0) return 0;
-    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
-    let elapsedDuration = 0;
-    for (let i = 0; i < currentIndex; i++) {
-      elapsedDuration += items[i].cut.displayTime;
-    }
-    elapsedDuration += (progress / 100) * items[currentIndex].cut.displayTime;
-    return (elapsedDuration / totalDuration) * 100;
-  }, [items, currentIndex, progress]);
 
   // Progress bar handlers
   const handleProgressBarClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || items.length === 0) return;
 
-    // Reset stopped flag when seeking
-    stoppedAtOutPointRef.current = false;
-
     const rect = progressBarRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const progressPercent = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
 
-    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    const totalDuration = sequenceState.totalDuration;
+    if (totalDuration <= 0) return;
     let newTime = (progressPercent / 100) * totalDuration;
 
     // If a marker is focused, move that marker with constraints
@@ -1622,27 +1410,28 @@ export default function PreviewModal({
       if (outPoint !== null) {
         newTime = Math.min(newTime, outPoint);
       }
-      setInPoint(newTime);
+      setSequenceRange(newTime, outPoint ?? null);
     } else if (focusedMarker === 'out') {
       // Constrain OUT marker to not go before IN point
       if (inPoint !== null) {
         newTime = Math.max(newTime, inPoint);
       }
-      setOutPoint(newTime);
+      setSequenceRange(inPoint ?? null, newTime);
     }
 
     // Always update playback position (recalculate from constrained newTime)
-    const constrainedPercent = (newTime / totalDuration) * 100;
-    const { index, localProgress } = calculateGlobalPositionFromProgress(constrainedPercent);
-    setCurrentIndex(index);
-    setProgress(localProgress);
-  }, [items, calculateGlobalPositionFromProgress, focusedMarker, inPoint, outPoint]);
+    seekSequenceAbsolute(newTime);
+  }, [items, sequenceState.totalDuration, focusedMarker, inPoint, outPoint, setSequenceRange, seekSequenceAbsolute]);
 
   const handleProgressBarMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     setIsDragging(true);
-    setIsPlaying(false);
+    sequencePause();
+    if (!isSingleMode && audioLoaded) {
+      sequenceAudioManagerRef.current.pause();
+      sequenceAudioPlayingRef.current = false;
+    }
     handleProgressBarClick(e);
-  }, [handleProgressBarClick]);
+  }, [handleProgressBarClick, sequencePause, isSingleMode, audioLoaded]);
 
   const handleProgressBarMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !progressBarRef.current || items.length === 0) return;
@@ -1650,15 +1439,16 @@ export default function PreviewModal({
     const rect = progressBarRef.current.getBoundingClientRect();
     const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const progressPercent = (clickX / rect.width) * 100;
-
-    const { index, localProgress } = calculateGlobalPositionFromProgress(progressPercent);
-    setCurrentIndex(index);
-    setProgress(localProgress);
-  }, [isDragging, items, calculateGlobalPositionFromProgress]);
+    seekSequencePercent(progressPercent);
+  }, [isDragging, items, seekSequencePercent]);
 
   const handleProgressBarMouseUp = useCallback(() => {
     setIsDragging(false);
-  }, []);
+    if (!isSingleMode && audioLoaded && sequenceState.isPlaying) {
+      sequenceAudioManagerRef.current.play(Math.max(0, sequenceSelectors.getAbsoluteTime()));
+      sequenceAudioPlayingRef.current = true;
+    }
+  }, [isSingleMode, audioLoaded, sequenceState.isPlaying, sequenceSelectors]);
 
   const handleProgressBarHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || items.length === 0) return;
@@ -1667,10 +1457,10 @@ export default function PreviewModal({
     const hoverX = e.clientX - rect.left;
     const progressPercent = (hoverX / rect.width) * 100;
 
-    const totalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    const totalDuration = sequenceState.totalDuration;
     const hoverTimeSeconds = (progressPercent / 100) * totalDuration;
     setHoverTime(formatTime(hoverTimeSeconds));
-  }, [items]);
+  }, [items, sequenceState.totalDuration]);
 
   const handleProgressBarLeave = useCallback(() => {
     setHoverTime(null);
@@ -1697,9 +1487,9 @@ export default function PreviewModal({
 
   // ===== SHARED COMPUTED VALUES =====
   const currentItem = items[currentIndex];
-  const globalProgress = calculateGlobalProgress();
-  const sequenceTotalDuration = items.reduce((acc, item) => acc + item.cut.displayTime, 0);
-  const sequenceCurrentTime = (globalProgress / 100) * sequenceTotalDuration;
+  const globalProgress = isSingleMode ? 0 : sequenceSelectors.getGlobalProgress();
+  const sequenceTotalDuration = isSingleMode ? 0 : sequenceState.totalDuration;
+  const sequenceCurrentTime = isSingleMode ? 0 : sequenceSelectors.getAbsoluteTime();
 
   // Check if range/IN-point is set for Save button
   const hasInPoint = inPoint !== null;
@@ -1765,19 +1555,19 @@ export default function PreviewModal({
                 <div className="loading-spinner" />
                 <p>Loading {isSingleModeVideo ? 'video' : 'image'}...</p>
               </div>
-            ) : isSingleModeVideo && videoObjectUrl ? (
+            ) : isSingleModeVideo && videoObjectUrl?.url ? (
               (() => {
                 const viewportStyle = getViewportStyle();
                 const videoContent = (
                   <video
                     ref={videoRef}
-                    src={videoObjectUrl}
+                    src={videoObjectUrl.url}
                     className="preview-media"
                     onClick={toggleSingleModePlay}
                     onTimeUpdate={handleSingleModeTimeUpdate}
                     onLoadedMetadata={handleSingleModeLoadedMetadata}
-                    onPlay={() => setIsPlaying(true)}
-                    onPause={() => setIsPlaying(false)}
+                    onPlay={() => setSingleModeIsPlaying(true)}
+                    onPause={() => setSingleModeIsPlaying(false)}
                     onEnded={handleSingleModeVideoEnded}
                   />
                 );
@@ -1933,7 +1723,7 @@ export default function PreviewModal({
                     showSaveButton={!!showSingleModeSaveButton}
                     showMilliseconds={true}
                   />
-                  <LoopToggle isLooping={isLooping} onToggle={() => setIsLooping(!isLooping)} />
+                  <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
                 </>
               )}
               <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
@@ -2178,7 +1968,7 @@ export default function PreviewModal({
               showSaveButton={false}
               showMilliseconds={false}
             />
-            <LoopToggle isLooping={isLooping} onToggle={() => setIsLooping(!isLooping)} />
+            <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
             <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
           </div>
         </div>

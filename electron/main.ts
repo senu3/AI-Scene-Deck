@@ -115,9 +115,29 @@ function registerMediaProtocol() {
         const safeEnd = Number.isNaN(end) ? fileSize - 1 : Math.min(end, fileSize - 1);
 
         if (safeStart >= fileSize || safeStart > safeEnd) {
-          return new Response(null, {
-            status: 416,
-            headers: { 'Content-Range': `bytes */${fileSize}` },
+          if (fileSize === 0) {
+            return new Response(null, {
+              status: 200,
+              headers: {
+                'Content-Type': contentType,
+                'Content-Length': '0',
+                'Accept-Ranges': 'bytes',
+                'Access-Control-Allow-Origin': '*',
+              },
+            });
+          }
+          const lastByte = fileSize - 1;
+          const stream = fs.createReadStream(filePath, { start: lastByte, end: lastByte });
+          const body = Readable.toWeb(stream) as ReadableStream;
+          return new Response(body, {
+            status: 206,
+            headers: {
+              'Content-Type': contentType,
+              'Content-Length': '1',
+              'Content-Range': `bytes ${lastByte}-${lastByte}/${fileSize}`,
+              'Accept-Ranges': 'bytes',
+              'Access-Control-Allow-Origin': '*',
+            },
           });
         }
 

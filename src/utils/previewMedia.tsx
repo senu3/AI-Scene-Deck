@@ -57,6 +57,10 @@ class PreviewClock {
 
   play() {
     if (this.isPlaying) return;
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
     this.isPlaying = true;
     this.lastTickMs = Date.now();
     this.intervalId = window.setInterval(this.tick, 50);
@@ -100,6 +104,10 @@ class PreviewClock {
 
     if (this.currentTimeSec >= this.duration) {
       this.isPlaying = false;
+      if (this.intervalId !== null) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
+      }
       this.onEnded?.();
       return;
     }
@@ -109,11 +117,23 @@ class PreviewClock {
 
 export function createVideoMediaSource(options: VideoMediaSourceOptions): MediaSource {
   let videoEl: HTMLVideoElement | null = null;
+  let endedCalled = false;
+  let normalizedInPoint = options.inPoint ?? 0;
+  let normalizedOutPoint: number | undefined = options.outPoint;
+  let shouldPlay = false;
+  let pendingRate = 1;
+  let pendingSeek: number | null = null;
+  let metadataLoaded = false;
 
   const setVideoEl = (el: HTMLVideoElement | null) => {
     videoEl = el;
     if (options.refObject) {
       options.refObject.current = el;
+    }
+    if (!videoEl) return;
+    videoEl.playbackRate = pendingRate;
+    if (shouldPlay) {
+      videoEl.play().catch(() => {});
     }
   };
 
@@ -123,28 +143,71 @@ export function createVideoMediaSource(options: VideoMediaSourceOptions): MediaS
     return Math.max(0, videoEl.currentTime - inPoint);
   };
 
+  const applySeek = (localTimeSec: number) => {
+    if (!videoEl) {
+      pendingSeek = localTimeSec;
+      return;
+    }
+    const duration = videoEl.duration || 0;
+    const inPoint = Math.max(0, Math.min(duration, normalizedInPoint));
+    const outPoint = typeof normalizedOutPoint === 'number'
+      ? Math.max(inPoint, Math.min(normalizedOutPoint, duration))
+      : duration;
+    const target = inPoint + localTimeSec;
+    if (target < outPoint - 0.05) {
+      endedCalled = false;
+    }
+    videoEl.currentTime = Math.max(inPoint, Math.min(outPoint, target));
+  };
+
   const handleTimeUpdate = () => {
     if (!videoEl) return;
-    const inPoint = options.inPoint ?? 0;
-    const outPoint = options.outPoint;
+    const duration = videoEl.duration || 0;
+    const inPoint = Math.max(0, Math.min(duration, normalizedInPoint));
+    const outPoint = typeof normalizedOutPoint === 'number'
+      ? Math.max(inPoint, Math.min(normalizedOutPoint, duration))
+      : undefined;
     const localTime = Math.max(0, videoEl.currentTime - inPoint);
     options.onTimeUpdate?.(localTime);
 
-    if (typeof outPoint === 'number' && videoEl.currentTime >= outPoint - 0.001) {
-      options.onEnded?.();
+    if (typeof outPoint === 'number') {
+      if (videoEl.currentTime >= outPoint - 0.001) {
+        if (!endedCalled) {
+          endedCalled = true;
+          options.onEnded?.();
+        }
+      } else if (videoEl.currentTime < outPoint - 0.05 && endedCalled) {
+        endedCalled = false;
+      }
     }
   };
 
   const handleLoadedMetadata = () => {
     if (!videoEl) return;
-    const inPoint = options.inPoint ?? 0;
-    if (inPoint > 0) {
-      videoEl.currentTime = inPoint;
+    metadataLoaded = true;
+    const duration = videoEl.duration || 0;
+    normalizedInPoint = Math.max(0, Math.min(duration, options.inPoint ?? 0));
+    if (typeof options.outPoint === 'number') {
+      normalizedOutPoint = Math.max(normalizedInPoint, Math.min(options.outPoint, duration));
+    } else {
+      normalizedOutPoint = undefined;
+    }
+    if (pendingSeek !== null) {
+      const nextSeek = pendingSeek;
+      pendingSeek = null;
+      applySeek(nextSeek);
+      return;
+    }
+    if (normalizedInPoint > 0) {
+      videoEl.currentTime = normalizedInPoint;
     }
   };
 
   const handleEnded = () => {
-    options.onEnded?.();
+    if (!endedCalled) {
+      endedCalled = true;
+      options.onEnded?.();
+    }
   };
 
   return {
@@ -162,19 +225,22 @@ export function createVideoMediaSource(options: VideoMediaSourceOptions): MediaS
       />
     ),
     play() {
+      shouldPlay = true;
       videoEl?.play().catch(() => {});
     },
     pause() {
+      shouldPlay = false;
       videoEl?.pause();
     },
     seek(localTimeSec: number) {
-      if (!videoEl) return;
-      const inPoint = options.inPoint ?? 0;
-      const outPoint = options.outPoint ?? videoEl.duration;
-      const target = inPoint + localTimeSec;
-      videoEl.currentTime = Math.max(inPoint, Math.min(outPoint, target));
+      if (!metadataLoaded) {
+        pendingSeek = localTimeSec;
+        return;
+      }
+      applySeek(localTimeSec);
     },
     setRate(rate: number) {
+      pendingRate = rate;
       if (videoEl) {
         videoEl.playbackRate = rate;
       }
@@ -183,7 +249,12 @@ export function createVideoMediaSource(options: VideoMediaSourceOptions): MediaS
       return getLocalTime();
     },
     dispose() {
-      // No-op: React owns the element lifecycle.
+      if (videoEl) {
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.load();
+      }
+      videoEl = null;
     },
   };
 }

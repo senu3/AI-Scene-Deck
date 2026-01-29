@@ -6,6 +6,8 @@ This note summarizes how video and audio are handled in the app (current impleme
 - **Playback**
   - Video elements use `media://` protocol URLs (streamed with Range support).
   - Avoids base64/Blob loading of full files into memory.
+  - Sequence preview uses a MediaSource abstraction (`createVideoMediaSource`) instead of direct `<video>` control.
+  - The media protocol tolerates invalid Range requests by returning a minimal response (prevents noisy 416 logs).
 - **Metadata**
   - Video metadata (duration/width/height) is read in the main process via ffmpeg (`get-video-metadata` IPC).
   - Renderer falls back to shared `<video>` element if needed.
@@ -15,6 +17,17 @@ This note summarizes how video and audio are handled in the app (current impleme
   - Renderer falls back to shared `<video>` + canvas if needed.
 - **Caching**
   - Preview caches video URLs by **assetId** and releases old entries as the preview window moves.
+  - Sequence buffer checks use a "play safe ahead" window to avoid cut-boundary stalls.
+
+## Preview Playback (Single vs Sequence)
+- **Single Mode**
+  - Uses the `<video>`/`<img>` elements directly with per-mode handlers.
+  - IN/OUT is stored in local component state.
+- **Sequence Mode**
+  - Uses `useSequencePlaybackController` (reducer-driven) to unify play/pause/seek/loop/range.
+  - Media sources are created per cut (`createVideoMediaSource` / `createImageMediaSource`).
+  - Image cuts are driven by a synthetic clock (setInterval) to match video-like playback.
+  - Audio playback is aligned by absolute sequence time.
 
 ## Audio
 - **Decode/Playback**
