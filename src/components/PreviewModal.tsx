@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { X, Play, Pause, SkipBack, SkipForward, Download, Loader2 } from 'lucide-react';
+import { X, Play, Pause, SkipBack, SkipForward, Download, Loader2, Repeat, Maximize, Scissors } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
@@ -9,11 +9,8 @@ import { createImageMediaSource, createVideoMediaSource } from '../utils/preview
 import { useSequencePlaybackController } from '../utils/previewPlaybackController';
 import {
   TimelineMarkers,
-  ClipRangeControls,
   VolumeControl,
   TimeDisplay,
-  LoopToggle,
-  FullscreenToggle,
 } from './shared';
 import type { FocusedMarker } from './shared';
 import './PreviewModal.css';
@@ -125,6 +122,8 @@ export default function PreviewModal({
   const [isExporting, setIsExporting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
   const overlayTimeoutRef = useRef<number | null>(null);
+  // NOTE: Known issue (Free resolution only): very tall images can push overlay controls out of view.
+  // Using the resolution simulator avoids the disappearance. Keep in mind for future layout tweaks.
 
   // Buffer management state (Sequence Mode)
   const videoUrlCacheRef = useRef<Map<string, string>>(new Map()); // assetId -> URL
@@ -575,15 +574,23 @@ export default function PreviewModal({
   // Single Mode IN/OUT handlers
   const handleSingleModeSetInPoint = useCallback(() => {
     if (!isSingleModeVideo) return;
+    if (singleModeInPoint !== null) {
+      setSingleModeInPoint(null);
+      return;
+    }
     setSingleModeInPoint(singleModeCurrentTime);
     onInPointSet?.(singleModeCurrentTime);
-  }, [isSingleModeVideo, singleModeCurrentTime, onInPointSet]);
+  }, [isSingleModeVideo, singleModeInPoint, singleModeCurrentTime, onInPointSet]);
 
   const handleSingleModeSetOutPoint = useCallback(() => {
     if (!isSingleModeVideo) return;
+    if (singleModeOutPoint !== null) {
+      setSingleModeOutPoint(null);
+      return;
+    }
     setSingleModeOutPoint(singleModeCurrentTime);
     onOutPointSet?.(singleModeCurrentTime);
-  }, [isSingleModeVideo, singleModeCurrentTime, onOutPointSet]);
+  }, [isSingleModeVideo, singleModeOutPoint, singleModeCurrentTime, onOutPointSet]);
 
   // Single Mode Save handler: if both IN and OUT are set, save clip; if only IN is set, capture frame
   const handleSingleModeSave = useCallback(() => {
@@ -1263,31 +1270,56 @@ export default function PreviewModal({
   const handleSetInPoint = useCallback(() => {
     if (items.length === 0) return;
     if (isSingleModeVideo) {
-      setSingleModeInPoint(singleModeCurrentTime);
+      if (singleModeInPoint !== null) {
+        setSingleModeInPoint(null);
+      } else {
+        setSingleModeInPoint(singleModeCurrentTime);
+      }
+      return;
+    }
+    if (inPoint !== null) {
+      setSequenceRange(null, outPoint ?? null);
       return;
     }
     const elapsedDuration = sequenceSelectors.getAbsoluteTime();
     setSequenceRange(elapsedDuration, outPoint ?? null);
-  }, [items.length, isSingleModeVideo, singleModeCurrentTime, outPoint, sequenceSelectors, setSequenceRange]);
+  }, [
+    items.length,
+    isSingleModeVideo,
+    singleModeCurrentTime,
+    singleModeInPoint,
+    inPoint,
+    outPoint,
+    sequenceSelectors,
+    setSequenceRange,
+  ]);
 
   const handleSetOutPoint = useCallback(() => {
     if (items.length === 0) return;
     if (isSingleModeVideo) {
-      setSingleModeOutPoint(singleModeCurrentTime);
+      if (singleModeOutPoint !== null) {
+        setSingleModeOutPoint(null);
+      } else {
+        setSingleModeOutPoint(singleModeCurrentTime);
+      }
+      return;
+    }
+    if (outPoint !== null) {
+      setSequenceRange(inPoint ?? null, null);
       return;
     }
     const elapsedDuration = sequenceSelectors.getAbsoluteTime();
     setSequenceRange(inPoint ?? null, elapsedDuration);
-  }, [items.length, isSingleModeVideo, singleModeCurrentTime, inPoint, sequenceSelectors, setSequenceRange]);
-
-  const handleClearPoints = useCallback(() => {
-    if (isSingleModeVideo) {
-      setSingleModeInPoint(null);
-      setSingleModeOutPoint(null);
-      return;
-    }
-    setSequenceRange(null, null);
-  }, [isSingleModeVideo, setSequenceRange]);
+  }, [
+    items.length,
+    isSingleModeVideo,
+    singleModeCurrentTime,
+    singleModeOutPoint,
+    inPoint,
+    outPoint,
+    sequenceSelectors,
+    setSequenceRange,
+  ]);
 
   // Keyboard controls - unified for both modes
   useEffect(() => {
@@ -1693,6 +1725,7 @@ export default function PreviewModal({
             className="preview-display preview-display--expanded"
             ref={displayContainerRef}
             onMouseEnter={showOverlayNow}
+            onMouseMove={showOverlayNow}
             onMouseLeave={scheduleHideOverlay}
           >
             {/* Minimal header overlay */}
@@ -1862,59 +1895,82 @@ export default function PreviewModal({
                 )}
 
                 {/* Controls */}
-                <div className="preview-controls">
-                  <div className="preview-controls-left">
-                    {(isSingleModeVideo || isSingleModeImage) && (
-                      <>
-                        <button
-                          className="preview-control-btn preview-control-btn--primary"
-                          onClick={isSingleModeVideo ? toggleSingleModePlay : handlePlayPause}
-                          title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-                        >
-                          {isPlaying ? <Pause size={22} /> : <Play size={22} />}
-                        </button>
-                        <button
-                          className="preview-control-btn"
-                          onClick={() => skip(-5)}
-                          title="Rewind 5s (←)"
-                        >
-                          <SkipBack size={18} />
-                        </button>
-                        <button
-                          className="preview-control-btn"
-                          onClick={() => skip(5)}
-                          title="Forward 5s (→)"
-                        >
-                          <SkipForward size={18} />
-                        </button>
-                      </>
-                    )}
-                    <div className="preview-control-divider" />
-                    <VolumeControl
-                      volume={globalVolume}
-                      isMuted={globalMuted}
-                      onVolumeChange={setGlobalVolume}
-                      onMuteToggle={toggleGlobalMute}
-                    />
-                  </div>
-                  <div className="preview-controls-right">
-                    {(isSingleModeVideo || isSingleModeImage) && (
-                      <>
-                        <ClipRangeControls
-                          inPoint={inPoint}
-                          outPoint={outPoint}
-                          onSetInPoint={isSingleModeVideo ? handleSingleModeSetInPoint : handleSetInPoint}
-                          onSetOutPoint={isSingleModeVideo ? handleSingleModeSetOutPoint : handleSetOutPoint}
-                          onClear={handleClearPoints}
-                          onSave={isSingleModeVideo && showSingleModeSaveButton ? handleSingleModeSave : undefined}
-                          showSaveButton={isSingleModeVideo && !!showSingleModeSaveButton}
-                          showMilliseconds={isSingleModeVideo}
-                        />
-                        <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
-                      </>
-                    )}
-                    <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
-                  </div>
+                <div className="preview-controls-row">
+                  <button
+                    className="preview-ctrl-btn"
+                    onClick={isSingleModeVideo ? () => skip(-5) : () => skip(-5)}
+                    title="Rewind 5s (←)"
+                  >
+                    <SkipBack size={18} />
+                  </button>
+                  <button
+                    className="preview-ctrl-btn preview-ctrl-btn--primary"
+                    onClick={isSingleModeVideo ? toggleSingleModePlay : handlePlayPause}
+                    title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+                  >
+                    {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+                  </button>
+                  <button
+                    className="preview-ctrl-btn"
+                    onClick={isSingleModeVideo ? () => skip(5) : () => skip(5)}
+                    title="Forward 5s (→)"
+                  >
+                    <SkipForward size={18} />
+                  </button>
+                  <div className="preview-ctrl-divider" />
+                  <button
+                    className={`preview-ctrl-btn preview-ctrl-btn--text ${inPoint !== null ? 'is-active' : ''}`}
+                    onClick={isSingleModeVideo ? handleSingleModeSetInPoint : handleSetInPoint}
+                    title={inPoint !== null ? 'Clear IN point (I)' : 'Set IN point (I)'}
+                  >
+                    I
+                  </button>
+                  <button
+                    className={`preview-ctrl-btn preview-ctrl-btn--text ${outPoint !== null ? 'is-active' : ''}`}
+                    onClick={isSingleModeVideo ? handleSingleModeSetOutPoint : handleSetOutPoint}
+                    title={outPoint !== null ? 'Clear OUT point (O)' : 'Set OUT point (O)'}
+                  >
+                    O
+                  </button>
+                  {isSingleModeVideo && showSingleModeSaveButton && (
+                    <button
+                      className="preview-ctrl-btn"
+                      onClick={handleSingleModeSave}
+                      title={outPoint !== null ? 'Save clip' : 'Capture frame'}
+                    >
+                      <Scissors size={18} />
+                    </button>
+                  )}
+                  <div className="preview-ctrl-divider" />
+                  <button
+                    className={`preview-ctrl-btn ${isLooping ? 'is-active' : ''}`}
+                    onClick={toggleLooping}
+                    title={`Loop (L) - ${isLooping ? 'On' : 'Off'}`}
+                  >
+                    <Repeat size={16} />
+                  </button>
+                  <VolumeControl
+                    volume={globalVolume}
+                    isMuted={globalMuted}
+                    onVolumeChange={setGlobalVolume}
+                    onMuteToggle={toggleGlobalMute}
+                  />
+                  {isSingleModeVideo && (
+                    <button
+                      className="preview-ctrl-btn preview-ctrl-btn--text"
+                      onClick={() => cycleSpeed('up')}
+                      title="Speed ([/])"
+                    >
+                      {playbackSpeed.toFixed(1)}x
+                    </button>
+                  )}
+                  <button
+                    className="preview-ctrl-btn"
+                    onClick={toggleFullscreen}
+                    title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
+                  >
+                    <Maximize size={16} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -1956,6 +2012,7 @@ export default function PreviewModal({
           className="preview-display preview-display--expanded"
           ref={displayContainerRef}
           onMouseEnter={showOverlayNow}
+          onMouseMove={showOverlayNow}
           onMouseLeave={scheduleHideOverlay}
         >
           {/* Minimal header overlay */}
@@ -2104,52 +2161,66 @@ export default function PreviewModal({
               </div>
 
               {/* Controls */}
-              <div className="preview-controls">
-                <div className="preview-controls-left">
-                  <button
-                    className="preview-control-btn"
-                    onClick={goToPrev}
-                    disabled={currentIndex === 0}
-                    title="Previous Cut"
-                  >
-                    <SkipBack size={18} />
-                  </button>
-                  <button
-                    className="preview-control-btn preview-control-btn--primary"
-                    onClick={handlePlayPause}
-                    title="Play/Pause (Space)"
-                  >
-                    {isPlaying ? <Pause size={22} /> : <Play size={22} />}
-                  </button>
-                  <button
-                    className="preview-control-btn"
-                    onClick={goToNext}
-                    disabled={currentIndex >= items.length - 1}
-                    title="Next Cut"
-                  >
-                    <SkipForward size={18} />
-                  </button>
-                  <div className="preview-control-divider" />
-                  <ClipRangeControls
-                    inPoint={inPoint}
-                    outPoint={outPoint}
-                    onSetInPoint={handleSetInPoint}
-                    onSetOutPoint={handleSetOutPoint}
-                    onClear={handleClearPoints}
-                    showSaveButton={false}
-                    showMilliseconds={false}
-                  />
-                </div>
-                <div className="preview-controls-right">
-                  <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
-                  <VolumeControl
-                    volume={globalVolume}
-                    isMuted={globalMuted}
-                    onVolumeChange={setGlobalVolume}
-                    onMuteToggle={toggleGlobalMute}
-                  />
-                  <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
-                </div>
+              <div className="preview-controls-row">
+                <button
+                  className="preview-ctrl-btn"
+                  onClick={goToPrev}
+                  disabled={currentIndex === 0}
+                  title="Previous Cut"
+                >
+                  <SkipBack size={18} />
+                </button>
+                <button
+                  className="preview-ctrl-btn preview-ctrl-btn--primary"
+                  onClick={handlePlayPause}
+                  title="Play/Pause (Space)"
+                >
+                  {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+                </button>
+                <button
+                  className="preview-ctrl-btn"
+                  onClick={goToNext}
+                  disabled={currentIndex >= items.length - 1}
+                  title="Next Cut"
+                >
+                  <SkipForward size={18} />
+                </button>
+                <div className="preview-ctrl-divider" />
+                <button
+                  className={`preview-ctrl-btn preview-ctrl-btn--text ${inPoint !== null ? 'is-active' : ''}`}
+                  onClick={handleSetInPoint}
+                  title={inPoint !== null ? 'Clear IN point (I)' : 'Set IN point (I)'}
+                >
+                  I
+                </button>
+                <button
+                  className={`preview-ctrl-btn preview-ctrl-btn--text ${outPoint !== null ? 'is-active' : ''}`}
+                  onClick={handleSetOutPoint}
+                  title={outPoint !== null ? 'Clear OUT point (O)' : 'Set OUT point (O)'}
+                >
+                  O
+                </button>
+                <div className="preview-ctrl-divider" />
+                <button
+                  className={`preview-ctrl-btn ${isLooping ? 'is-active' : ''}`}
+                  onClick={toggleLooping}
+                  title={`Loop (L) - ${isLooping ? 'On' : 'Off'}`}
+                >
+                  <Repeat size={16} />
+                </button>
+                <VolumeControl
+                  volume={globalVolume}
+                  isMuted={globalMuted}
+                  onVolumeChange={setGlobalVolume}
+                  onMuteToggle={toggleGlobalMute}
+                />
+                <button
+                  className="preview-ctrl-btn"
+                  onClick={toggleFullscreen}
+                  title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
+                >
+                  <Maximize size={16} />
+                </button>
               </div>
             </div>
           </div>

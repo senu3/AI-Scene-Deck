@@ -1,5 +1,4 @@
 import { Volume2, VolumeX } from 'lucide-react';
-import './timeline-common.css';
 
 interface VolumeControlProps {
   volume: number;
@@ -19,24 +18,26 @@ export function VolumeControl({
   };
 
   return (
-    <div className="volume-control">
+    <div className="preview-volume-control">
       <button
-        className="control-btn volume-btn"
+        className="preview-ctrl-btn preview-volume-btn"
         onClick={onMuteToggle}
         title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
       >
         {isMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
       </button>
-      <input
-        type="range"
-        className="volume-slider"
-        min="0"
-        max="1"
-        step="0.05"
-        value={isMuted ? 0 : volume}
-        onChange={handleSliderChange}
-        title="Volume (↑/↓)"
-      />
+      <div className="preview-volume-popup">
+        <input
+          type="range"
+          className="preview-volume-slider"
+          min="0"
+          max="1"
+          step="0.05"
+          value={isMuted ? 0 : volume}
+          onChange={handleSliderChange}
+          title="Volume (↑/↓)"
+        />
+      </div>
     </div>
   );
 }
