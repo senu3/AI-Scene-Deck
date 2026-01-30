@@ -10,11 +10,13 @@ import {
   ArrowUpDown,
   Layers,
   Link2,
+  Trash2,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Scene, MetadataStore, AssetIndexEntry } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { generateVideoThumbnail } from '../utils/videoUtils';
+import { CutContextMenu } from './CutCard';
 import './AssetDrawer.css';
 
 type SortMode = 'name' | 'type' | 'used' | 'unused';
@@ -41,12 +43,13 @@ function buildUsedAssetsMap(
   // 1. Assets used in cuts
   for (const scene of scenes) {
     for (const cut of scene.cuts) {
-      if (cut.asset?.id) {
-        const existing = used.get(cut.asset.id);
+      const cutAssetId = cut.asset?.id || cut.assetId;
+      if (cutAssetId) {
+        const existing = used.get(cutAssetId);
         if (existing) {
           existing.count += 1;
         } else {
-          used.set(cut.asset.id, { count: 1, type: 'cut' });
+          used.set(cutAssetId, { count: 1, type: 'cut' });
         }
       }
     }
@@ -112,6 +115,17 @@ export default function AssetDrawer() {
     selectedSceneId,
     createCutFromImport,
     assetCache,
+    selectedCutId,
+    selectedCutIds,
+    selectCut,
+    getSelectedCutIds,
+    moveCutsToScene,
+    removeCut,
+    copySelectedCuts,
+    canPaste,
+    pasteCuts,
+    getAsset,
+    trashPath,
   } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -122,6 +136,20 @@ export default function AssetDrawer() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [cutContextMenu, setCutContextMenu] = useState<{
+    x: number;
+    y: number;
+    sceneId: string;
+    cutId: string;
+    index: number;
+    isClip: boolean;
+  } | null>(null);
+  const [unusedContextMenu, setUnusedContextMenu] = useState<{
+    x: number;
+    y: number;
+    asset: AssetInfo;
+  } | null>(null);
+  const unusedMenuRef = useRef<HTMLDivElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Build usage map
@@ -230,6 +258,11 @@ export default function AssetDrawer() {
     if (asset.type === 'audio') return; // Audio has placeholder
 
     try {
+      if (window.electronAPI) {
+        const exists = await window.electronAPI.pathExists(asset.path);
+        if (!exists) return;
+      }
+
       let thumbnail: string | null = null;
       if (asset.type === 'video') {
         thumbnail = await generateVideoThumbnail(asset.path);
@@ -244,6 +277,17 @@ export default function AssetDrawer() {
       console.error('Failed to load thumbnail:', error);
     }
   }, [thumbnailCache]);
+
+  useEffect(() => {
+    if (!unusedContextMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (unusedMenuRef.current && !unusedMenuRef.current.contains(e.target as Node)) {
+        setUnusedContextMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [unusedContextMenu]);
 
   // Filter and sort assets
   const filteredAssets = useMemo(() => {
@@ -283,6 +327,183 @@ export default function AssetDrawer() {
 
     return result;
   }, [assets, searchQuery, filterType, sortMode]);
+
+  const findCutForAsset = useCallback((assetId: string) => {
+    if (selectedCutId) {
+      for (const scene of scenes) {
+        const idx = scene.cuts.findIndex((c) => c.id === selectedCutId);
+        if (idx >= 0) {
+          const cut = scene.cuts[idx];
+          const cutAssetId = cut.asset?.id || cut.assetId;
+          if (cutAssetId === assetId) {
+            return { scene, cut, index: idx };
+          }
+        }
+      }
+    }
+
+    for (const scene of scenes) {
+      const idx = scene.cuts.findIndex((c) => (c.asset?.id || c.assetId) === assetId);
+      if (idx >= 0) {
+        return { scene, cut: scene.cuts[idx], index: idx };
+      }
+    }
+
+    return null;
+  }, [scenes, selectedCutId]);
+
+  const handleAssetContextMenu = (e: React.MouseEvent, asset: AssetInfo) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const match = findCutForAsset(asset.id);
+    if (!match) {
+      if (asset.usageCount === 0) {
+        setUnusedContextMenu({ x: e.clientX, y: e.clientY, asset });
+      }
+      return;
+    }
+
+    selectCut(match.cut.id);
+    setUnusedContextMenu(null);
+    setCutContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      sceneId: match.scene.id,
+      cutId: match.cut.id,
+      index: match.index,
+      isClip: !!match.cut.isClip,
+    });
+  };
+
+  const handleCutMenuCopy = () => {
+    copySelectedCuts();
+    setCutContextMenu(null);
+  };
+
+  const handleCutMenuPaste = () => {
+    if (!cutContextMenu) return;
+    pasteCuts(cutContextMenu.sceneId, cutContextMenu.index + 1);
+    setCutContextMenu(null);
+  };
+
+  const handleCutMenuDelete = () => {
+    const cutIds = getSelectedCutIds();
+    for (const cutId of cutIds) {
+      for (const scene of scenes) {
+        if (scene.cuts.some((c) => c.id === cutId)) {
+          removeCut(scene.id, cutId);
+          break;
+        }
+      }
+    }
+    setCutContextMenu(null);
+  };
+
+  const handleCutMenuMove = (targetSceneId: string) => {
+    const cutIds = getSelectedCutIds();
+    const targetScene = scenes.find((s) => s.id === targetSceneId);
+    const toIndex = targetScene?.cuts.length || 0;
+    moveCutsToScene(cutIds, targetSceneId, toIndex);
+    setCutContextMenu(null);
+  };
+
+  const handleCutMenuFinalizeClip = async () => {
+    if (!cutContextMenu) return;
+    const { sceneId, cutId } = cutContextMenu;
+    const scene = scenes.find((s) => s.id === sceneId);
+    const cut = scene?.cuts.find((c) => c.id === cutId);
+    const asset = cut?.asset || (cut?.assetId ? getAsset(cut.assetId) : undefined);
+
+    if (!cut?.isClip || cut.inPoint === undefined || cut.outPoint === undefined || !asset?.path) {
+      setCutContextMenu(null);
+      return;
+    }
+
+    if (!window.electronAPI) {
+      alert('electronAPI not available. Please restart the app.');
+      setCutContextMenu(null);
+      return;
+    }
+
+    if (!vaultPath) {
+      alert('Vault path not set. Please set up a vault first.');
+      setCutContextMenu(null);
+      return;
+    }
+
+    if (typeof window.electronAPI.finalizeClip !== 'function' ||
+        typeof window.electronAPI.ensureAssetsFolder !== 'function') {
+      alert('Finalize Clip feature requires app restart after update.\nPlease restart the Electron app.');
+      setCutContextMenu(null);
+      return;
+    }
+
+    try {
+      const assetsFolder = await window.electronAPI.ensureAssetsFolder(vaultPath);
+      if (!assetsFolder) {
+        alert('Failed to access assets folder in vault.');
+        setCutContextMenu(null);
+        return;
+      }
+
+      const baseName = asset.name.replace(/\.[^/.]+$/, '');
+      const timestamp = Date.now();
+      const clipFileName = `${baseName}_clip_${timestamp}.mp4`;
+      const outputPath = `${assetsFolder}/${clipFileName}`.replace(/\\/g, '/');
+
+      const result = await window.electronAPI.finalizeClip({
+        sourcePath: asset.path,
+        outputPath,
+        inPoint: cut.inPoint,
+        outPoint: cut.outPoint,
+      });
+
+      if (result.success) {
+        alert(`Clip exported to vault!\n\nFile: ${clipFileName}\nSize: ${(result.fileSize! / 1024 / 1024).toFixed(2)} MB`);
+      } else {
+        alert(`Failed to export clip: ${result.error}`);
+      }
+    } catch (error) {
+      alert(`Error finalizing clip: ${error}`);
+    }
+
+    setCutContextMenu(null);
+  };
+
+  const handleDeleteUnusedAsset = async () => {
+    if (!unusedContextMenu) return;
+    if (!window.electronAPI) {
+      alert('electronAPI not available. Please restart the app.');
+      setUnusedContextMenu(null);
+      return;
+    }
+
+    const asset = unusedContextMenu.asset;
+    const targetTrashPath = trashPath || (vaultPath ? `${vaultPath}/.trash` : null);
+    if (!targetTrashPath) {
+      alert('Trash path not set. Please set up a vault first.');
+      setUnusedContextMenu(null);
+      return;
+    }
+
+    try {
+      const moved = await window.electronAPI.moveToTrash(asset.path, targetTrashPath);
+      if (!moved) {
+        alert('Failed to move asset to trash.');
+      }
+    } catch (error) {
+      alert(`Failed to move asset to trash: ${error}`);
+    }
+
+    setAssets((prev) => prev.filter((a) => a.path !== asset.path));
+    setThumbnailCache((prev) => {
+      const next = new Map(prev);
+      next.delete(asset.path);
+      return next;
+    });
+    setUnusedContextMenu(null);
+  };
 
   // Handle drag start - close drawer when leaving
   const handleDragStart = (e: React.DragEvent, asset: AssetInfo) => {
@@ -471,6 +692,7 @@ export default function AssetDrawer() {
                   onDragStart={(e) => handleDragStart(e, asset)}
                   onDragEnd={handleDragEnd}
                   onDoubleClick={() => handleDoubleClick(asset)}
+                  onContextMenu={(e) => handleAssetContextMenu(e, asset)}
                 />
               ))
             )}
@@ -481,6 +703,40 @@ export default function AssetDrawer() {
       {/* Backdrop for closing */}
       {assetDrawerOpen && (
         <div className="drawer-backdrop" onClick={closeAssetDrawer} />
+      )}
+
+      {cutContextMenu && (
+        <CutContextMenu
+          x={cutContextMenu.x}
+          y={cutContextMenu.y}
+          isMultiSelect={selectedCutIds.size > 1}
+          selectedCount={selectedCutIds.size}
+          scenes={scenes}
+          currentSceneId={cutContextMenu.sceneId}
+          canPaste={canPaste()}
+          isClip={cutContextMenu.isClip}
+          onClose={() => setCutContextMenu(null)}
+          onCopy={handleCutMenuCopy}
+          onPaste={handleCutMenuPaste}
+          onDelete={handleCutMenuDelete}
+          onMoveToScene={handleCutMenuMove}
+          onFinalizeClip={handleCutMenuFinalizeClip}
+        />
+      )}
+
+      {unusedContextMenu && (
+        <div
+          ref={unusedMenuRef}
+          className="cut-context-menu"
+          style={{ left: unusedContextMenu.x, top: unusedContextMenu.y }}
+        >
+          <div className="context-menu-header">Asset options</div>
+          <div className="context-menu-divider" />
+          <button onClick={handleDeleteUnusedAsset} className="danger">
+            <Trash2 size={14} />
+            Delete (Move to Trash)
+          </button>
+        </div>
       )}
     </>
   );
@@ -493,6 +749,7 @@ interface AssetCardProps {
   onDragStart: (e: React.DragEvent) => void;
   onDragEnd: () => void;
   onDoubleClick: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }
 
 function AssetCard({
@@ -502,6 +759,7 @@ function AssetCard({
   onDragStart,
   onDragEnd,
   onDoubleClick,
+  onContextMenu,
 }: AssetCardProps) {
   // Load thumbnail on mount
   useEffect(() => {
@@ -525,6 +783,7 @@ function AssetCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
       title={`${asset.sourceName}\n(${asset.name})`}
     >
       <div className="asset-card-thumbnail">

@@ -4,6 +4,7 @@ import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
 import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand, UpdateClipPointsCommand } from './store/commands';
 import AssetDrawer from './components/AssetDrawer';
+import Sidebar from './components/Sidebar';
 import Storyline from './components/Storyline';
 import DetailsPanel from './components/DetailsPanel';
 import PlaybackControls from './components/PlaybackControls';
@@ -82,6 +83,8 @@ function App() {
     createCutFromImport,
     refreshAllSourceFolders,
     toggleAssetDrawer,
+    sidebarOpen,
+    toggleSidebar,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -189,11 +192,27 @@ function App() {
         toggleAssetDrawer();
         return;
       }
+
+      // Ctrl+B or Cmd+B to toggle sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, copySelectedCuts, canPaste, selectedSceneId, scenes, executeCommand, getSelectedCutIds, getSelectedCuts, clearCutSelection, toggleAssetDrawer]);
+  }, [undo, redo, copySelectedCuts, canPaste, selectedSceneId, scenes, executeCommand, getSelectedCutIds, getSelectedCuts, clearCutSelection, toggleAssetDrawer, toggleSidebar]);
+
+  // App menu shortcut (native menubar)
+  useEffect(() => {
+    if (!window.electronAPI?.onToggleSidebar) return undefined;
+    const unsubscribe = window.electronAPI.onToggleSidebar(() => {
+      toggleSidebar();
+    });
+    return () => unsubscribe();
+  }, [toggleSidebar]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; sceneId?: string; index?: number } | undefined;
@@ -507,6 +526,7 @@ function App() {
         <AssetDrawer />
         <Header />
         <div className="app-content">
+          {sidebarOpen && <Sidebar />}
           <main
             className="main-area"
             onDragOver={handleWorkspaceDragOver}

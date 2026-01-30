@@ -44,7 +44,7 @@ interface ContextMenuProps {
   onFinalizeClip?: () => void;
 }
 
-function CutContextMenu({
+export function CutContextMenu({
   x,
   y,
   isMultiSelect,

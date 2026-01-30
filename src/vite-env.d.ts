@@ -204,6 +204,9 @@ interface ElectronAPI {
   // Sequence export
   showSaveSequenceDialog: (defaultName: string) => Promise<string | null>;
   exportSequence: (options: ExportSequenceOptions) => Promise<ExportSequenceResult>;
+
+  // App menu events
+  onToggleSidebar: (callback: () => void) => () => void;
 }
 
 declare global {

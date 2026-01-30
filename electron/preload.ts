@@ -268,6 +268,13 @@ const electronAPI = {
 
   exportSequence: (options: ExportSequenceOptions): Promise<ExportSequenceResult> =>
     ipcRenderer.invoke('export-sequence', options),
+
+  // App menu events
+  onToggleSidebar: (callback: () => void): (() => void) => {
+    const handler = () => callback();
+    ipcRenderer.on('toggle-sidebar', handler);
+    return () => ipcRenderer.removeListener('toggle-sidebar', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

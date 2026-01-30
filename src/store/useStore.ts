@@ -72,6 +72,8 @@ interface AppState {
 
   // Asset drawer state
   assetDrawerOpen: boolean;
+  // Sidebar state
+  sidebarOpen: boolean;
 
   // Actions - Project
   setProjectLoaded: (loaded: boolean) => void;
@@ -167,6 +169,10 @@ interface AppState {
   openAssetDrawer: () => void;
   closeAssetDrawer: () => void;
   toggleAssetDrawer: () => void;
+  // Actions - Sidebar
+  openSidebar: () => void;
+  closeSidebar: () => void;
+  toggleSidebar: () => void;
 
   // Actions - Asset cache
   cacheAsset: (asset: Asset) => void;
@@ -221,6 +227,7 @@ export const useStore = create<AppState>((set, get) => ({
   videoPreviewCutId: null,
   isImportingAsset: null,
   assetDrawerOpen: false,
+  sidebarOpen: false,
 
   // Project actions
   setProjectLoaded: (loaded) => set({ projectLoaded: loaded }),
@@ -1054,6 +1061,10 @@ export const useStore = create<AppState>((set, get) => ({
   openAssetDrawer: () => set({ assetDrawerOpen: true }),
   closeAssetDrawer: () => set({ assetDrawerOpen: false }),
   toggleAssetDrawer: () => set((state) => ({ assetDrawerOpen: !state.assetDrawerOpen })),
+  // Sidebar actions
+  openSidebar: () => set({ sidebarOpen: true }),
+  closeSidebar: () => set({ sidebarOpen: false }),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 
   // Asset cache actions
   cacheAsset: (asset) => set((state) => {

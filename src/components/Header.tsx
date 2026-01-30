@@ -115,14 +115,13 @@ function prepareScenesForSave(scenes: Scene[]): Scene[] {
 }
 
 export default function Header() {
-  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel } = useStore();
+  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel, loadMetadata } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
 
   // Recovery dialog state
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [missingAssets, setMissingAssets] = useState<MissingAssetInfo[]>([]);
   const [pendingProject, setPendingProject] = useState<PendingProject | null>(null);
-
   const handleSaveProject = async () => {
     if (!window.electronAPI) {
       alert('File system access is only available in the desktop app.');
@@ -278,6 +277,9 @@ export default function Header() {
       vaultPath: project.vaultPath,
       scenes: finalScenes,
     });
+
+    // Load metadata store (audio attachments, etc.)
+    await loadMetadata(project.vaultPath);
 
     // Initialize source panel state
     await initializeSourcePanel(project.sourcePanelState, project.vaultPath);
