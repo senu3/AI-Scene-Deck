@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, useEffect, useRef } from 'react';
-import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download, Loader2 } from 'lucide-react';
+import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download, Loader2, Mic, Music } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Scene } from '../types';
 import './CutCard.css';
@@ -20,6 +20,9 @@ interface CutCardProps {
     // Loading state
     isLoading?: boolean;
     loadingName?: string;
+    // Lip sync fields
+    isLipSync?: boolean;
+    lipSyncFrameCount?: number;
   };
   sceneId: string;
   index: number;
@@ -163,6 +166,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
     pasteCuts,
     vaultPath,
     openVideoPreview,
+    metadataStore,
   } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -216,6 +220,8 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
   const isSelected = selectedCutIds.has(cut.id) || selectedCutId === cut.id;
   const isMultiSelected = selectedCutIds.size > 1 && selectedCutIds.has(cut.id);
   const isVideo = asset?.type === 'video';
+  const isLipSync = cut.isLipSync;
+  const hasAttachedAudio = asset?.id && metadataStore?.metadata[asset.id]?.attachedAudioId;
 
   useEffect(() => {
     const loadThumbnail = async () => {
@@ -412,7 +418,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
       style={style}
       {...attributes}
       {...listeners}
-      className={`cut-card ${isSelected ? 'selected' : ''} ${isMultiSelected ? 'multi-selected' : ''} ${isDragging ? 'dragging' : ''}`}
+      className={`cut-card ${isSelected ? 'selected' : ''} ${isMultiSelected ? 'multi-selected' : ''} ${isDragging ? 'dragging' : ''} ${isLipSync ? 'lipsync' : ''}`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
@@ -426,7 +432,9 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
           />
         ) : (
           <div className="cut-thumbnail placeholder">
-            {isVideo ? (
+            {isLipSync ? (
+              <Mic size={24} className="placeholder-icon" />
+            ) : isVideo ? (
               <Film size={24} className="placeholder-icon" />
             ) : (
               <Image size={24} className="placeholder-icon" />
@@ -434,14 +442,36 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
           </div>
         )}
 
-        <div className="cut-badge" style={{ backgroundColor: getBadgeColor() }}>
-          {isVideo ? 'S:VID' : 'S:IMG'}
+        <div className={`cut-badge ${isLipSync ? 'lipsync' : ''}`} style={isLipSync ? undefined : { backgroundColor: getBadgeColor() }}>
+          {isLipSync ? 'S:LIP' : isVideo ? 'S:VID' : 'S:IMG'}
         </div>
 
+        {/* Lip sync indicator */}
+        {isLipSync && (
+          <div className="lipsync-indicator" title="Lip Sync Cut">
+            <Mic size={12} />
+          </div>
+        )}
+
+        {/* Lip sync frame count */}
+        {isLipSync && cut.lipSyncFrameCount && (
+          <div className="lipsync-frame-count">
+            <Image size={10} />
+            <span>{cut.lipSyncFrameCount}</span>
+          </div>
+        )}
+
         {/* Clip indicator for trimmed videos */}
-        {cut.isClip && (
+        {cut.isClip && !isLipSync && (
           <div className="clip-indicator" title={`Clip: ${cut.inPoint?.toFixed(1)}s - ${cut.outPoint?.toFixed(1)}s`}>
             <Scissors size={12} />
+          </div>
+        )}
+
+        {/* Attached audio indicator */}
+        {hasAttachedAudio && !isLipSync && !cut.isClip && (
+          <div className="audio-attached-indicator" title="Audio Attached">
+            <Music size={12} />
           </div>
         )}
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   Settings,
-  Sparkles,
+  Mic,
   Link,
   Music,
   Trash2,
@@ -29,6 +29,7 @@ import {
 import { generateVideoThumbnail } from "../utils/videoUtils";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
+import LipSyncModal from "./LipSyncModal";
 import type { ImageMetadata, Asset } from "../types";
 import { v4 as uuidv4 } from "uuid";
 import "./DetailsPanel.css";
@@ -63,6 +64,7 @@ export default function DetailsPanel() {
   const [metadata, setMetadata] = useState<ImageMetadata | null>(null);
   const [noteText, setNoteText] = useState("");
   const [showVideoPreview, setShowVideoPreview] = useState(false);
+  const [showLipSyncModal, setShowLipSyncModal] = useState(false);
 
   // Attached audio state
   const [attachedAudio, setAttachedAudio] = useState<Asset | undefined>(undefined);
@@ -175,16 +177,6 @@ export default function DetailsPanel() {
       ).catch((error) => {
         console.error("Failed to update display time:", error);
       });
-    }
-  };
-
-  const handleRemoveCut = async () => {
-    if (cutScene && cut) {
-      executeCommand(new RemoveCutCommand(cutScene.id, cut.id)).catch(
-        (error) => {
-          console.error("Failed to remove cut:", error);
-        },
-      );
     }
   };
 
@@ -605,6 +597,111 @@ export default function DetailsPanel() {
     );
   }
 
+  // === DEMO: Show lip sync cut details ===
+  if (selectionType === "cut" && selectedCutId === "demo-lipsync-1") {
+    return (
+      <aside className="details-panel">
+        <div className="details-header">
+          <Settings size={18} />
+          <span>DETAILS</span>
+        </div>
+
+        <div className="details-content">
+          <div className="selected-info lipsync-info">
+            <span className="selected-label">LIP SYNC CUT</span>
+            <span className="selected-value">Demo Lip Sync</span>
+          </div>
+
+          {/* Lip Sync Preview - shows base frame */}
+          <div className="details-preview lipsync-preview">
+            <div className="lipsync-preview-placeholder">
+              <Mic size={48} />
+              <span>4 Frames Registered</span>
+            </div>
+          </div>
+
+          {/* Lip Sync Frame Grid */}
+          <div className="lipsync-frames-info">
+            <div className="lipsync-frames-header">
+              <Mic size={14} />
+              <span>Registered Frames</span>
+            </div>
+            <div className="lipsync-frames-grid">
+              <div className="lipsync-frame-item">
+                <div className="frame-thumb placeholder"></div>
+                <span>Closed</span>
+              </div>
+              <div className="lipsync-frame-item">
+                <div className="frame-thumb placeholder"></div>
+                <span>Half 1</span>
+              </div>
+              <div className="lipsync-frame-item">
+                <div className="frame-thumb placeholder"></div>
+                <span>Half 2</span>
+              </div>
+              <div className="lipsync-frame-item">
+                <div className="frame-thumb placeholder"></div>
+                <span>Open</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Thresholds Info */}
+          <div className="lipsync-thresholds-info">
+            <div className="threshold-row">
+              <span className="threshold-label">T1 (Half1)</span>
+              <span className="threshold-value">0.05</span>
+            </div>
+            <div className="threshold-row">
+              <span className="threshold-label">T2 (Half2)</span>
+              <span className="threshold-value">0.15</span>
+            </div>
+            <div className="threshold-row">
+              <span className="threshold-label">T3 (Open)</span>
+              <span className="threshold-value">0.30</span>
+            </div>
+          </div>
+
+          <div className="details-info">
+            <div className="info-row">
+              <span className="info-label">
+                <Clock size={14} />
+                Display Time:
+              </span>
+              <div className="time-input-group">
+                <input
+                  type="number"
+                  defaultValue="3.0"
+                  step="0.1"
+                  min="0.1"
+                  max="60"
+                  className="time-input"
+                  readOnly
+                />
+                <span className="time-unit">seconds</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="details-actions">
+            <button className="action-btn primary">
+              <Mic size={16} />
+              <span>EDIT LIP SYNC</span>
+            </button>
+          </div>
+
+          <div className="details-footer">
+            <button className="delete-btn">
+              <Trash2 size={14} />
+              <span>Remove Cut</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+  // === END DEMO ===
+
   // Show scene details
   if (selectionType === "scene" && selectedScene) {
     return (
@@ -892,24 +989,20 @@ export default function DetailsPanel() {
           )}
 
           <div className="details-actions">
-            <button className="action-btn primary">
-              <Sparkles size={16} />
-              <span>REMIX IMAGE</span>
+            <button className="action-btn primary" onClick={() => setShowLipSyncModal(true)}>
+              <Mic size={16} />
+              <span>QUICK LIPSYNC</span>
             </button>
-            <button className="action-btn secondary" onClick={handleRelinkFile}>
-              <Link size={16} />
-              <span>RELINK FILE</span>
-            </button>
-            <button className="action-btn attach-audio" onClick={handleAttachAudio}>
+            <button className="action-btn secondary" onClick={handleAttachAudio}>
               <Music size={16} />
               <span>ATTACH AUDIO</span>
             </button>
           </div>
 
           <div className="details-footer">
-            <button className="delete-btn" onClick={handleRemoveCut}>
-              <Trash2 size={14} />
-              <span>Remove Cut</span>
+            <button className="delete-btn" onClick={handleRelinkFile}>
+              <Link size={14} />
+              <span>Relink File</span>
             </button>
           </div>
         </div>
@@ -923,6 +1016,15 @@ export default function DetailsPanel() {
             initialOutPoint={cut?.outPoint}
             onClipSave={isVideo ? handleSaveClip : undefined}
             onFrameCapture={isVideo ? handleFrameCapture : undefined}
+          />
+        )}
+
+        {/* Lip Sync Modal */}
+        {showLipSyncModal && asset && (
+          <LipSyncModal
+            asset={asset}
+            sceneId={cutScene?.id || ""}
+            onClose={() => setShowLipSyncModal(false)}
           />
         )}
       </aside>

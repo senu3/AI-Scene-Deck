@@ -87,6 +87,11 @@
   letter-spacing: 0.3px;
 }
 
+/* Lip Sync badge - gradient pink/purple */
+.cut-badge.lipsync {
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+}
+
 .cut-duration {
   position: absolute;
   bottom: 6px;
@@ -120,6 +125,26 @@
 
 .clip-indicator:hover {
   background-color: rgba(139, 92, 246, 1);
+}
+
+/* Audio attached indicator */
+.audio-attached-indicator {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background-color: rgba(16, 185, 129, 0.9);
+  border-radius: var(--radius-sm);
+  color: white;
+  z-index: 5;
+}
+
+.audio-attached-indicator:hover {
+  background-color: rgba(16, 185, 129, 1);
 }
 
 /* Hover effects for video badge */
@@ -292,4 +317,53 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* Lip Sync Cut Card */
+.cut-card.lipsync {
+  border: 2px solid transparent;
+  background: linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+              linear-gradient(135deg, rgba(236, 72, 153, 0.5), rgba(139, 92, 246, 0.5)) border-box;
+}
+
+.cut-card.lipsync:hover {
+  background: linear-gradient(var(--bg-card), var(--bg-card)) padding-box,
+              linear-gradient(135deg, rgba(236, 72, 153, 0.7), rgba(139, 92, 246, 0.7)) border-box;
+}
+
+/* Lip sync indicator (bottom left, similar to clip indicator) */
+.lipsync-indicator {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  border-radius: var(--radius-sm);
+  color: white;
+  z-index: 5;
+}
+
+/* Lip sync frame count indicator */
+.lipsync-frame-count {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 6px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: var(--radius-sm);
+  font-size: 9px;
+  font-weight: 600;
+  color: white;
+}
+
+.lipsync-frame-count svg {
+  width: 10px;
+  height: 10px;
 }
