@@ -70,6 +70,9 @@ interface AppState {
   // Asset importing state (for progress indicator)
   isImportingAsset: string | null;  // Name of asset being imported, null if not importing
 
+  // Asset drawer state
+  assetDrawerOpen: boolean;
+
   // Actions - Project
   setProjectLoaded: (loaded: boolean) => void;
   setProjectPath: (path: string | null) => void;
@@ -160,6 +163,11 @@ interface AppState {
   // Actions - Asset importing
   setImportingAsset: (name: string | null) => void;
 
+  // Actions - Asset drawer
+  openAssetDrawer: () => void;
+  closeAssetDrawer: () => void;
+  toggleAssetDrawer: () => void;
+
   // Actions - Asset cache
   cacheAsset: (asset: Asset) => void;
   getAsset: (assetId: string) => Asset | undefined;
@@ -212,6 +220,7 @@ export const useStore = create<AppState>((set, get) => ({
   globalMuted: false,
   videoPreviewCutId: null,
   isImportingAsset: null,
+  assetDrawerOpen: false,
 
   // Project actions
   setProjectLoaded: (loaded) => set({ projectLoaded: loaded }),
@@ -335,10 +344,19 @@ export const useStore = create<AppState>((set, get) => ({
   setSourceViewMode: (mode) => set({ sourceViewMode: mode }),
 
   initializeSourcePanel: async (state, vaultPath) => {
+    // Build path for vault assets folder to exclude
+    const vaultAssetsPath = vaultPath ? `${vaultPath}/assets`.replace(/\\/g, '/') : null;
+
     if (state) {
-      // Restore from project state
+      // Restore from project state, excluding vault/assets (now handled by AssetDrawer)
       const folders: SourceFolder[] = [];
       for (const folderState of state.folders) {
+        // Skip vault/assets folder - it's now handled by AssetDrawer
+        const normalizedPath = folderState.path.replace(/\\/g, '/');
+        if (vaultAssetsPath && normalizedPath === vaultAssetsPath) {
+          continue;
+        }
+
         // Load folder contents
         if (window.electronAPI) {
           try {
@@ -359,23 +377,18 @@ export const useStore = create<AppState>((set, get) => ({
         sourceViewMode: state.viewMode || 'list',
       });
     } else if (vaultPath) {
-      // Default: add vault assets folder
-      const assetsPath = `${vaultPath}/assets`.replace(/\\/g, '/');
+      // Default: no source folders - vault/assets is handled by AssetDrawer
+      set({
+        sourceFolders: [],
+        expandedFolders: new Set(),
+        sourceViewMode: 'list',
+      });
+      // Note: vault/assets is now handled exclusively by AssetDrawer
+      const _assetsPath = `${vaultPath}/assets`.replace(/\\/g, '/');
       if (window.electronAPI) {
         try {
-          const exists = await window.electronAPI.pathExists(assetsPath);
-          if (exists) {
-            const structure = await window.electronAPI.getFolderContents(assetsPath);
-            set({
-              sourceFolders: [{
-                path: assetsPath,
-                name: 'assets',
-                structure,
-              }],
-              expandedFolders: new Set([assetsPath]),
-              sourceViewMode: 'list',
-            });
-          }
+          // Just verify assets folder exists, don't add to sourceFolders
+          await window.electronAPI.pathExists(_assetsPath);
         } catch {
           // Ignore errors
         }
@@ -1036,6 +1049,11 @@ export const useStore = create<AppState>((set, get) => ({
 
   // Asset importing actions
   setImportingAsset: (name) => set({ isImportingAsset: name }),
+
+  // Asset drawer actions
+  openAssetDrawer: () => set({ assetDrawerOpen: true }),
+  closeAssetDrawer: () => set({ assetDrawerOpen: false }),
+  toggleAssetDrawer: () => set((state) => ({ assetDrawerOpen: !state.assetDrawerOpen })),
 
   // Asset cache actions
   cacheAsset: (asset) => set((state) => {

@@ -802,7 +802,7 @@ export default function PreviewModal({
       const cachedUrl = assetId ? videoUrlCacheRef.current.get(assetId) : undefined;
 
       if (currentItem?.cut.asset?.type === 'video') {
-        if (cachedUrl && (!videoObjectUrl || videoObjectUrl.assetId !== assetId || videoObjectUrl.url !== cachedUrl)) {
+        if (cachedUrl && assetId && (!videoObjectUrl || videoObjectUrl.assetId !== assetId || videoObjectUrl.url !== cachedUrl)) {
           setVideoObjectUrl({ assetId, url: cachedUrl });
         } else if (!cachedUrl && currentItem.cut.asset?.path && assetId) {
           // Fallback: create URL if not in cache (shouldn't happen normally)
@@ -819,7 +819,7 @@ export default function PreviewModal({
       }
 
       // Check buffer status and update buffering state
-      const { ready, neededItems } = checkBufferStatus();
+      const { ready } = checkBufferStatus();
       const currentReady = isItemReady(currentIndex);
       if (sequenceState.isPlaying && !ready && !sequenceState.isBuffering) {
         if (!currentReady) {

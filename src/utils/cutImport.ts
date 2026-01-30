@@ -6,7 +6,7 @@ export interface CutImportSource {
   assetId: string;
   name: string;
   sourcePath: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   fileSize?: number;
   existingAsset?: Partial<Asset>;
   preferredDuration?: number;

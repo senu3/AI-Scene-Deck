@@ -15,7 +15,7 @@ import {
   Grid,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import type { FileItem } from '../types';
+import type { FileItem, Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { generateVideoThumbnail } from '../utils/videoUtils';
 import './Sidebar.css';

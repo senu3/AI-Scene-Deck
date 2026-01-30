@@ -3,7 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
 import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand, UpdateClipPointsCommand } from './store/commands';
-import Sidebar from './components/Sidebar';
+import AssetDrawer from './components/AssetDrawer';
 import Storyline from './components/Storyline';
 import DetailsPanel from './components/DetailsPanel';
 import PlaybackControls from './components/PlaybackControls';
@@ -81,6 +81,7 @@ function App() {
     updateCutAsset,
     createCutFromImport,
     refreshAllSourceFolders,
+    toggleAssetDrawer,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -181,11 +182,18 @@ function App() {
           clearCutSelection();
         }
       }
+
+      // Tab key to toggle asset drawer
+      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        toggleAssetDrawer();
+        return;
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [undo, redo, copySelectedCuts, canPaste, selectedSceneId, scenes, executeCommand, getSelectedCutIds, getSelectedCuts, clearCutSelection]);
+  }, [undo, redo, copySelectedCuts, canPaste, selectedSceneId, scenes, executeCommand, getSelectedCutIds, getSelectedCuts, clearCutSelection, toggleAssetDrawer]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; sceneId?: string; index?: number } | undefined;
@@ -496,9 +504,9 @@ function App() {
       onDragEnd={handleDragEnd}
     >
       <div className="app">
+        <AssetDrawer />
         <Header />
         <div className="app-content">
-          <Sidebar />
           <main
             className="main-area"
             onDragOver={handleWorkspaceDragOver}

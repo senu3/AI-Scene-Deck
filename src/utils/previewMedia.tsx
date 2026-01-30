@@ -1,4 +1,4 @@
-import type { RefObject } from 'react';
+import type { MutableRefObject } from 'react';
 
 export type MediaSourceKind = 'video' | 'image';
 
@@ -22,7 +22,7 @@ interface BaseMediaSourceOptions {
 interface VideoMediaSourceOptions extends BaseMediaSourceOptions {
   src: string;
   muted: boolean;
-  refObject?: RefObject<HTMLVideoElement>;
+  refObject?: MutableRefObject<HTMLVideoElement | null>;
   key?: string;
   inPoint?: number;
   outPoint?: number;
