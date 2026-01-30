@@ -20,7 +20,7 @@ export function VolumeControl({
   return (
     <div className="preview-volume-control">
       <button
-        className="preview-ctrl-btn preview-volume-btn"
+        className="preview-ctrl-btn"
         onClick={onMuteToggle}
         title={isMuted ? 'Unmute (M)' : 'Mute (M)'}
       >

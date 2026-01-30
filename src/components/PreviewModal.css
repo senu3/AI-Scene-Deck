@@ -126,6 +126,11 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.preview-resolution-select option {
+  background: #1e2128;
+  color: #e2e8f0;
+}
+
 .preview-icon-btn {
   display: flex;
   align-items: center;
@@ -503,8 +508,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 80px;
-  height: 80px;
+  width: 64px;
+  height: 64px;
   background: rgba(0, 0, 0, 0.6);
   border-radius: 50%;
   display: flex;

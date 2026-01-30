@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { X, Play, Pause, SkipBack, SkipForward, Download, Loader2, Repeat, Maximize, Scissors } from 'lucide-react';
+import { X, Play, Pause, SkipBack, SkipForward, Download, Loader2, Repeat, Maximize, Scissors, Camera } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Cut } from '../types';
 import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
@@ -1785,7 +1785,7 @@ export default function PreviewModal({
                     {/* Play overlay */}
                     {!isPlaying && !isLoading && (
                       <div className="play-overlay" onClick={toggleSingleModePlay}>
-                        <Play size={64} />
+                        <Play size={40} />
                       </div>
                     )}
                   </>
@@ -1941,6 +1941,15 @@ export default function PreviewModal({
                       <Scissors size={18} />
                     </button>
                   )}
+                  {isSingleModeVideo && (
+                    <button
+                      className="preview-ctrl-btn"
+                      onClick={() => {/* TODO: Implement frame capture */}}
+                      title="Capture frame"
+                    >
+                      <Camera size={18} />
+                    </button>
+                  )}
                   <div className="preview-ctrl-divider" />
                   <button
                     className={`preview-ctrl-btn ${isLooping ? 'is-active' : ''}`}
@@ -2018,7 +2027,7 @@ export default function PreviewModal({
           {/* Minimal header overlay */}
           <div className="preview-header preview-header--compact">
             <div className="preview-header-left">
-              <span className="preview-badge">{currentIndex + 1} / {items.length}</span>
+              <span className="preview-badge">{currentIndex + 1}/{items.length}</span>
               <span className="preview-title">{currentItem?.sceneName}</span>
               <span className="preview-subtitle">Cut {(currentItem?.cutIndex || 0) + 1}</span>
             </div>
