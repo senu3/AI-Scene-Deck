@@ -123,6 +123,8 @@ export default function PreviewModal({
     exportResolution ? { ...exportResolution } : RESOLUTION_PRESETS[0]
   );
   const [isExporting, setIsExporting] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(true);
+  const overlayTimeoutRef = useRef<number | null>(null);
 
   // Buffer management state (Sequence Mode)
   const videoUrlCacheRef = useRef<Map<string, string>>(new Map()); // assetId -> URL
@@ -416,13 +418,39 @@ export default function PreviewModal({
 
     // Check if click was inside the progress bar
     const target = e.target as HTMLElement;
-    const progressBar = target.closest('.progress-bar');
+    const progressBar = target.closest('.preview-progress-bar');
 
     // If clicked outside progress bar, clear focus
     if (!progressBar) {
       setFocusedMarker(null);
     }
   }, [focusedMarker]);
+
+  const showOverlayNow = useCallback(() => {
+    if (overlayTimeoutRef.current !== null) {
+      window.clearTimeout(overlayTimeoutRef.current);
+      overlayTimeoutRef.current = null;
+    }
+    setShowOverlay(true);
+  }, []);
+
+  const scheduleHideOverlay = useCallback(() => {
+    if (overlayTimeoutRef.current !== null) {
+      window.clearTimeout(overlayTimeoutRef.current);
+    }
+    overlayTimeoutRef.current = window.setTimeout(() => {
+      setShowOverlay(false);
+      overlayTimeoutRef.current = null;
+    }, 300);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (overlayTimeoutRef.current !== null) {
+        window.clearTimeout(overlayTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Skip seconds (Both modes)
   const skip = useCallback((seconds: number) => {
@@ -1629,6 +1657,15 @@ export default function PreviewModal({
   const sequenceCurrentTime = isSingleMode ? 0 : sequenceSelectors.getAbsoluteTime();
   const singleModePlaybackDuration = isSingleModeVideo ? singleModeDuration : sequenceState.totalDuration;
   const singleModePlaybackTime = isSingleModeVideo ? singleModeCurrentTime : sequenceSelectors.getAbsoluteTime();
+  const previewResolutionLabel = useMemo(() => {
+    const targetAsset = isSingleMode ? asset : currentItem?.cut.asset;
+    const width = targetAsset?.metadata?.width;
+    const height = targetAsset?.metadata?.height;
+    if (typeof width === 'number' && typeof height === 'number') {
+      return `${width}×${height}`;
+    }
+    return null;
+  }, [isSingleMode, asset, currentItem]);
 
   // Check if range/IN-point is set for Save button
   const hasInPoint = inPoint !== null;
@@ -1650,47 +1687,26 @@ export default function PreviewModal({
     return (
       <div className="preview-modal" ref={modalRef} onMouseDown={handleContainerMouseDown}>
         <div className="preview-backdrop" onClick={onClose} />
-        <div className="preview-container">
-          {/* Header: Left=asset name + resolution, Right=resolution select/close */}
-          <div className="preview-header">
-            <div className="header-left">
-              <span className="scene-label">{asset.name}</span>
-              {asset.metadata?.width && asset.metadata?.height && (
-                <span className="resolution-info">
-                  {asset.metadata.width}×{asset.metadata.height}
-                </span>
-              )}
-            </div>
-            <div className="header-center">
-              {/* Empty for Single Mode */}
-            </div>
-            <div className="header-right">
-              <select
-                className="resolution-select"
-                value={selectedResolution.name}
-                onChange={(e) => {
-                  const preset = RESOLUTION_PRESETS.find(p => p.name === e.target.value);
-                  if (preset) {
-                    setSelectedResolution(preset);
-                    onResolutionChange?.(preset);
-                  }
-                }}
-                title="Resolution Simulation"
-              >
-                {RESOLUTION_PRESETS.map(preset => (
-                  <option key={preset.name} value={preset.name}>
-                    {preset.name}{preset.width > 0 ? ` (${preset.width}×${preset.height})` : ''}
-                  </option>
-                ))}
-              </select>
-              <button className="close-btn" onClick={onClose} title="Close (Esc)">
-                <X size={20} />
-              </button>
-            </div>
-          </div>
-
+        <div className="preview-container preview-container--compact">
           {/* Display area */}
-          <div className="preview-display" ref={displayContainerRef}>
+          <div
+            className="preview-display preview-display--expanded"
+            ref={displayContainerRef}
+            onMouseEnter={showOverlayNow}
+            onMouseLeave={scheduleHideOverlay}
+          >
+            {/* Minimal header overlay */}
+            <div className="preview-header preview-header--compact">
+              <div className="preview-header-left">
+                <span className="preview-title">{asset.name}</span>
+              </div>
+              <div className="preview-header-right">
+                <button className="preview-close-btn" onClick={onClose} title="Close (Esc)">
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
             {isLoading ? (
               <div className="preview-placeholder">
                 <div className="loading-spinner" />
@@ -1777,101 +1793,130 @@ export default function PreviewModal({
                 <p>Failed to load {isSingleModeVideo ? 'video' : 'image'}</p>
               </div>
             )}
-          </div>
 
-          {/* Progress bar with time display */}
-          {(isSingleModeVideo || isSingleModeImage) && (
-            <div className="preview-progress">
-              <div
-                className="progress-bar scrub-enabled"
-                ref={progressBarRef}
-                onClick={handleSingleModeProgressClick}
-              >
-                <TimelineMarkers
-                  inPoint={inPoint}
-                  outPoint={outPoint}
-                  duration={singleModePlaybackDuration}
-                  showMilliseconds={isSingleModeVideo}
-                  focusedMarker={focusedMarker}
-                  onMarkerFocus={handleMarkerFocus}
-                  onMarkerDrag={handleMarkerDrag}
-                  onMarkerDragEnd={handleMarkerDragEnd}
-                  progressBarRef={progressBarRef}
-                />
-                <div className="progress-fill" style={{ width: `${singleModeProgressPercent}%` }} />
-                <div className="progress-handle" style={{ left: `${singleModeProgressPercent}%` }} />
+            {/* Overlay controls */}
+            <div
+              className={`preview-overlay ${showOverlay ? 'is-visible' : ''}`}
+              onMouseEnter={showOverlayNow}
+              onMouseLeave={scheduleHideOverlay}
+            >
+              <div className="preview-overlay-row preview-overlay-row--top">
+                <div className="preview-overlay-left">
+                  {previewResolutionLabel && (
+                    <span className="preview-resolution-badge">{previewResolutionLabel}</span>
+                  )}
+                </div>
+                <div className="preview-overlay-right">
+                  <select
+                    className="preview-resolution-select"
+                    value={selectedResolution.name}
+                    onChange={(e) => {
+                      const preset = RESOLUTION_PRESETS.find(p => p.name === e.target.value);
+                      if (preset) {
+                        setSelectedResolution(preset);
+                        onResolutionChange?.(preset);
+                      }
+                    }}
+                    title="Resolution Simulation"
+                  >
+                    {RESOLUTION_PRESETS.map(preset => (
+                      <option key={preset.name} value={preset.name}>
+                        {preset.name}{preset.width > 0 ? ` (${preset.width}×${preset.height})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="progress-info">
-                <TimeDisplay
-                  currentTime={singleModePlaybackTime}
-                  totalDuration={singleModePlaybackDuration}
-                  showMilliseconds={isSingleModeVideo}
-                />
+
+              <div className="preview-overlay-row preview-overlay-row--bottom">
+                {/* Progress bar with time display */}
+                {(isSingleModeVideo || isSingleModeImage) && (
+                  <div className="preview-progress">
+                    <div
+                      className="preview-progress-bar preview-progress-bar--scrub"
+                      ref={progressBarRef}
+                      onClick={handleSingleModeProgressClick}
+                    >
+                      <TimelineMarkers
+                        inPoint={inPoint}
+                        outPoint={outPoint}
+                        duration={singleModePlaybackDuration}
+                        showMilliseconds={isSingleModeVideo}
+                        focusedMarker={focusedMarker}
+                        onMarkerFocus={handleMarkerFocus}
+                        onMarkerDrag={handleMarkerDrag}
+                        onMarkerDragEnd={handleMarkerDragEnd}
+                        progressBarRef={progressBarRef}
+                      />
+                      <div className="preview-progress-fill" style={{ width: `${singleModeProgressPercent}%` }} />
+                      <div className="preview-progress-handle" style={{ left: `${singleModeProgressPercent}%` }} />
+                    </div>
+                    <div className="preview-progress-info">
+                      <TimeDisplay
+                        currentTime={singleModePlaybackTime}
+                        totalDuration={singleModePlaybackDuration}
+                        showMilliseconds={isSingleModeVideo}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Controls */}
+                <div className="preview-controls">
+                  <div className="preview-controls-left">
+                    {(isSingleModeVideo || isSingleModeImage) && (
+                      <>
+                        <button
+                          className="preview-control-btn preview-control-btn--primary"
+                          onClick={isSingleModeVideo ? toggleSingleModePlay : handlePlayPause}
+                          title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+                        >
+                          {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+                        </button>
+                        <button
+                          className="preview-control-btn"
+                          onClick={() => skip(-5)}
+                          title="Rewind 5s (←)"
+                        >
+                          <SkipBack size={18} />
+                        </button>
+                        <button
+                          className="preview-control-btn"
+                          onClick={() => skip(5)}
+                          title="Forward 5s (→)"
+                        >
+                          <SkipForward size={18} />
+                        </button>
+                      </>
+                    )}
+                    <div className="preview-control-divider" />
+                    <VolumeControl
+                      volume={globalVolume}
+                      isMuted={globalMuted}
+                      onVolumeChange={setGlobalVolume}
+                      onMuteToggle={toggleGlobalMute}
+                    />
+                  </div>
+                  <div className="preview-controls-right">
+                    {(isSingleModeVideo || isSingleModeImage) && (
+                      <>
+                        <ClipRangeControls
+                          inPoint={inPoint}
+                          outPoint={outPoint}
+                          onSetInPoint={isSingleModeVideo ? handleSingleModeSetInPoint : handleSetInPoint}
+                          onSetOutPoint={isSingleModeVideo ? handleSingleModeSetOutPoint : handleSetOutPoint}
+                          onClear={handleClearPoints}
+                          onSave={isSingleModeVideo && showSingleModeSaveButton ? handleSingleModeSave : undefined}
+                          showSaveButton={isSingleModeVideo && !!showSingleModeSaveButton}
+                          showMilliseconds={isSingleModeVideo}
+                        />
+                        <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
+                      </>
+                    )}
+                    <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
-
-          {/* Controls */}
-          <div className="preview-controls">
-            <div className="controls-left">
-              {(isSingleModeVideo || isSingleModeImage) && (
-                <>
-                  {/* Play/Pause */}
-                  <button
-                    className="control-btn"
-                    onClick={isSingleModeVideo ? toggleSingleModePlay : handlePlayPause}
-                    title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-                  >
-                    {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-                  </button>
-
-                  {/* Skip buttons */}
-                  <button
-                    className="control-btn"
-                    onClick={() => skip(-5)}
-                    title="Rewind 5s (←)"
-                  >
-                    <SkipBack size={18} />
-                  </button>
-                  <button
-                    className="control-btn"
-                    onClick={() => skip(5)}
-                    title="Forward 5s (→)"
-                  >
-                    <SkipForward size={18} />
-                  </button>
-
-                  {/* Volume */}
-                  <VolumeControl
-                    volume={globalVolume}
-                    isMuted={globalMuted}
-                    onVolumeChange={setGlobalVolume}
-                    onMuteToggle={toggleGlobalMute}
-                  />
-                </>
-              )}
-            </div>
-            <div className="controls-center">
-              {/* Empty for Single Mode */}
-            </div>
-            <div className="controls-right">
-              {/* IN/OUT controls */}
-              {(isSingleModeVideo || isSingleModeImage) && (
-                <>
-                  <ClipRangeControls
-                    inPoint={inPoint}
-                    outPoint={outPoint}
-                    onSetInPoint={isSingleModeVideo ? handleSingleModeSetInPoint : handleSetInPoint}
-                    onSetOutPoint={isSingleModeVideo ? handleSingleModeSetOutPoint : handleSetOutPoint}
-                    onClear={handleClearPoints}
-                    onSave={isSingleModeVideo && showSingleModeSaveButton ? handleSingleModeSave : undefined}
-                    showSaveButton={isSingleModeVideo && !!showSingleModeSaveButton}
-                    showMilliseconds={isSingleModeVideo}
-                  />
-                  <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
-                </>
-              )}
-              <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
             </div>
           </div>
         </div>
@@ -1887,9 +1932,9 @@ export default function PreviewModal({
       <div className="preview-modal" ref={modalRef}>
         <div className="preview-backdrop" onClick={onClose} />
         <div className="preview-container">
-          <div className="preview-header">
+          <div className="preview-header preview-header--static">
             <span>Preview</span>
-            <button className="close-btn" onClick={onClose}>
+            <button className="preview-close-btn" onClick={onClose} title="Close (Esc)">
               <X size={20} />
             </button>
           </div>
@@ -1905,53 +1950,28 @@ export default function PreviewModal({
   return (
     <div className="preview-modal" ref={modalRef} onMouseDown={handleContainerMouseDown}>
       <div className="preview-backdrop" onClick={onClose} />
-      <div className="preview-container">
-        {/* Header: Left=index, Center=scene/cut info, Right=resolution/download/close */}
-        <div className="preview-header">
-          <div className="header-left">
-            <span className="index-info">
-              {currentIndex + 1} / {items.length}
-            </span>
-          </div>
-          <div className="header-center">
-            <span className="scene-label">{currentItem?.sceneName}</span>
-            <span className="cut-label">Cut {(currentItem?.cutIndex || 0) + 1}</span>
-          </div>
-          <div className="header-right">
-            <select
-              className="resolution-select"
-              value={selectedResolution.name}
-              onChange={(e) => {
-                const preset = RESOLUTION_PRESETS.find(p => p.name === e.target.value);
-                if (preset) {
-                  setSelectedResolution(preset);
-                  onResolutionChange?.(preset);
-                }
-              }}
-              title="Resolution Simulation"
-            >
-              {RESOLUTION_PRESETS.map(preset => (
-                <option key={preset.name} value={preset.name}>
-                  {preset.name}{preset.width > 0 ? ` (${preset.width}×${preset.height})` : ''}
-                </option>
-              ))}
-            </select>
-            <button
-              className="action-btn"
-              onClick={handleExportFull}
-              disabled={isExporting || items.length === 0}
-              title="Export full sequence to MP4"
-            >
-              <Download size={18} />
-            </button>
-            <button className="close-btn" onClick={onClose}>
-              <X size={20} />
-            </button>
-          </div>
-        </div>
-
+      <div className="preview-container preview-container--compact">
         {/* Display area */}
-        <div className="preview-display" ref={displayContainerRef}>
+        <div
+          className="preview-display preview-display--expanded"
+          ref={displayContainerRef}
+          onMouseEnter={showOverlayNow}
+          onMouseLeave={scheduleHideOverlay}
+        >
+          {/* Minimal header overlay */}
+          <div className="preview-header preview-header--compact">
+            <div className="preview-header-left">
+              <span className="preview-badge">{currentIndex + 1} / {items.length}</span>
+              <span className="preview-title">{currentItem?.sceneName}</span>
+              <span className="preview-subtitle">Cut {(currentItem?.cutIndex || 0) + 1}</span>
+            </div>
+            <div className="preview-header-right">
+              <button className="preview-close-btn" onClick={onClose} title="Close (Esc)">
+                <X size={20} />
+              </button>
+            </div>
+          </div>
+
           {(() => {
             const viewportStyle = getViewportStyle();
             const content = sequenceMediaElement ?? (() => {
@@ -2006,115 +2026,132 @@ export default function PreviewModal({
               </>
             );
           })()}
-        </div>
 
-        {/* Progress bar with time display */}
-        <div className="preview-progress">
+          {/* Overlay controls */}
           <div
-            className="progress-bar scrub-enabled"
-            ref={progressBarRef}
-            onMouseDown={handleProgressBarMouseDown}
-            onMouseMove={handleProgressBarHover}
-            onMouseLeave={handleProgressBarLeave}
+            className={`preview-overlay ${showOverlay ? 'is-visible' : ''}`}
+            onMouseEnter={showOverlayNow}
+            onMouseLeave={scheduleHideOverlay}
           >
-            <TimelineMarkers
-              inPoint={inPoint}
-              outPoint={outPoint}
-              duration={sequenceTotalDuration}
-              showMilliseconds={false}
-              focusedMarker={focusedMarker}
-              onMarkerFocus={handleMarkerFocus}
-              onMarkerDrag={handleMarkerDrag}
-              onMarkerDragEnd={handleMarkerDragEnd}
-              progressBarRef={progressBarRef}
-            />
-            <div className="progress-fill" style={{ width: `${globalProgress}%` }} />
-            <div className="progress-handle" style={{ left: `${globalProgress}%` }} />
-            {hoverTime && (
-              <div className="progress-tooltip">
-                {hoverTime}
+            <div className="preview-overlay-row preview-overlay-row--top">
+              <div className="preview-overlay-left">
+                {previewResolutionLabel && (
+                  <span className="preview-resolution-badge">{previewResolutionLabel}</span>
+                )}
               </div>
-            )}
-          </div>
-          <div className="progress-info">
-            <TimeDisplay currentTime={sequenceCurrentTime} totalDuration={sequenceTotalDuration} />
-          </div>
-        </div>
+              <div className="preview-overlay-right">
+                <select
+                  className="preview-resolution-select"
+                  value={selectedResolution.name}
+                  onChange={(e) => {
+                    const preset = RESOLUTION_PRESETS.find(p => p.name === e.target.value);
+                    if (preset) {
+                      setSelectedResolution(preset);
+                      onResolutionChange?.(preset);
+                    }
+                  }}
+                  title="Resolution Simulation"
+                >
+                  {RESOLUTION_PRESETS.map(preset => (
+                    <option key={preset.name} value={preset.name}>
+                      {preset.name}{preset.width > 0 ? ` (${preset.width}×${preset.height})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  className="preview-icon-btn"
+                  onClick={handleExportFull}
+                  disabled={isExporting || items.length === 0}
+                  title="Export full sequence to MP4"
+                >
+                  <Download size={16} />
+                </button>
+              </div>
+            </div>
 
-        {/* Controls: Left=play/skip/volume, Center=nav, Right=IN/OUT+loop+fullscreen */}
-        <div className="preview-controls">
-          <div className="controls-left">
-            {/* Play/Pause */}
-            <button
-              className="control-btn"
-              onClick={handlePlayPause}
-              title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
-            >
-              {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-            </button>
+            <div className="preview-overlay-row preview-overlay-row--bottom">
+              {/* Progress bar with time display */}
+              <div className="preview-progress">
+                <div
+                  className="preview-progress-bar preview-progress-bar--scrub"
+                  ref={progressBarRef}
+                  onMouseDown={handleProgressBarMouseDown}
+                  onMouseMove={handleProgressBarHover}
+                  onMouseLeave={handleProgressBarLeave}
+                >
+                  <TimelineMarkers
+                    inPoint={inPoint}
+                    outPoint={outPoint}
+                    duration={sequenceTotalDuration}
+                    showMilliseconds={false}
+                    focusedMarker={focusedMarker}
+                    onMarkerFocus={handleMarkerFocus}
+                    onMarkerDrag={handleMarkerDrag}
+                    onMarkerDragEnd={handleMarkerDragEnd}
+                    progressBarRef={progressBarRef}
+                  />
+                  <div className="preview-progress-fill" style={{ width: `${globalProgress}%` }} />
+                  <div className="preview-progress-handle" style={{ left: `${globalProgress}%` }} />
+                  {hoverTime && (
+                    <div className="preview-progress-tooltip">
+                      {hoverTime}
+                    </div>
+                  )}
+                </div>
+                <div className="preview-progress-info">
+                  <TimeDisplay currentTime={sequenceCurrentTime} totalDuration={sequenceTotalDuration} />
+                </div>
+              </div>
 
-            {/* Skip buttons */}
-            <button
-              className="control-btn"
-              onClick={() => skip(-5)}
-              title="Rewind 5s (←)"
-            >
-              <SkipBack size={18} />
-            </button>
-            <button
-              className="control-btn"
-              onClick={() => skip(5)}
-              title="Forward 5s (→)"
-            >
-              <SkipForward size={18} />
-            </button>
-
-            {/* Volume */}
-            <VolumeControl
-              volume={globalVolume}
-              isMuted={globalMuted}
-              onVolumeChange={setGlobalVolume}
-              onMuteToggle={toggleGlobalMute}
-            />
-          </div>
-          <div className="controls-center">
-            <button
-              className="control-btn"
-              onClick={goToPrev}
-              disabled={currentIndex === 0}
-              title="Previous Cut"
-            >
-              <SkipBack size={20} />
-            </button>
-            <button
-              className="control-btn primary"
-              onClick={handlePlayPause}
-              title="Play/Pause (Space)"
-            >
-              {isPlaying ? <Pause size={24} /> : <Play size={24} />}
-            </button>
-            <button
-              className="control-btn"
-              onClick={goToNext}
-              disabled={currentIndex >= items.length - 1}
-              title="Next Cut"
-            >
-              <SkipForward size={20} />
-            </button>
-          </div>
-          <div className="controls-right">
-            {/* IN/OUT controls - Sequence Mode: no Save button (per plan) */}
-            <ClipRangeControls
-              inPoint={inPoint}
-              outPoint={outPoint}
-              onSetInPoint={handleSetInPoint}
-              onSetOutPoint={handleSetOutPoint}
-              onClear={handleClearPoints}
-              showSaveButton={false}
-              showMilliseconds={false}
-            />
-            <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
-            <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+              {/* Controls */}
+              <div className="preview-controls">
+                <div className="preview-controls-left">
+                  <button
+                    className="preview-control-btn"
+                    onClick={goToPrev}
+                    disabled={currentIndex === 0}
+                    title="Previous Cut"
+                  >
+                    <SkipBack size={18} />
+                  </button>
+                  <button
+                    className="preview-control-btn preview-control-btn--primary"
+                    onClick={handlePlayPause}
+                    title="Play/Pause (Space)"
+                  >
+                    {isPlaying ? <Pause size={22} /> : <Play size={22} />}
+                  </button>
+                  <button
+                    className="preview-control-btn"
+                    onClick={goToNext}
+                    disabled={currentIndex >= items.length - 1}
+                    title="Next Cut"
+                  >
+                    <SkipForward size={18} />
+                  </button>
+                  <div className="preview-control-divider" />
+                  <ClipRangeControls
+                    inPoint={inPoint}
+                    outPoint={outPoint}
+                    onSetInPoint={handleSetInPoint}
+                    onSetOutPoint={handleSetOutPoint}
+                    onClear={handleClearPoints}
+                    showSaveButton={false}
+                    showMilliseconds={false}
+                  />
+                </div>
+                <div className="preview-controls-right">
+                  <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
+                  <VolumeControl
+                    volume={globalVolume}
+                    isMuted={globalMuted}
+                    onVolumeChange={setGlobalVolume}
+                    onMuteToggle={toggleGlobalMute}
+                  />
+                  <FullscreenToggle isFullscreen={isFullscreen} onToggle={toggleFullscreen} />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
