@@ -107,6 +107,9 @@ export default function PreviewModal({
 
   // Mode detection: Single Mode if asset prop is provided
   const isSingleMode = !!asset;
+  const isSingleModeVideo = isSingleMode && asset?.type === 'video';
+  const isSingleModeImage = isSingleMode && asset?.type === 'image';
+  const usesSequenceController = !isSingleModeVideo;
 
   const [items, setItems] = useState<PreviewItem[]>([]);
   const [singleModeIsPlaying, setSingleModeIsPlaying] = useState(false);
@@ -155,12 +158,12 @@ export default function PreviewModal({
     selectors: sequenceSelectors,
   } = sequencePlayback;
 
-  const currentIndex = isSingleMode ? 0 : sequenceState.currentIndex;
-  const isPlaying = isSingleMode ? singleModeIsPlaying : sequenceState.isPlaying;
-  const isLooping = isSingleMode ? singleModeIsLooping : sequenceState.isLooping;
-  const inPoint = isSingleMode ? singleModeInPoint : sequenceState.inPoint;
-  const outPoint = isSingleMode ? singleModeOutPoint : sequenceState.outPoint;
-  const isBuffering = isSingleMode ? false : sequenceState.isBuffering;
+  const currentIndex = usesSequenceController ? sequenceState.currentIndex : 0;
+  const isPlaying = usesSequenceController ? sequenceState.isPlaying : singleModeIsPlaying;
+  const isLooping = usesSequenceController ? sequenceState.isLooping : singleModeIsLooping;
+  const inPoint = usesSequenceController ? sequenceState.inPoint : singleModeInPoint;
+  const outPoint = usesSequenceController ? sequenceState.outPoint : singleModeOutPoint;
+  const isBuffering = usesSequenceController ? sequenceState.isBuffering : false;
 
   // Focused marker state for draggable markers
   const [focusedMarker, setFocusedMarker] = useState<FocusedMarker>(null);
@@ -192,11 +195,17 @@ export default function PreviewModal({
     return metadata?.attachedAudioOffset ?? 0;
   }, [metadataStore]);
 
-  // ===== SINGLE MODE LOGIC =====
+  const getDisplayTimeForAsset = useCallback((assetId: string): number | null => {
+    if (!metadataStore) return null;
+    const metadata = metadataStore.metadata[assetId];
+    const displayTime = metadata?.displayTime;
+    if (typeof displayTime !== 'number' || !Number.isFinite(displayTime) || displayTime <= 0) {
+      return null;
+    }
+    return displayTime;
+  }, [metadataStore]);
 
-  // Detect if Single Mode asset is video or image
-  const isSingleModeVideo = isSingleMode && asset?.type === 'video';
-  const isSingleModeImage = isSingleMode && asset?.type === 'image';
+  // ===== SINGLE MODE LOGIC =====
 
   // State for image data in Single Mode
   const [singleModeImageData, setSingleModeImageData] = useState<string | null>(null);
@@ -204,6 +213,7 @@ export default function PreviewModal({
   // Attached audio state (both modes)
   // Keep separate managers for Single/Sequence to avoid cross-mode races.
   const singleAudioManagerRef = useRef(new AudioManager());
+  const singleAudioPlayingRef = useRef(false);
   const sequenceAudioManagerRef = useRef(new AudioManager());
   const sequenceAudioPlayingRef = useRef(false);
   const [audioLoaded, setAudioLoaded] = useState(false);
@@ -274,41 +284,43 @@ export default function PreviewModal({
     // Pause video when stepping frames
     if (isPlaying) {
       videoRef.current.pause();
-      if (isSingleMode) {
+      if (isSingleModeVideo) {
         setSingleModeIsPlaying(false);
       } else {
         sequencePause();
       }
     }
 
-    const duration = isSingleMode ? singleModeDuration : videoRef.current.duration;
+    const duration = isSingleModeVideo ? singleModeDuration : videoRef.current.duration;
     const newTime = videoRef.current.currentTime + (direction * FRAME_DURATION);
     videoRef.current.currentTime = Math.max(0, Math.min(duration, newTime));
 
-    if (isSingleMode) {
+    if (isSingleModeVideo) {
       setSingleModeCurrentTime(videoRef.current.currentTime);
     }
-  }, [isSingleMode, singleModeDuration, isPlaying, FRAME_DURATION, sequencePause]);
+  }, [isSingleModeVideo, singleModeDuration, isPlaying, FRAME_DURATION, sequencePause]);
 
   // Step focused marker by one frame
   const stepFocusedMarker = useCallback((direction: number) => {
     if (!focusedMarker) return;
 
-    const duration = isSingleMode ? singleModeDuration : items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    const duration = usesSequenceController
+      ? sequenceState.totalDuration
+      : singleModeDuration;
     const stepAmount = direction * FRAME_DURATION;
 
     if (focusedMarker === 'in' && inPoint !== null) {
       // Constrain IN marker to not go past OUT point
       const maxTime = outPoint !== null ? outPoint : duration;
       const newTime = Math.max(0, Math.min(maxTime, inPoint + stepAmount));
-      if (isSingleMode) {
+      if (!usesSequenceController) {
         setSingleModeInPoint(newTime);
       } else {
         setSequenceRange(newTime, outPoint ?? null);
         seekSequenceAbsolute(newTime);
       }
       // Also move playback position
-      if (isSingleMode && videoRef.current) {
+      if (!usesSequenceController && videoRef.current) {
         videoRef.current.currentTime = newTime;
         setSingleModeCurrentTime(newTime);
       }
@@ -316,19 +328,29 @@ export default function PreviewModal({
       // Constrain OUT marker to not go before IN point
       const minTime = inPoint !== null ? inPoint : 0;
       const newTime = Math.max(minTime, Math.min(duration, outPoint + stepAmount));
-      if (isSingleMode) {
+      if (!usesSequenceController) {
         setSingleModeOutPoint(newTime);
       } else {
         setSequenceRange(inPoint ?? null, newTime);
         seekSequenceAbsolute(newTime);
       }
       // Also move playback position
-      if (isSingleMode && videoRef.current) {
+      if (!usesSequenceController && videoRef.current) {
         videoRef.current.currentTime = newTime;
         setSingleModeCurrentTime(newTime);
       }
     }
-  }, [focusedMarker, inPoint, outPoint, isSingleMode, singleModeDuration, items, FRAME_DURATION, setSequenceRange, seekSequenceAbsolute]);
+  }, [
+    focusedMarker,
+    inPoint,
+    outPoint,
+    usesSequenceController,
+    sequenceState.totalDuration,
+    singleModeDuration,
+    FRAME_DURATION,
+    setSequenceRange,
+    seekSequenceAbsolute,
+  ]);
 
   // Handle marker focus
   const handleMarkerFocus = useCallback((marker: FocusedMarker) => {
@@ -337,7 +359,9 @@ export default function PreviewModal({
 
   // Handle marker drag (both modes)
   const handleMarkerDrag = useCallback((marker: 'in' | 'out', newTime: number) => {
-    const duration = isSingleMode ? singleModeDuration : items.reduce((acc, item) => acc + item.cut.displayTime, 0);
+    const duration = usesSequenceController
+      ? sequenceState.totalDuration
+      : singleModeDuration;
     let clampedTime = Math.max(0, Math.min(duration, newTime));
 
     // Constrain IN marker to not go past OUT point
@@ -350,13 +374,13 @@ export default function PreviewModal({
     }
 
     if (marker === 'in') {
-      if (isSingleMode) {
+      if (!usesSequenceController) {
         setSingleModeInPoint(clampedTime);
       } else {
         setSequenceRange(clampedTime, outPoint ?? null);
       }
     } else {
-      if (isSingleMode) {
+      if (!usesSequenceController) {
         setSingleModeOutPoint(clampedTime);
       } else {
         setSequenceRange(inPoint ?? null, clampedTime);
@@ -364,13 +388,22 @@ export default function PreviewModal({
     }
 
     // Also update playback position
-    if (isSingleMode && videoRef.current) {
+    if (!usesSequenceController && videoRef.current) {
       videoRef.current.currentTime = clampedTime;
       setSingleModeCurrentTime(clampedTime);
-    } else if (!isSingleMode && items.length > 0) {
+    } else if (usesSequenceController && items.length > 0) {
       seekSequenceAbsolute(clampedTime);
     }
-  }, [isSingleMode, singleModeDuration, items, inPoint, outPoint, setSequenceRange, seekSequenceAbsolute]);
+  }, [
+    usesSequenceController,
+    sequenceState.totalDuration,
+    singleModeDuration,
+    items.length,
+    inPoint,
+    outPoint,
+    setSequenceRange,
+    seekSequenceAbsolute,
+  ]);
 
   // Handle marker drag end
   const handleMarkerDragEnd = useCallback(() => {
@@ -393,7 +426,7 @@ export default function PreviewModal({
 
   // Skip seconds (Both modes)
   const skip = useCallback((seconds: number) => {
-    if (isSingleMode) {
+    if (!usesSequenceController) {
       // Single Mode: direct video seeking
       if (!videoRef.current) return;
       const newTime = Math.max(0, Math.min(singleModeDuration, videoRef.current.currentTime + seconds));
@@ -402,11 +435,11 @@ export default function PreviewModal({
     } else {
       skipSequence(seconds);
     }
-  }, [isSingleMode, singleModeDuration, skipSequence]);
+  }, [usesSequenceController, singleModeDuration, skipSequence]);
 
   // Single Mode video event handlers
   const handleSingleModeTimeUpdate = useCallback(() => {
-    if (!videoRef.current || !isSingleMode) return;
+    if (!videoRef.current || !isSingleModeVideo) return;
 
     setSingleModeCurrentTime(videoRef.current.currentTime);
 
@@ -424,10 +457,10 @@ export default function PreviewModal({
         }
       }
     }
-  }, [isSingleMode, inPoint, outPoint, isLooping]);
+  }, [isSingleModeVideo, inPoint, outPoint, isLooping]);
 
   const handleSingleModeLoadedMetadata = useCallback(() => {
-    if (!videoRef.current || !isSingleMode) return;
+    if (!videoRef.current || !isSingleModeVideo) return;
 
     setSingleModeDuration(videoRef.current.duration);
 
@@ -435,10 +468,10 @@ export default function PreviewModal({
       videoRef.current.currentTime = initialInPoint;
       setSingleModeCurrentTime(initialInPoint);
     }
-  }, [isSingleMode, initialInPoint]);
+  }, [isSingleModeVideo, initialInPoint]);
 
   const handleSingleModeVideoEnded = useCallback(() => {
-    if (!isSingleMode) return;
+    if (!isSingleModeVideo) return;
 
     if (isLooping && videoRef.current) {
       // If IN/OUT are set, loop from IN point
@@ -448,52 +481,85 @@ export default function PreviewModal({
     } else {
       setSingleModeIsPlaying(false);
     }
-  }, [isSingleMode, isLooping, inPoint, outPoint]);
+  }, [isSingleModeVideo, isLooping, inPoint, outPoint]);
 
   // Single Mode progress bar click
   const handleSingleModeProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!progressBarRef.current || !videoRef.current || !isSingleMode) return;
+    if (!progressBarRef.current || !isSingleMode) return;
 
     const rect = progressBarRef.current.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
-    let newTime = Math.max(0, Math.min(singleModeDuration, percent * singleModeDuration));
 
-    // If a marker is focused, move that marker with constraints
+    if (!usesSequenceController) {
+      if (!videoRef.current) return;
+      let newTime = Math.max(0, Math.min(singleModeDuration, percent * singleModeDuration));
+
+      // If a marker is focused, move that marker with constraints
+      if (focusedMarker === 'in') {
+        // Constrain IN marker to not go past OUT point
+        if (outPoint !== null) {
+          newTime = Math.min(newTime, outPoint);
+        }
+        setSingleModeInPoint(newTime);
+      } else if (focusedMarker === 'out') {
+        // Constrain OUT marker to not go before IN point
+        if (inPoint !== null) {
+          newTime = Math.max(newTime, inPoint);
+        }
+        setSingleModeOutPoint(newTime);
+      }
+
+      // Always update playback position
+      videoRef.current.currentTime = newTime;
+      setSingleModeCurrentTime(newTime);
+      return;
+    }
+
+    const duration = sequenceState.totalDuration;
+    if (duration <= 0) return;
+    let newTime = Math.max(0, Math.min(duration, percent * duration));
+
     if (focusedMarker === 'in') {
-      // Constrain IN marker to not go past OUT point
       if (outPoint !== null) {
         newTime = Math.min(newTime, outPoint);
       }
-      setSingleModeInPoint(newTime);
+      setSequenceRange(newTime, outPoint ?? null);
     } else if (focusedMarker === 'out') {
-      // Constrain OUT marker to not go before IN point
       if (inPoint !== null) {
         newTime = Math.max(newTime, inPoint);
       }
-      setSingleModeOutPoint(newTime);
+      setSequenceRange(inPoint ?? null, newTime);
     }
 
-    // Always update playback position
-    videoRef.current.currentTime = newTime;
-    setSingleModeCurrentTime(newTime);
-  }, [isSingleMode, singleModeDuration, focusedMarker, inPoint, outPoint]);
+    seekSequenceAbsolute(newTime);
+  }, [
+    isSingleMode,
+    usesSequenceController,
+    singleModeDuration,
+    sequenceState.totalDuration,
+    focusedMarker,
+    inPoint,
+    outPoint,
+    setSequenceRange,
+    seekSequenceAbsolute,
+  ]);
 
   // Single Mode IN/OUT handlers
   const handleSingleModeSetInPoint = useCallback(() => {
-    if (!isSingleMode) return;
+    if (!isSingleModeVideo) return;
     setSingleModeInPoint(singleModeCurrentTime);
     onInPointSet?.(singleModeCurrentTime);
-  }, [isSingleMode, singleModeCurrentTime, onInPointSet]);
+  }, [isSingleModeVideo, singleModeCurrentTime, onInPointSet]);
 
   const handleSingleModeSetOutPoint = useCallback(() => {
-    if (!isSingleMode) return;
+    if (!isSingleModeVideo) return;
     setSingleModeOutPoint(singleModeCurrentTime);
     onOutPointSet?.(singleModeCurrentTime);
-  }, [isSingleMode, singleModeCurrentTime, onOutPointSet]);
+  }, [isSingleModeVideo, singleModeCurrentTime, onOutPointSet]);
 
   // Single Mode Save handler: if both IN and OUT are set, save clip; if only IN is set, capture frame
   const handleSingleModeSave = useCallback(() => {
-    if (!isSingleMode) return;
+    if (!isSingleModeVideo) return;
 
     if (inPoint !== null && outPoint !== null) {
       // Both points set - save as clip
@@ -505,11 +571,11 @@ export default function PreviewModal({
       // Only IN point set - capture frame at IN point
       onFrameCapture?.(inPoint);
     }
-  }, [isSingleMode, inPoint, outPoint, onClipSave, onFrameCapture, onClose]);
+  }, [isSingleModeVideo, inPoint, outPoint, onClipSave, onFrameCapture, onClose]);
 
   // Single Mode play/pause
   const toggleSingleModePlay = useCallback(() => {
-    if (!videoRef.current || !isSingleMode) return;
+    if (!videoRef.current || !isSingleModeVideo) return;
 
     if (singleModeIsPlaying) {
       videoRef.current.pause();
@@ -517,22 +583,22 @@ export default function PreviewModal({
       videoRef.current.play();
     }
     setSingleModeIsPlaying(!singleModeIsPlaying);
-  }, [isSingleMode, singleModeIsPlaying]);
+  }, [isSingleModeVideo, singleModeIsPlaying]);
 
   // Apply playback speed (Single Mode)
   useEffect(() => {
-    if (isSingleMode && videoRef.current) {
+    if (isSingleModeVideo && videoRef.current) {
       videoRef.current.playbackRate = playbackSpeed;
     }
-  }, [isSingleMode, playbackSpeed]);
+  }, [isSingleModeVideo, playbackSpeed]);
 
   // Apply global volume (Single Mode)
   useEffect(() => {
-    if (isSingleMode && videoRef.current) {
+    if (isSingleModeVideo && videoRef.current) {
       videoRef.current.volume = globalVolume;
       videoRef.current.muted = globalMuted;
     }
-  }, [isSingleMode, globalVolume, globalMuted]);
+  }, [isSingleModeVideo, globalVolume, globalMuted]);
 
   // ===== SINGLE MODE ATTACHED AUDIO =====
 
@@ -541,12 +607,14 @@ export default function PreviewModal({
     if (!isSingleMode || !asset?.id) {
       singleAudioManagerRef.current.unload();
       setAudioLoaded(false);
+      singleAudioPlayingRef.current = false;
       return;
     }
 
     const attachedAudio = getAttachedAudioForAsset(asset.id);
     singleAudioManagerRef.current.unload();
     setAudioLoaded(false);
+    singleAudioPlayingRef.current = false;
 
     if (!attachedAudio?.path) return;
 
@@ -572,13 +640,35 @@ export default function PreviewModal({
     if (!isSingleMode || !audioLoaded) return;
     const manager = singleAudioManagerRef.current;
 
-    if (singleModeIsPlaying) {
-      const currentTime = videoRef.current?.currentTime ?? 0;
-      manager.play(currentTime);
-    } else {
-      manager.pause();
+    if (isSingleModeVideo) {
+      if (singleModeIsPlaying) {
+        const currentTime = videoRef.current?.currentTime ?? 0;
+        manager.play(currentTime);
+      } else {
+        manager.pause();
+      }
+      singleAudioPlayingRef.current = singleModeIsPlaying;
+      return;
     }
-  }, [isSingleMode, singleModeIsPlaying, audioLoaded]);
+
+    if (sequenceState.isPlaying && !sequenceState.isBuffering) {
+      if (!singleAudioPlayingRef.current) {
+        manager.play(Math.max(0, sequenceSelectors.getAbsoluteTime()));
+        singleAudioPlayingRef.current = true;
+      }
+    } else if (singleAudioPlayingRef.current) {
+      manager.pause();
+      singleAudioPlayingRef.current = false;
+    }
+  }, [
+    isSingleMode,
+    isSingleModeVideo,
+    singleModeIsPlaying,
+    audioLoaded,
+    sequenceState.isPlaying,
+    sequenceState.isBuffering,
+    sequenceSelectors,
+  ]);
 
   // Apply volume to attached audio
   useEffect(() => {
@@ -697,8 +787,35 @@ export default function PreviewModal({
     }
   }, [items, getVideoAssetId]);
 
-  // Build preview items (Sequence Mode only)
+  // Build preview items
   useEffect(() => {
+    if (isSingleModeVideo) {
+      setItems([]);
+      return;
+    }
+
+    if (isSingleModeImage && asset) {
+      const displayTime = getDisplayTimeForAsset(asset.id) ?? 1.0;
+      const resolvedDisplayTime = Math.max(0.1, displayTime);
+      const thumbnail = singleModeImageData ?? asset.thumbnail ?? null;
+      const singleCut: Cut = {
+        id: `single-${asset.id}`,
+        assetId: asset.id,
+        asset,
+        displayTime: resolvedDisplayTime,
+        order: 0,
+      };
+
+      setItems([{
+        cut: singleCut,
+        sceneName: asset.name ?? 'Single',
+        sceneIndex: 0,
+        cutIndex: 0,
+        thumbnail,
+      }]);
+      return;
+    }
+
     if (isSingleMode) return;
 
     const buildItems = async () => {
@@ -742,7 +859,35 @@ export default function PreviewModal({
     };
 
     buildItems();
-  }, [isSingleMode, scenes, previewMode, selectedSceneId, getAsset]);
+  }, [
+    isSingleMode,
+    isSingleModeVideo,
+    isSingleModeImage,
+    asset,
+    singleModeImageData,
+    scenes,
+    previewMode,
+    selectedSceneId,
+    getAsset,
+    getDisplayTimeForAsset,
+  ]);
+
+  useEffect(() => {
+    if (!isSingleModeImage || items.length === 0) return;
+    if (initialInPoint === undefined && initialOutPoint === undefined) return;
+
+    setSequenceRange(initialInPoint ?? null, initialOutPoint ?? null);
+    if (typeof initialInPoint === 'number') {
+      seekSequenceAbsolute(initialInPoint);
+    }
+  }, [
+    isSingleModeImage,
+    items.length,
+    initialInPoint,
+    initialOutPoint,
+    setSequenceRange,
+    seekSequenceAbsolute,
+  ]);
 
   // Cleanup cache entries that are no longer present (Sequence Mode only)
   useEffect(() => {
@@ -967,7 +1112,7 @@ export default function PreviewModal({
   }, [isSingleMode, sequenceGoToPrev]);
 
   const handlePlayPause = useCallback(() => {
-    if (isSingleMode) return;
+    if (!usesSequenceController || items.length === 0) return;
 
     if (!sequenceState.isPlaying) {
       const currentAbsTime = sequenceSelectors.getAbsoluteTime();
@@ -983,10 +1128,10 @@ export default function PreviewModal({
     }
 
     sequenceToggle();
-  }, [isSingleMode, sequenceState, sequenceSelectors, sequenceToggle, seekSequenceAbsolute, items.length]);
+  }, [usesSequenceController, items.length, sequenceState, sequenceSelectors, sequenceToggle, seekSequenceAbsolute]);
 
   useEffect(() => {
-    if (isSingleMode) {
+    if (!usesSequenceController) {
       setSequenceSource(null);
       setSequenceMediaElement(null);
       return;
@@ -1043,7 +1188,7 @@ export default function PreviewModal({
       setSequenceRate(playbackSpeed);
     }
   }, [
-    isSingleMode,
+    usesSequenceController,
     items,
     sequenceState.currentIndex,
     videoObjectUrl,
@@ -1056,9 +1201,9 @@ export default function PreviewModal({
   ]);
 
   useEffect(() => {
-    if (isSingleMode) return;
+    if (!usesSequenceController) return;
     setSequenceRate(playbackSpeed);
-  }, [isSingleMode, playbackSpeed, setSequenceRate]);
+  }, [usesSequenceController, playbackSpeed, setSequenceRate]);
 
   // Auto pause/resume based on buffer status (Sequence Mode)
   useEffect(() => {
@@ -1079,42 +1224,42 @@ export default function PreviewModal({
   }, []);
 
   const toggleLooping = useCallback(() => {
-    if (isSingleMode) {
+    if (!usesSequenceController) {
       setSingleModeIsLooping(prev => !prev);
     } else {
       setSequenceLooping(!sequenceState.isLooping);
     }
-  }, [isSingleMode, sequenceState.isLooping, setSequenceLooping]);
+  }, [usesSequenceController, sequenceState.isLooping, setSequenceLooping]);
 
   // IN/OUT point handlers
   const handleSetInPoint = useCallback(() => {
     if (items.length === 0) return;
-    if (isSingleMode) {
+    if (isSingleModeVideo) {
       setSingleModeInPoint(singleModeCurrentTime);
       return;
     }
     const elapsedDuration = sequenceSelectors.getAbsoluteTime();
     setSequenceRange(elapsedDuration, outPoint ?? null);
-  }, [items, isSingleMode, singleModeCurrentTime, outPoint, sequenceSelectors, setSequenceRange]);
+  }, [items.length, isSingleModeVideo, singleModeCurrentTime, outPoint, sequenceSelectors, setSequenceRange]);
 
   const handleSetOutPoint = useCallback(() => {
     if (items.length === 0) return;
-    if (isSingleMode) {
+    if (isSingleModeVideo) {
       setSingleModeOutPoint(singleModeCurrentTime);
       return;
     }
     const elapsedDuration = sequenceSelectors.getAbsoluteTime();
     setSequenceRange(inPoint ?? null, elapsedDuration);
-  }, [items, isSingleMode, singleModeCurrentTime, inPoint, sequenceSelectors, setSequenceRange]);
+  }, [items.length, isSingleModeVideo, singleModeCurrentTime, inPoint, sequenceSelectors, setSequenceRange]);
 
   const handleClearPoints = useCallback(() => {
-    if (isSingleMode) {
+    if (isSingleModeVideo) {
       setSingleModeInPoint(null);
       setSingleModeOutPoint(null);
       return;
     }
     setSequenceRange(null, null);
-  }, [isSingleMode, setSequenceRange]);
+  }, [isSingleModeVideo, setSequenceRange]);
 
   // Keyboard controls - unified for both modes
   useEffect(() => {
@@ -1127,7 +1272,7 @@ export default function PreviewModal({
           break;
         case ' ':
           e.preventDefault();
-          if (isSingleMode) {
+          if (isSingleModeVideo) {
             toggleSingleModePlay();
           } else {
             handlePlayPause();
@@ -1135,26 +1280,18 @@ export default function PreviewModal({
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          if (isSingleMode) {
-            skip(-5);
-          } else {
-            skip(-5);
-          }
+          skip(-5);
           break;
         case 'ArrowRight':
           e.preventDefault();
-          if (isSingleMode) {
-            skip(5);
-          } else {
-            skip(5);
-          }
+          skip(5);
           break;
         case ',':
           e.preventDefault();
           // If marker is focused, step the marker; otherwise step the frame
           if (focusedMarker) {
             stepFocusedMarker(-1);
-          } else if (isSingleMode) {
+          } else if (isSingleModeVideo) {
             stepFrame(-1);
           } else {
             // In Sequence Mode, frame step only works during video clip playback
@@ -1169,7 +1306,7 @@ export default function PreviewModal({
           // If marker is focused, step the marker; otherwise step the frame
           if (focusedMarker) {
             stepFocusedMarker(1);
-          } else if (isSingleMode) {
+          } else if (isSingleModeVideo) {
             stepFrame(1);
           } else {
             // In Sequence Mode, frame step only works during video clip playback
@@ -1194,14 +1331,14 @@ export default function PreviewModal({
           toggleLooping();
           break;
         case 'i':
-          if (isSingleMode) {
+          if (isSingleModeVideo) {
             handleSingleModeSetInPoint();
           } else {
             handleSetInPoint();
           }
           break;
         case 'o':
-          if (isSingleMode) {
+          if (isSingleModeVideo) {
             handleSingleModeSetOutPoint();
           } else {
             handleSetOutPoint();
@@ -1217,7 +1354,7 @@ export default function PreviewModal({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     onClose,
-    isSingleMode,
+    isSingleModeVideo,
     toggleSingleModePlay,
     handlePlayPause,
     skip,
@@ -1249,7 +1386,7 @@ export default function PreviewModal({
     if (!window.electronAPI || items.length === 0) return;
 
     setIsExporting(true);
-    if (isSingleMode) {
+    if (!usesSequenceController) {
       setSingleModeIsPlaying(false);
     } else {
       sequencePause();
@@ -1294,7 +1431,7 @@ export default function PreviewModal({
     } finally {
       setIsExporting(false);
     }
-  }, [items, selectedResolution, isSingleMode, sequencePause]);
+  }, [items, selectedResolution, usesSequenceController, sequencePause]);
 
   // Export with IN/OUT range (Save button) - kept for future UI implementation
   const _handleExportRange = useCallback(async () => {
@@ -1302,7 +1439,7 @@ export default function PreviewModal({
     if (inPoint === null || outPoint === null) return;
 
     setIsExporting(true);
-    if (isSingleMode) {
+    if (!usesSequenceController) {
       setSingleModeIsPlaying(false);
     } else {
       sequencePause();
@@ -1388,7 +1525,7 @@ export default function PreviewModal({
     } finally {
       setIsExporting(false);
     }
-  }, [items, selectedResolution, inPoint, outPoint, isSingleMode, sequencePause]);
+  }, [items, selectedResolution, inPoint, outPoint, usesSequenceController, sequencePause]);
   // Suppress unused variable warning - code kept for future use
   void _handleExportRange;
 
@@ -1490,6 +1627,8 @@ export default function PreviewModal({
   const globalProgress = isSingleMode ? 0 : sequenceSelectors.getGlobalProgress();
   const sequenceTotalDuration = isSingleMode ? 0 : sequenceState.totalDuration;
   const sequenceCurrentTime = isSingleMode ? 0 : sequenceSelectors.getAbsoluteTime();
+  const singleModePlaybackDuration = isSingleModeVideo ? singleModeDuration : sequenceState.totalDuration;
+  const singleModePlaybackTime = isSingleModeVideo ? singleModeCurrentTime : sequenceSelectors.getAbsoluteTime();
 
   // Check if range/IN-point is set for Save button
   const hasInPoint = inPoint !== null;
@@ -1499,10 +1638,12 @@ export default function PreviewModal({
   void _hasRange;
 
   // Single Mode: show Save button if IN point is set and callbacks are provided
-  const showSingleModeSaveButton = isSingleMode && hasInPoint && (onClipSave || onFrameCapture);
+  const showSingleModeSaveButton = isSingleModeVideo && hasInPoint && (onClipSave || onFrameCapture);
 
   // Single Mode progress
-  const singleModeProgressPercent = singleModeDuration > 0 ? (singleModeCurrentTime / singleModeDuration) * 100 : 0;
+  const singleModeProgressPercent = singleModePlaybackDuration > 0
+    ? (singleModePlaybackTime / singleModePlaybackDuration) * 100
+    : 0;
 
   // ===== SINGLE MODE RENDER =====
   if (isSingleMode) {
@@ -1604,7 +1745,7 @@ export default function PreviewModal({
             ) : isSingleModeImage && singleModeImageData ? (
               (() => {
                 const viewportStyle = getViewportStyle();
-                const imageContent = (
+                const imageContent = sequenceMediaElement ?? (
                   <img
                     src={singleModeImageData}
                     alt={asset?.name || 'Preview'}
@@ -1638,8 +1779,8 @@ export default function PreviewModal({
             )}
           </div>
 
-          {/* Progress bar with time display - only for video */}
-          {isSingleModeVideo && (
+          {/* Progress bar with time display */}
+          {(isSingleModeVideo || isSingleModeImage) && (
             <div className="preview-progress">
               <div
                 className="progress-bar scrub-enabled"
@@ -1649,8 +1790,8 @@ export default function PreviewModal({
                 <TimelineMarkers
                   inPoint={inPoint}
                   outPoint={outPoint}
-                  duration={singleModeDuration}
-                  showMilliseconds={true}
+                  duration={singleModePlaybackDuration}
+                  showMilliseconds={isSingleModeVideo}
                   focusedMarker={focusedMarker}
                   onMarkerFocus={handleMarkerFocus}
                   onMarkerDrag={handleMarkerDrag}
@@ -1661,7 +1802,11 @@ export default function PreviewModal({
                 <div className="progress-handle" style={{ left: `${singleModeProgressPercent}%` }} />
               </div>
               <div className="progress-info">
-                <TimeDisplay currentTime={singleModeCurrentTime} totalDuration={singleModeDuration} showMilliseconds={true} />
+                <TimeDisplay
+                  currentTime={singleModePlaybackTime}
+                  totalDuration={singleModePlaybackDuration}
+                  showMilliseconds={isSingleModeVideo}
+                />
               </div>
             </div>
           )}
@@ -1669,12 +1814,12 @@ export default function PreviewModal({
           {/* Controls */}
           <div className="preview-controls">
             <div className="controls-left">
-              {isSingleModeVideo && (
+              {(isSingleModeVideo || isSingleModeImage) && (
                 <>
                   {/* Play/Pause */}
                   <button
                     className="control-btn"
-                    onClick={toggleSingleModePlay}
+                    onClick={isSingleModeVideo ? toggleSingleModePlay : handlePlayPause}
                     title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
                   >
                     {isPlaying ? <Pause size={20} /> : <Play size={20} />}
@@ -1710,18 +1855,18 @@ export default function PreviewModal({
               {/* Empty for Single Mode */}
             </div>
             <div className="controls-right">
-              {/* IN/OUT controls - only for video */}
-              {isSingleModeVideo && (
+              {/* IN/OUT controls */}
+              {(isSingleModeVideo || isSingleModeImage) && (
                 <>
                   <ClipRangeControls
                     inPoint={inPoint}
                     outPoint={outPoint}
-                    onSetInPoint={handleSingleModeSetInPoint}
-                    onSetOutPoint={handleSingleModeSetOutPoint}
+                    onSetInPoint={isSingleModeVideo ? handleSingleModeSetInPoint : handleSetInPoint}
+                    onSetOutPoint={isSingleModeVideo ? handleSingleModeSetOutPoint : handleSetOutPoint}
                     onClear={handleClearPoints}
-                    onSave={showSingleModeSaveButton ? handleSingleModeSave : undefined}
-                    showSaveButton={!!showSingleModeSaveButton}
-                    showMilliseconds={true}
+                    onSave={isSingleModeVideo && showSingleModeSaveButton ? handleSingleModeSave : undefined}
+                    showSaveButton={isSingleModeVideo && !!showSingleModeSaveButton}
+                    showMilliseconds={isSingleModeVideo}
                   />
                   <LoopToggle isLooping={isLooping} onToggle={toggleLooping} />
                 </>

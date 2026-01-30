@@ -153,6 +153,7 @@ export interface AssetMetadata {
   assetId: string;              // Target asset ID
   attachedAudioId?: string;     // Attached audio Asset ID
   attachedAudioOffset?: number; // Audio offset in seconds (positive = delay, negative = earlier)
+  displayTime?: number;         // Display duration for image assets in seconds
   // Future expansion
   attachedImageIds?: string[];  // Multiple image attachments
   audioAnalysis?: AudioAnalysis; // Precomputed audio analysis data
