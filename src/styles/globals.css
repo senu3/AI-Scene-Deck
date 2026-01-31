@@ -24,6 +24,16 @@
   --accent-purple: #8b5cf6;
   --accent-pink: #ec4899;
 
+  /* Semantic color variables */
+  --accent-video: #6366f1;      /* Indigo - Video/Clip */
+  --accent-audio: #a855f7;      /* Purple - Audio/Attached Audio */
+  --accent-group: #14b8a6;      /* Teal - Group/Multi-select */
+
+  /* RGB values for transparency */
+  --accent-video-rgb: 99, 102, 241;
+  --accent-audio-rgb: 168, 85, 247;
+  --accent-group-rgb: 20, 184, 166;
+
   --border-color: #3d444d;
   --border-light: #4a5260;
 

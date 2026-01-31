@@ -702,7 +702,7 @@ export default function DetailsPanel() {
           {/* Group creation button - only when all cuts are in same scene */}
           {allSameScene && selectedCuts.length >= 2 && (
             <div className="details-actions">
-              <button className="action-btn primary" onClick={handleCreateGroup}>
+              <button className="action-btn create-group" onClick={handleCreateGroup}>
                 <Layers size={16} />
                 <span>CREATE GROUP</span>
               </button>

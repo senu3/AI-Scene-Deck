@@ -19,8 +19,8 @@
 }
 
 .cut-card.multi-selected {
-  border-color: var(--accent-success);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+  border-color: var(--accent-group);
+  box-shadow: 0 0 0 2px rgba(var(--accent-group-rgb), 0.3);
 }
 
 .cut-card.multi-selected::after {
@@ -30,7 +30,7 @@
   left: 4px;
   width: 16px;
   height: 16px;
-  background-color: var(--accent-success);
+  background-color: var(--accent-group);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -39,7 +39,7 @@
 }
 
 .cut-card.multi-selected::before {
-  box-shadow: inset 0 0 0 2px var(--accent-success);
+  box-shadow: inset 0 0 0 2px var(--accent-group);
 }
 
 .cut-card.dragging {
@@ -117,14 +117,14 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  background-color: rgba(139, 92, 246, 0.9);
+  background-color: rgba(var(--accent-video-rgb), 0.9);
   border-radius: var(--radius-sm);
   color: white;
   z-index: 5;
 }
 
 .clip-indicator:hover {
-  background-color: rgba(139, 92, 246, 1);
+  background-color: var(--accent-video);
 }
 
 /* Audio attached indicator */
@@ -137,14 +137,14 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  background-color: rgba(16, 185, 129, 0.9);
+  background-color: rgba(var(--accent-audio-rgb), 0.9);
   border-radius: var(--radius-sm);
   color: white;
   z-index: 5;
 }
 
 .audio-attached-indicator:hover {
-  background-color: rgba(16, 185, 129, 1);
+  background-color: var(--accent-audio);
 }
 
 /* Hover effects for video badge */

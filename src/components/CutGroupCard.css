@@ -14,8 +14,8 @@
 }
 
 .cut-group-card.selected {
-  border-color: var(--accent-warning);
-  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+  border-color: var(--accent-group);
+  box-shadow: 0 0 0 2px rgba(var(--accent-group-rgb), 0.3);
 }
 
 .cut-group-card.dragging {
@@ -92,7 +92,7 @@
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  background-color: rgba(245, 158, 11, 0.9);
+  background-color: rgba(var(--accent-group-rgb), 0.9);
   border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 600;
@@ -162,14 +162,14 @@
 .expanded-group-container {
   position: relative;
   padding: 8px;
-  border: 2px dashed var(--accent-warning);
+  border: 2px dashed var(--accent-group);
   border-radius: var(--radius-lg);
-  background-color: rgba(245, 158, 11, 0.05);
+  background-color: rgba(var(--accent-group-rgb), 0.05);
 }
 
 .expanded-group-container.selected {
   border-style: solid;
-  background-color: rgba(245, 158, 11, 0.1);
+  background-color: rgba(var(--accent-group-rgb), 0.1);
 }
 
 /* Group header in expanded mode */
@@ -179,7 +179,7 @@
   justify-content: space-between;
   padding: 6px 8px;
   margin-bottom: 8px;
-  background-color: rgba(245, 158, 11, 0.15);
+  background-color: rgba(var(--accent-group-rgb), 0.15);
   border-radius: var(--radius-sm);
 }
 
@@ -189,7 +189,7 @@
   gap: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent-warning);
+  color: var(--accent-group);
 }
 
 .expanded-group-title svg {

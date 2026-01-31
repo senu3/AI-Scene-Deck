@@ -1,0 +1,137 @@
+# Color System
+
+AI-Scene-Deck uses a cool-toned color scheme centered around the primary cyan color (#00b4d8).
+
+## Color Variables
+
+### Base Colors (globals.css)
+
+| Variable | HEX | Usage |
+|----------|-----|-------|
+| `--accent-primary` | #00b4d8 | Primary accent, single selection, notes |
+| `--accent-secondary` | #0096c7 | Secondary accent (darker cyan) |
+| `--accent-success` | #10b981 | Success states, apply actions |
+| `--accent-warning` | #f59e0b | Warnings only |
+| `--accent-danger` | #ef4444 | Danger, delete actions |
+| `--accent-purple` | #8b5cf6 | Lip Sync gradient end |
+| `--accent-pink` | #ec4899 | Lip Sync gradient start |
+
+### Semantic Colors
+
+| Variable | HEX | RGB Variable | Usage |
+|----------|-----|--------------|-------|
+| `--accent-video` | #6366f1 | `--accent-video-rgb` | Video files, clip trimming |
+| `--accent-audio` | #a855f7 | `--accent-audio-rgb` | Audio files, attached audio |
+| `--accent-group` | #14b8a6 | `--accent-group-rgb` | Groups, multi-selection |
+
+## Color Spectrum
+
+```
+Cool Color Gradient:
+
+#00b4d8    #14b8a6    #10b981    #6366f1    #a855f7
+  ●          ●          ●          ●          ●
+Primary   Group      Success    Video      Audio
+Selection Multi-sel  Apply      Clip       Attached
+Notes
+```
+
+## Usage Rules
+
+### Selection States
+
+| State | Color | Variable |
+|-------|-------|----------|
+| Single selection | Cyan | `--accent-primary` |
+| Multi-selection | Teal | `--accent-group` |
+| Group selection | Teal | `--accent-group` |
+
+### Asset Types
+
+| Type | Color | Variable |
+|------|-------|----------|
+| Video (S:VID) | Indigo | `--accent-video` |
+| Image (S:IMG) | Cyan | `--accent-primary` |
+| Audio | Purple | `--accent-audio` |
+
+### Cut Card Indicators
+
+| Indicator | Color | Variable |
+|-----------|-------|----------|
+| Clip (trimmed video) | Indigo | `--accent-video` |
+| Attached audio | Purple | `--accent-audio` |
+| Lip Sync | Pink→Purple gradient | `--accent-pink` → `--accent-purple` |
+
+### Action States
+
+| Action | Color | Variable |
+|--------|-------|----------|
+| Success/Apply | Green | `--accent-success` |
+| Warning | Orange | `--accent-warning` |
+| Danger/Delete | Red | `--accent-danger` |
+
+### Buttons
+
+| Button | Color | Class |
+|--------|-------|-------|
+| CREATE GROUP | Teal | `.action-btn.create-group` |
+| ATTACH AUDIO | Green gradient | `.action-btn.attach-audio` |
+| Lip Sync actions | Pink→Purple | `.action-btn.primary` |
+
+## Transparency Guidelines
+
+When using colors with transparency, use the RGB variables:
+
+```css
+/* Background with 10% opacity */
+background-color: rgba(var(--accent-group-rgb), 0.1);
+
+/* Border with 20% opacity */
+border: 1px solid rgba(var(--accent-video-rgb), 0.2);
+
+/* Box shadow with 30% opacity */
+box-shadow: 0 0 0 2px rgba(var(--accent-audio-rgb), 0.3);
+```
+
+### Common Opacity Values
+
+| Usage | Opacity |
+|-------|---------|
+| Background tint | 0.05 - 0.1 |
+| Border | 0.2 - 0.3 |
+| Box shadow | 0.3 |
+| Badge background | 0.9 |
+| Hover state | 1.0 |
+
+## Component Color Mapping
+
+### CutGroupCard
+
+- Selected border: `--accent-group`
+- Group badge: `rgba(var(--accent-group-rgb), 0.9)`
+- Expanded container border: `--accent-group`
+- Expanded header background: `rgba(var(--accent-group-rgb), 0.15)`
+
+### CutCard
+
+- Selected border: `--accent-primary`
+- Multi-selected border: `--accent-group`
+- Video badge (S:VID): `--accent-video`
+- Image badge (S:IMG): `--accent-primary`
+- Clip indicator: `--accent-video`
+- Audio indicator: `--accent-audio`
+
+### AssetDrawer
+
+- Video type badge: `--accent-video`
+- Audio type badge: `--accent-audio`
+- Cut usage badge: `--accent-video`
+- Audio usage badge: `--accent-audio`
+
+### DetailsPanel
+
+- Notes icon: `--accent-primary`
+- Group info: `--accent-group`
+- Multi-select stats: `--accent-group`
+- Clip info section: `--accent-video`
+- Attached audio section: `--accent-audio`

@@ -317,11 +317,11 @@
 }
 
 .asset-type-badge.video {
-  background-color: rgba(99, 102, 241, 0.9);
+  background-color: rgba(var(--accent-video-rgb), 0.9);
 }
 
 .asset-type-badge.audio {
-  background-color: rgba(168, 85, 247, 0.9);
+  background-color: rgba(var(--accent-audio-rgb), 0.9);
 }
 
 /* Usage badge - more prominent */
@@ -347,19 +347,19 @@
   margin-left: 2px;
 }
 
-/* Cut usage - blue */
+/* Cut usage - indigo (video color) */
 .asset-usage-badge.usage-cut {
-  background-color: rgba(59, 130, 246, 0.9);
+  background-color: rgba(var(--accent-video-rgb), 0.9);
 }
 
 /* Audio attachment - purple */
 .asset-usage-badge.usage-audio {
-  background-color: rgba(168, 85, 247, 0.9);
+  background-color: rgba(var(--accent-audio-rgb), 0.9);
 }
 
 /* Both cut and audio - gradient */
 .asset-usage-badge.usage-both {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.9), rgba(168, 85, 247, 0.9));
+  background: linear-gradient(135deg, rgba(var(--accent-video-rgb), 0.9), rgba(var(--accent-audio-rgb), 0.9));
 }
 
 /* Card styling when used */
@@ -368,15 +368,15 @@
 }
 
 .asset-card.usage-cut .asset-card-thumbnail {
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 2px rgba(var(--accent-video-rgb), 0.5);
 }
 
 .asset-card.usage-audio .asset-card-thumbnail {
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 0 2px rgba(var(--accent-audio-rgb), 0.5);
 }
 
 .asset-card.usage-both .asset-card-thumbnail {
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.6);
+  box-shadow: 0 0 0 2px rgba(var(--accent-video-rgb), 0.6);
 }
 
 /* Asset name */

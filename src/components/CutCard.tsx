@@ -307,7 +307,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
 
   const getBadgeColor = () => {
     // Generate a consistent color based on asset type
-    if (isVideo) return 'var(--accent-purple)';
+    if (isVideo) return 'var(--accent-video)';
     return 'var(--accent-primary)';
   };
 
