@@ -715,6 +715,7 @@ export default function AssetDrawer() {
           currentSceneId={cutContextMenu.sceneId}
           canPaste={canPaste()}
           isClip={cutContextMenu.isClip}
+          isInGroup={false}
           onClose={() => setCutContextMenu(null)}
           onCopy={handleCutMenuCopy}
           onPaste={handleCutMenuPaste}

@@ -15,6 +15,10 @@ import {
   Layers,
   Play,
   Scissors,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+  Edit2,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import { useHistoryStore } from "../store/historyStore";
@@ -25,6 +29,9 @@ import {
   UpdateClipPointsCommand,
   ClearClipPointsCommand,
   AddCutCommand,
+  CreateGroupCommand,
+  DeleteGroupCommand,
+  RenameGroupCommand,
 } from "../store/commands";
 import { generateVideoThumbnail } from "../utils/videoUtils";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
@@ -41,10 +48,13 @@ export default function DetailsPanel() {
     selectedCutId,
     selectedCutIds,
     selectionType,
+    selectedGroupId,
     getAsset,
     addSceneNote,
     removeSceneNote,
     getSelectedCuts,
+    getSelectedGroup,
+    toggleGroupCollapsed,
     cacheAsset,
     updateCutAsset,
     vaultPath,
@@ -97,6 +107,13 @@ export default function DetailsPanel() {
   // Check for multi-selection
   const isMultiSelection = selectedCutIds.size > 1;
   const selectedCuts = isMultiSelection ? getSelectedCuts() : [];
+
+  // Check if a group is selected
+  const selectedGroupData = getSelectedGroup();
+
+  // State for group name editing
+  const [editingGroupName, setEditingGroupName] = useState(false);
+  const [groupNameInput, setGroupNameInput] = useState("");
 
   // Load cut display time
   useEffect(() => {
@@ -505,6 +522,132 @@ export default function DetailsPanel() {
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Check if all selected cuts are in the same scene (for grouping)
+  const allSameScene = selectedCuts.length > 0 &&
+    selectedCuts.every(({ scene }) => scene.id === selectedCuts[0].scene.id);
+
+  // Handler to create a group from selected cuts
+  const handleCreateGroup = async () => {
+    if (!allSameScene || selectedCuts.length < 2) return;
+
+    const sceneId = selectedCuts[0].scene.id;
+    const cutIds = selectedCuts.map(({ cut: c }) => c.id);
+
+    try {
+      await executeCommand(new CreateGroupCommand(sceneId, cutIds, `Group ${Date.now()}`));
+    } catch (error) {
+      console.error("Failed to create group:", error);
+    }
+  };
+
+  // Show group details if a group is selected
+  if (selectedGroupId && selectedGroupData) {
+    const { scene, group } = selectedGroupData;
+    const groupCuts = group.cutIds
+      .map(id => scene.cuts.find(c => c.id === id))
+      .filter((c): c is typeof scene.cuts[0] => c !== undefined);
+
+    const totalDuration = groupCuts.reduce((acc, c) => acc + c.displayTime, 0);
+
+    const handleRenameGroup = async () => {
+      if (!groupNameInput.trim()) return;
+      try {
+        await executeCommand(new RenameGroupCommand(scene.id, group.id, groupNameInput.trim()));
+        setEditingGroupName(false);
+      } catch (error) {
+        console.error("Failed to rename group:", error);
+      }
+    };
+
+    const handleDissolveGroup = async () => {
+      try {
+        await executeCommand(new DeleteGroupCommand(scene.id, group.id));
+      } catch (error) {
+        console.error("Failed to dissolve group:", error);
+      }
+    };
+
+    return (
+      <aside className="details-panel">
+        <div className="details-header">
+          <Settings size={18} />
+          <span>DETAILS</span>
+        </div>
+
+        <div className="details-content">
+          <div className="selected-info group-info">
+            <span className="selected-label">GROUP</span>
+            {editingGroupName ? (
+              <div className="group-name-edit">
+                <input
+                  type="text"
+                  value={groupNameInput}
+                  onChange={(e) => setGroupNameInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRenameGroup();
+                    if (e.key === "Escape") setEditingGroupName(false);
+                  }}
+                  onBlur={() => setEditingGroupName(false)}
+                  autoFocus
+                />
+              </div>
+            ) : (
+              <span
+                className="selected-value editable"
+                onClick={() => {
+                  setGroupNameInput(group.name);
+                  setEditingGroupName(true);
+                }}
+              >
+                {group.name}
+                <Edit2 size={12} />
+              </span>
+            )}
+          </div>
+
+          <div className="multi-select-stats">
+            <div className="stat-item">
+              <Layers size={16} />
+              <span>{groupCuts.length} cuts</span>
+            </div>
+            <div className="stat-item">
+              <Clock size={16} />
+              <span>{totalDuration.toFixed(1)}s total</span>
+            </div>
+          </div>
+
+          {/* Group cuts preview list */}
+          <div className="group-cuts-list">
+            <span className="breakdown-label">Cuts in Group:</span>
+            {groupCuts.map((groupCut, idx) => (
+              <div key={groupCut.id} className="breakdown-item">
+                <span>Cut {idx + 1}</span>
+                <span className="count">{groupCut.displayTime.toFixed(1)}s</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="details-actions">
+            <button
+              className="action-btn secondary"
+              onClick={() => toggleGroupCollapsed(scene.id, group.id)}
+            >
+              {group.isCollapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+              <span>{group.isCollapsed ? "EXPAND" : "COLLAPSE"}</span>
+            </button>
+          </div>
+
+          <div className="details-footer">
+            <button className="delete-btn" onClick={handleDissolveGroup}>
+              <FolderOpen size={14} />
+              <span>Dissolve Group</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
   // Show multi-selection details
   if (isMultiSelection && selectionType === "cut") {
     const totalDuration = selectedCuts.reduce(
@@ -555,6 +698,16 @@ export default function DetailsPanel() {
               </div>
             ))}
           </div>
+
+          {/* Group creation button - only when all cuts are in same scene */}
+          {allSameScene && selectedCuts.length >= 2 && (
+            <div className="details-actions">
+              <button className="action-btn primary" onClick={handleCreateGroup}>
+                <Layers size={16} />
+                <span>CREATE GROUP</span>
+              </button>
+            </div>
+          )}
 
           <div className="multi-select-batch-actions">
             <div className="batch-action-section">

@@ -6,7 +6,8 @@ import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import { AddCutCommand, AddSceneCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
 import CutCard from './CutCard';
-import type { Asset } from '../types';
+import CutGroupCard, { ExpandedGroupContainer } from './CutGroupCard';
+import type { Asset, CutGroup, Cut } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import './Storyline.css';
 
@@ -222,6 +223,7 @@ export default function Storyline({ activeId }: StorylineProps) {
             sceneId={scene.id}
             sceneName={scene.name}
             cuts={scene.cuts}
+            groups={scene.groups || []}
             isSelected={selectedSceneId === scene.id}
             onSelect={() => selectScene(scene.id)}
             onDrop={(e, insertIndex) => handleDrop(scene.id, e, insertIndex)}
@@ -261,6 +263,7 @@ interface SceneColumnProps {
     isLipSync?: boolean;
     lipSyncFrameCount?: number;
   }>;
+  groups: CutGroup[];
   isSelected: boolean;
   onSelect: () => void;
   onDrop: (e: React.DragEvent, insertIndex?: number) => void;
@@ -277,6 +280,7 @@ function SceneColumn({
   sceneId,
   sceneName,
   cuts,
+  groups,
   isSelected,
   onSelect,
   onDrop,
@@ -288,7 +292,7 @@ function SceneColumn({
   sourceSceneId,
   isOverDifferentScene,
 }: SceneColumnProps) {
-  const { scenes } = useStore();
+  const { scenes, selectedGroupId, selectGroup, toggleGroupCollapsed } = useStore();
   const { executeCommand } = useHistoryStore();
   const [showMenu, setShowMenu] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -380,9 +384,16 @@ function SceneColumn({
   };
 
 
-  // Build the list of items including placeholder
+  // Helper to find which group a cut belongs to
+  const findGroupForCut = (cutId: string): CutGroup | undefined => {
+    return groups.find(g => g.cutIds.includes(cutId));
+  };
+
+  // Build the list of items including placeholder and groups
   const renderItems = () => {
     const items: React.ReactNode[] = [];
+    const renderedGroups = new Set<string>();
+
     const placeholderElement = placeholder ? (
       <div key="placeholder" className="cut-card placeholder-card">
         <div className="placeholder-content">
@@ -398,19 +409,72 @@ function SceneColumn({
         items.push(placeholderElement);
       }
 
-      // Hide the card if it's being dragged to another scene
-      const isHidden = shouldHideDraggedCard && activeId === cut.id;
+      // Check if this cut belongs to a group
+      const group = findGroupForCut(cut.id);
 
-      items.push(
-        <CutCard
-          key={cut.id}
-          cut={cut}
-          sceneId={sceneId}
-          index={i}
-          isDragging={activeId === cut.id}
-          isHidden={isHidden}
-        />
-      );
+      if (group && !renderedGroups.has(group.id)) {
+        // This is the first cut of a group we haven't rendered yet
+        renderedGroups.add(group.id);
+
+        // Get all cuts in this group (in group order)
+        const groupCuts = group.cutIds
+          .map(id => cuts.find(c => c.id === id))
+          .filter((c): c is Cut => c !== undefined);
+
+        if (group.isCollapsed) {
+          // Render collapsed group card
+          items.push(
+            <CutGroupCard
+              key={`group-${group.id}`}
+              group={group}
+              cuts={groupCuts}
+              sceneId={sceneId}
+              isDragging={activeId === `group-${group.id}`}
+            />
+          );
+        } else {
+          // Render expanded group container
+          items.push(
+            <ExpandedGroupContainer
+              key={`group-${group.id}`}
+              group={group}
+              sceneId={sceneId}
+              isSelected={selectedGroupId === group.id}
+              onSelect={() => selectGroup(group.id)}
+              onToggleCollapse={() => toggleGroupCollapsed(sceneId, group.id)}
+            >
+              {groupCuts.map((groupCut) => {
+                const isHidden = shouldHideDraggedCard && activeId === groupCut.id;
+                return (
+                  <CutCard
+                    key={groupCut.id}
+                    cut={groupCut}
+                    sceneId={sceneId}
+                    index={cuts.findIndex(c => c.id === groupCut.id)}
+                    isDragging={activeId === groupCut.id}
+                    isHidden={isHidden}
+                  />
+                );
+              })}
+            </ExpandedGroupContainer>
+          );
+        }
+      } else if (!group) {
+        // Regular cut not in any group
+        const isHidden = shouldHideDraggedCard && activeId === cut.id;
+
+        items.push(
+          <CutCard
+            key={cut.id}
+            cut={cut}
+            sceneId={sceneId}
+            index={i}
+            isDragging={activeId === cut.id}
+            isHidden={isHidden}
+          />
+        );
+      }
+      // If cut is in a group that was already rendered, skip it
     }
 
     // Add placeholder at the end if needed

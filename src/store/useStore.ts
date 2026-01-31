@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore } from '../types';
+import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore, CutGroup } from '../types';
 import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis } from '../utils/metadataStore';
 import { analyzeAudioRms } from '../utils/audioUtils';
 import type { CutImportSource } from '../utils/cutImport';
@@ -51,6 +51,7 @@ interface AppState {
   selectedCutIds: Set<string>;  // Multi-select support
   lastSelectedCutId: string | null;  // For Shift+click range selection
   selectionType: SelectionType;
+  selectedGroupId: string | null;  // Currently selected group
 
   // Asset cache
   assetCache: Map<string, Asset>;
@@ -188,6 +189,18 @@ interface AppState {
   updateAudioOffset: (assetId: string, offset: number) => void;
   relinkCutAsset: (sceneId: string, cutId: string, newAsset: Asset) => void;
 
+  // Group actions
+  createGroup: (sceneId: string, cutIds: string[], name?: string) => string;
+  deleteGroup: (sceneId: string, groupId: string) => CutGroup | null;
+  toggleGroupCollapsed: (sceneId: string, groupId: string) => void;
+  getCutGroup: (sceneId: string, cutId: string) => CutGroup | undefined;
+  selectGroup: (groupId: string | null) => void;
+  renameGroup: (sceneId: string, groupId: string, name: string) => void;
+  addCutsToGroup: (sceneId: string, groupId: string, cutIds: string[]) => void;
+  removeCutFromGroup: (sceneId: string, groupId: string, cutId: string) => void;
+  updateGroupCutOrder: (sceneId: string, groupId: string, cutIds: string[]) => void;
+  getSelectedGroup: () => { scene: Scene; group: CutGroup } | null;
+
   // Helpers
   getSelectedCut: () => { scene: Scene; cut: Cut } | null;
   getSelectedScene: () => Scene | null;
@@ -218,6 +231,7 @@ export const useStore = create<AppState>((set, get) => ({
   selectedCutIds: new Set(),
   lastSelectedCutId: null,
   selectionType: null,
+  selectedGroupId: null,
   assetCache: new Map(),
   playbackMode: 'stopped',
   previewMode: 'all',
@@ -274,6 +288,7 @@ export const useStore = create<AppState>((set, get) => ({
     rootFolder: null,
     sourceFolders: [],
     assetCache: new Map(),
+    selectedGroupId: null,
   }),
 
   loadProject: (scenes) => set({ scenes }),
@@ -638,6 +653,13 @@ export const useStore = create<AppState>((set, get) => ({
               cuts: s.cuts
                 .filter((c) => c.id !== cutId)
                 .map((c, idx) => ({ ...c, order: idx })),
+              // Remove cut from any groups and clean up empty groups
+              groups: (s.groups || [])
+                .map((g) => ({
+                  ...g,
+                  cutIds: g.cutIds.filter((id) => id !== cutId),
+                }))
+                .filter((g) => g.cutIds.length > 0),
             }
           : s
       ),
@@ -756,6 +778,13 @@ export const useStore = create<AppState>((set, get) => ({
             cuts: s.cuts
               .filter((c) => c.id !== cutId)
               .map((c, idx) => ({ ...c, order: idx })),
+            // Remove cut from any groups when moving to another scene
+            groups: (s.groups || [])
+              .map((g) => ({
+                ...g,
+                cutIds: g.cutIds.filter((id) => id !== cutId),
+              }))
+              .filter((g) => g.cutIds.length > 0),
           };
         }
         if (s.id === toSceneId) {
@@ -829,6 +858,7 @@ export const useStore = create<AppState>((set, get) => ({
     selectedCutId: null,
     selectedCutIds: new Set(),
     lastSelectedCutId: null,
+    selectedGroupId: null,  // Clear group selection
     selectionType: sceneId ? 'scene' : null,
   }),
 
@@ -841,12 +871,13 @@ export const useStore = create<AppState>((set, get) => ({
         break;
       }
     }
-    // Single selection clears multi-select
+    // Single selection clears multi-select and group selection
     return {
       selectedCutId: cutId,
       selectedSceneId: sceneId,
       selectedCutIds: cutId ? new Set([cutId]) : new Set(),
       lastSelectedCutId: cutId,
+      selectedGroupId: null,  // Clear group selection
       selectionType: cutId ? 'cut' : null,
     };
   }),
@@ -879,6 +910,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedCutId,
       lastSelectedCutId: cutId,
       selectedSceneId: sceneId,
+      selectedGroupId: null,  // Clear group selection
       selectionType: newSelectedIds.size > 0 ? 'cut' : null,
     };
   }),
@@ -898,6 +930,7 @@ export const useStore = create<AppState>((set, get) => ({
         selectedCutId: cutId,
         lastSelectedCutId: cutId,
         selectedSceneId: sceneId,
+        selectedGroupId: null,  // Clear group selection
         selectionType: 'cut',
       };
     }
@@ -929,6 +962,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedCutIds: newSelectedIds,
       selectedCutId: cutId,
       selectedSceneId: allCuts[endIndex]?.sceneId || state.selectedSceneId,
+      selectedGroupId: null,  // Clear group selection
       selectionType: 'cut',
       // Don't update lastSelectedCutId to allow extending the range
     };
@@ -1249,4 +1283,151 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   getSelectedCutIds: () => Array.from(get().selectedCutIds),
+
+  // Group actions
+  createGroup: (sceneId, cutIds, name) => {
+    const groupId = uuidv4();
+    const groupName = name || `Group ${Date.now()}`;
+
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              groups: [...(s.groups || []), { id: groupId, name: groupName, cutIds, isCollapsed: true }],
+            }
+          : s
+      ),
+    }));
+
+    return groupId;
+  },
+
+  deleteGroup: (sceneId, groupId) => {
+    const state = get();
+    const scene = state.scenes.find((s) => s.id === sceneId);
+    const groupToDelete = scene?.groups?.find((g) => g.id === groupId) || null;
+
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              groups: (s.groups || []).filter((g) => g.id !== groupId),
+            }
+          : s
+      ),
+      selectedGroupId: state.selectedGroupId === groupId ? null : state.selectedGroupId,
+    }));
+
+    return groupToDelete;
+  },
+
+  toggleGroupCollapsed: (sceneId, groupId) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              groups: (s.groups || []).map((g) =>
+                g.id === groupId ? { ...g, isCollapsed: !g.isCollapsed } : g
+              ),
+            }
+          : s
+      ),
+    }));
+  },
+
+  getCutGroup: (sceneId, cutId) => {
+    const state = get();
+    const scene = state.scenes.find((s) => s.id === sceneId);
+    return scene?.groups?.find((g) => g.cutIds.includes(cutId));
+  },
+
+  selectGroup: (groupId) => {
+    set({
+      selectedGroupId: groupId,
+      selectedCutId: null,
+      selectedCutIds: new Set(),
+      lastSelectedCutId: null,
+      selectionType: groupId ? 'cut' : null, // Use 'cut' type for details panel
+    });
+  },
+
+  renameGroup: (sceneId, groupId, name) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              groups: (s.groups || []).map((g) =>
+                g.id === groupId ? { ...g, name } : g
+              ),
+            }
+          : s
+      ),
+    }));
+  },
+
+  addCutsToGroup: (sceneId, groupId, cutIds) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              groups: (s.groups || []).map((g) =>
+                g.id === groupId
+                  ? { ...g, cutIds: [...g.cutIds, ...cutIds.filter((id) => !g.cutIds.includes(id))] }
+                  : g
+              ),
+            }
+          : s
+      ),
+    }));
+  },
+
+  removeCutFromGroup: (sceneId, groupId, cutId) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              groups: (s.groups || []).map((g) =>
+                g.id === groupId
+                  ? { ...g, cutIds: g.cutIds.filter((id) => id !== cutId) }
+                  : g
+              ).filter((g) => g.cutIds.length > 0), // Remove empty groups
+            }
+          : s
+      ),
+    }));
+  },
+
+  updateGroupCutOrder: (sceneId, groupId, cutIds) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              groups: (s.groups || []).map((g) =>
+                g.id === groupId ? { ...g, cutIds } : g
+              ),
+            }
+          : s
+      ),
+    }));
+  },
+
+  getSelectedGroup: () => {
+    const state = get();
+    if (!state.selectedGroupId) return null;
+
+    for (const scene of state.scenes) {
+      const group = scene.groups?.find((g) => g.id === state.selectedGroupId);
+      if (group) {
+        return { scene, group };
+      }
+    }
+    return null;
+  },
 }));

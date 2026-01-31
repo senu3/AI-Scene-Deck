@@ -1,6 +1,6 @@
 import { Command } from './historyStore';
 import { useStore } from './useStore';
-import type { Asset, Cut, Scene } from '../types';
+import type { Asset, Cut, Scene, CutGroup } from '../types';
 
 /**
  * カット追加コマンド
@@ -642,5 +642,146 @@ export class MoveCutsToSceneCommand implements Command {
         store.moveCutToScene(currentSceneId, sceneId, cutId, index);
       }
     }
+  }
+}
+
+/**
+ * グループ作成コマンド
+ */
+export class CreateGroupCommand implements Command {
+  type = 'CREATE_GROUP';
+  description: string;
+
+  private sceneId: string;
+  private cutIds: string[];
+  private groupName?: string;
+  private groupId?: string;
+
+  constructor(sceneId: string, cutIds: string[], name?: string) {
+    this.sceneId = sceneId;
+    this.cutIds = cutIds;
+    this.groupName = name;
+    this.description = `Create group with ${cutIds.length} cuts`;
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    this.groupId = store.createGroup(this.sceneId, this.cutIds, this.groupName);
+  }
+
+  async undo(): Promise<void> {
+    if (!this.groupId) return;
+
+    const store = useStore.getState();
+    store.deleteGroup(this.sceneId, this.groupId);
+  }
+}
+
+/**
+ * グループ削除（解除）コマンド
+ */
+export class DeleteGroupCommand implements Command {
+  type = 'DELETE_GROUP';
+  description: string;
+
+  private sceneId: string;
+  private groupId: string;
+  private deletedGroup?: CutGroup;
+
+  constructor(sceneId: string, groupId: string) {
+    this.sceneId = sceneId;
+    this.groupId = groupId;
+    this.description = 'Dissolve group';
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    this.deletedGroup = store.deleteGroup(this.sceneId, this.groupId) || undefined;
+  }
+
+  async undo(): Promise<void> {
+    if (!this.deletedGroup) return;
+
+    const store = useStore.getState();
+    // Recreate group with same ID and properties
+    store.createGroup(this.sceneId, this.deletedGroup.cutIds, this.deletedGroup.name);
+  }
+}
+
+/**
+ * グループ名変更コマンド
+ */
+export class RenameGroupCommand implements Command {
+  type = 'RENAME_GROUP';
+  description: string;
+
+  private sceneId: string;
+  private groupId: string;
+  private newName: string;
+  private oldName?: string;
+
+  constructor(sceneId: string, groupId: string, newName: string) {
+    this.sceneId = sceneId;
+    this.groupId = groupId;
+    this.newName = newName;
+    this.description = `Rename group to ${newName}`;
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    const scene = store.scenes.find((s) => s.id === this.sceneId);
+    const group = scene?.groups?.find((g) => g.id === this.groupId);
+
+    if (group) {
+      this.oldName = group.name;
+    }
+
+    store.renameGroup(this.sceneId, this.groupId, this.newName);
+  }
+
+  async undo(): Promise<void> {
+    if (!this.oldName) return;
+
+    const store = useStore.getState();
+    store.renameGroup(this.sceneId, this.groupId, this.oldName);
+  }
+}
+
+/**
+ * カットをグループから削除コマンド
+ */
+export class RemoveCutFromGroupCommand implements Command {
+  type = 'REMOVE_CUT_FROM_GROUP';
+  description: string;
+
+  private sceneId: string;
+  private groupId: string;
+  private cutId: string;
+  private originalIndex?: number;
+
+  constructor(sceneId: string, groupId: string, cutId: string) {
+    this.sceneId = sceneId;
+    this.groupId = groupId;
+    this.cutId = cutId;
+    this.description = 'Remove cut from group';
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    const scene = store.scenes.find((s) => s.id === this.sceneId);
+    const group = scene?.groups?.find((g) => g.id === this.groupId);
+
+    if (group) {
+      this.originalIndex = group.cutIds.indexOf(this.cutId);
+    }
+
+    store.removeCutFromGroup(this.sceneId, this.groupId, this.cutId);
+  }
+
+  async undo(): Promise<void> {
+    if (this.originalIndex === undefined || this.originalIndex === -1) return;
+
+    const store = useStore.getState();
+    store.addCutsToGroup(this.sceneId, this.groupId, [this.cutId]);
   }
 }

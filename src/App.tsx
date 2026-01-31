@@ -85,6 +85,8 @@ function App() {
     toggleAssetDrawer,
     sidebarOpen,
     toggleSidebar,
+    getCutGroup,
+    removeCutFromGroup,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -227,7 +229,7 @@ function App() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
-    const activeData = dragDataRef.current;
+    const activeData = dragDataRef.current as { sceneId?: string; index?: number; type?: string; groupId?: string; cutIds?: string[] };
 
     setActiveId(null);
     setActiveType(null);
@@ -265,11 +267,45 @@ function App() {
       return;
     }
 
+    // Handle group drag - move all cuts in the group together
+    if (activeData.type === 'group' && activeData.sceneId && activeData.cutIds && overData?.sceneId) {
+      const fromSceneId = activeData.sceneId;
+      const toSceneId = overData.sceneId;
+      const cutIds = activeData.cutIds;
+
+      // Groups can only be moved within the same scene
+      if (fromSceneId !== toSceneId) {
+        console.warn('Groups cannot be moved between scenes');
+        return;
+      }
+
+      const toIndex = overData.type === 'dropzone' ?
+        (scenes.find(s => s.id === toSceneId)?.cuts.length || 0) :
+        (overData.index ?? 0);
+
+      // Move all cuts in the group together
+      executeCommand(new MoveCutsToSceneCommand(cutIds, toSceneId, toIndex)).catch((error) => {
+        console.error('Failed to move group cuts:', error);
+      });
+      return;
+    }
+
     // Handle cut reordering
     if (activeData.type === 'cut' && activeData.sceneId && overData?.sceneId) {
       const fromSceneId = activeData.sceneId;
       const toSceneId = overData.sceneId;
       const cutId = active.id as string;
+
+      // Check if this cut is in a group
+      const cutGroup = getCutGroup(fromSceneId, cutId);
+
+      // Check if the drop target is inside the same group
+      const overId = over.id as string;
+      const overCutGroup = overData.type !== 'dropzone' && overData.type !== 'group'
+        ? getCutGroup(toSceneId, overId)
+        : undefined;
+
+      const isMovingOutOfGroup = cutGroup && (!overCutGroup || overCutGroup.id !== cutGroup.id);
 
       // Check if this is a multi-select drag
       const selectedIds = getSelectedCutIds();
@@ -284,6 +320,15 @@ function App() {
         executeCommand(new MoveCutsToSceneCommand(selectedIds, toSceneId, toIndex)).catch((error) => {
           console.error('Failed to move cuts:', error);
         });
+
+        // Remove from group if moving out
+        if (isMovingOutOfGroup && cutGroup) {
+          for (const id of selectedIds) {
+            if (cutGroup.cutIds.includes(id)) {
+              removeCutFromGroup(fromSceneId, cutGroup.id, id);
+            }
+          }
+        }
       } else if (fromSceneId === toSceneId) {
         // Single drag: Reorder within same scene
         const scene = scenes.find(s => s.id === fromSceneId);
@@ -296,9 +341,14 @@ function App() {
           executeCommand(new ReorderCutsCommand(fromSceneId, cutId, toIndex, fromIndex)).catch((error) => {
             console.error('Failed to reorder cuts:', error);
           });
+
+          // Remove from group if moving out of the group
+          if (isMovingOutOfGroup && cutGroup) {
+            removeCutFromGroup(fromSceneId, cutGroup.id, cutId);
+          }
         }
       } else {
-        // Single drag: Move between scenes
+        // Single drag: Move between scenes (automatically removes from group in store)
         const toIndex = overData.type === 'dropzone' ?
           (scenes.find(s => s.id === toSceneId)?.cuts.length || 0) :
           (overData.index ?? 0);

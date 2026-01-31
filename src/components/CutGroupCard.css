@@ -1,0 +1,227 @@
+/* Cut Group Card - Collapsed State */
+.cut-group-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  cursor: grab;
+  transition: all 0.15s ease;
+  background-color: var(--bg-card);
+  border: 2px solid transparent;
+}
+
+.cut-group-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.cut-group-card.selected {
+  border-color: var(--accent-warning);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+
+.cut-group-card.dragging {
+  opacity: 0.5;
+  cursor: grabbing;
+}
+
+.cut-group-card:active {
+  cursor: grabbing;
+}
+
+/* Stack effect container */
+.group-stack {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: visible;
+}
+
+/* Stacked card effect (pseudo elements for layers behind) */
+.cut-group-card.collapsed .group-stack::before,
+.cut-group-card.collapsed .group-stack::after {
+  content: '';
+  position: absolute;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  z-index: -1;
+}
+
+.cut-group-card.collapsed .group-stack::before {
+  top: 4px;
+  left: 4px;
+  right: -4px;
+  bottom: -4px;
+}
+
+.cut-group-card.collapsed .group-stack::after {
+  top: 8px;
+  left: 8px;
+  right: -8px;
+  bottom: -8px;
+  z-index: -2;
+}
+
+/* Thumbnail container */
+.group-thumbnail-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background-color: var(--bg-secondary);
+}
+
+.group-thumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.group-thumbnail.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--bg-tertiary) 0%, var(--bg-secondary) 100%);
+}
+
+/* Group badge with cut count */
+.group-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background-color: rgba(245, 158, 11, 0.9);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+}
+
+.group-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Group name label */
+.group-name-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  font-size: 11px;
+  font-weight: 500;
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Total duration */
+.group-duration {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  background-color: rgba(0, 0, 0, 0.7);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 500;
+  color: white;
+}
+
+/* Expand/Collapse toggle */
+.group-toggle {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-sm);
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  z-index: 10;
+}
+
+.group-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* === Expanded Group Container === */
+.expanded-group-container {
+  position: relative;
+  padding: 8px;
+  border: 2px dashed var(--accent-warning);
+  border-radius: var(--radius-lg);
+  background-color: rgba(245, 158, 11, 0.05);
+}
+
+.expanded-group-container.selected {
+  border-style: solid;
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+/* Group header in expanded mode */
+.expanded-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  margin-bottom: 8px;
+  background-color: rgba(245, 158, 11, 0.15);
+  border-radius: var(--radius-sm);
+}
+
+.expanded-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-warning);
+}
+
+.expanded-group-title svg {
+  width: 14px;
+  height: 14px;
+}
+
+.expanded-group-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.expanded-group-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.expanded-group-actions button:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Cuts container within expanded group */
+.expanded-group-cuts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

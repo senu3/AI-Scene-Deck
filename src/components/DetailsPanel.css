@@ -896,3 +896,57 @@
   padding: 2px 8px;
   border-radius: var(--radius-sm);
 }
+
+/* === Group Info Styles === */
+.selected-info.group-info .selected-label {
+  color: var(--accent-warning);
+}
+
+.selected-info.group-info .selected-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-warning);
+  cursor: pointer;
+}
+
+.selected-info.group-info .selected-value:hover {
+  opacity: 0.8;
+}
+
+.selected-info.group-info .selected-value.editable svg {
+  opacity: 0.5;
+}
+
+.selected-info.group-info .selected-value.editable:hover svg {
+  opacity: 1;
+}
+
+.group-name-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-name-edit input {
+  flex: 1;
+  padding: 4px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--accent-warning);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+
+.group-cuts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-md);
+  max-height: 200px;
+  overflow-y: auto;
+}

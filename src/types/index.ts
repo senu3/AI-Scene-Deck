@@ -102,6 +102,14 @@ export interface SceneNote {
   createdAt: string;
 }
 
+// Cut group for visual grouping on timeline
+export interface CutGroup {
+  id: string;
+  name: string;
+  cutIds: string[];      // Ordered list of cut IDs in this group
+  isCollapsed: boolean;  // Whether the group is collapsed (stacked view)
+}
+
 export interface Scene {
   id: string;
   name: string;
@@ -109,6 +117,7 @@ export interface Scene {
   order: number;
   notes: SceneNote[];
   folderPath?: string; // Path to scene folder in vault
+  groups?: CutGroup[]; // Optional cut groups for visual organization
 }
 
 // Source panel view mode

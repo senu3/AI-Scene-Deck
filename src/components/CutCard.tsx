@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, useEffect, useRef } from 'react';
-import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download, Loader2, Mic, Music } from 'lucide-react';
+import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download, Loader2, Mic, Music, Layers, FolderMinus } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Scene } from '../types';
 import './CutCard.css';
@@ -39,12 +39,15 @@ interface ContextMenuProps {
   currentSceneId: string;
   canPaste: boolean;
   isClip: boolean;
+  isInGroup: boolean;
   onClose: () => void;
   onCopy: () => void;
   onPaste: () => void;
   onDelete: () => void;
   onMoveToScene: (sceneId: string) => void;
   onFinalizeClip?: () => void;
+  onCreateGroup?: () => void;
+  onRemoveFromGroup?: () => void;
 }
 
 export function CutContextMenu({
@@ -56,12 +59,15 @@ export function CutContextMenu({
   currentSceneId,
   canPaste,
   isClip,
+  isInGroup,
   onClose,
   onCopy,
   onPaste,
   onDelete,
   onMoveToScene,
   onFinalizeClip,
+  onCreateGroup,
+  onRemoveFromGroup,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
@@ -139,6 +145,25 @@ export function CutContextMenu({
         </>
       )}
 
+      {/* Group options */}
+      <div className="context-menu-divider" />
+
+      {/* Create Group - only for multi-select */}
+      {isMultiSelect && onCreateGroup && (
+        <button onClick={onCreateGroup}>
+          <Layers size={14} />
+          Create Group ({selectedCount})
+        </button>
+      )}
+
+      {/* Remove from Group - only for grouped cuts */}
+      {isInGroup && onRemoveFromGroup && (
+        <button onClick={onRemoveFromGroup}>
+          <FolderMinus size={14} />
+          Remove from Group
+        </button>
+      )}
+
       <div className="context-menu-divider" />
 
       <button onClick={onDelete} className="danger">
@@ -159,6 +184,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
     getAsset,
     scenes,
     getSelectedCutIds,
+    getSelectedCuts,
     moveCutsToScene,
     removeCut,
     copySelectedCuts,
@@ -167,6 +193,9 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
     vaultPath,
     openVideoPreview,
     metadataStore,
+    getCutGroup,
+    createGroup,
+    removeCutFromGroup,
   } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -222,6 +251,10 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
   const isVideo = asset?.type === 'video';
   const isLipSync = cut.isLipSync;
   const hasAttachedAudio = asset?.id && metadataStore?.metadata[asset.id]?.attachedAudioId;
+
+  // Check if this cut is in a group
+  const cutGroup = getCutGroup(sceneId, cut.id);
+  const isInGroup = !!cutGroup;
 
   useEffect(() => {
     const loadThumbnail = async () => {
@@ -322,6 +355,30 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
     const targetScene = scenes.find(s => s.id === targetSceneId);
     const toIndex = targetScene?.cuts.length || 0;
     moveCutsToScene(cutIds, targetSceneId, toIndex);
+    setContextMenu(null);
+  };
+
+  const handleCreateGroup = () => {
+    const selectedCuts = getSelectedCuts();
+    // Check all cuts are in the same scene
+    const allSameScene = selectedCuts.every(({ scene }) => scene.id === sceneId);
+    if (!allSameScene || selectedCuts.length < 2) {
+      setContextMenu(null);
+      return;
+    }
+
+    const cutIds = selectedCuts.map(({ cut: c }) => c.id);
+    createGroup(sceneId, cutIds, `Group ${Date.now()}`);
+    setContextMenu(null);
+  };
+
+  const handleRemoveFromGroup = () => {
+    if (!cutGroup) {
+      setContextMenu(null);
+      return;
+    }
+
+    removeCutFromGroup(sceneId, cutGroup.id, cut.id);
     setContextMenu(null);
   };
 
@@ -492,12 +549,15 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
         currentSceneId={sceneId}
         canPaste={canPaste()}
         isClip={!!cut.isClip}
+        isInGroup={isInGroup}
         onClose={() => setContextMenu(null)}
         onCopy={handleCopy}
         onPaste={handlePaste}
         onDelete={handleDelete}
         onMoveToScene={handleMoveToScene}
         onFinalizeClip={handleFinalizeClip}
+        onCreateGroup={isMultiSelected ? handleCreateGroup : undefined}
+        onRemoveFromGroup={isInGroup ? handleRemoveFromGroup : undefined}
       />
     )}
     </>
