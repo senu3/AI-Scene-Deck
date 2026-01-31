@@ -596,11 +596,21 @@
 }
 
 .action-btn.primary {
-  background: linear-gradient(135deg, var(--accent-pink) 0%, var(--accent-purple) 100%);
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-purple));
   color: white;
 }
 
 .action-btn.primary:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.action-btn.lip-sync {
+  background: linear-gradient(135deg, var(--accent-pink) 0%, var(--accent-purple) 100%);
+  color: white;
+}
+
+.action-btn.lip-sync:hover {
   opacity: 0.9;
   transform: translateY(-1px);
 }
@@ -651,17 +661,23 @@
   color: var(--accent-danger);
 }
 
-/* ATTACH AUDIO button */
-.action-btn.attach-audio {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white;
-  border: none;
+/* Relink button */
+.relink-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: all 0.15s ease;
 }
 
-.action-btn.attach-audio:hover {
-  background: linear-gradient(135deg, #059669, #047857);
-  opacity: 0.9;
-  transform: translateY(-1px);
+.relink-btn:hover {
+  background-color: rgba(var(--accent-warning-rgb), 0.12);
+  color: var(--accent-warning);
 }
 
 /* Attached Audio Section */

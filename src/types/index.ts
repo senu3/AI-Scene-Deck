@@ -161,6 +161,7 @@ export type SelectionType = 'scene' | 'cut' | null;
 export interface AssetMetadata {
   assetId: string;              // Target asset ID
   attachedAudioId?: string;     // Attached audio Asset ID
+  attachedAudioSourceName?: string; // Original source name for attached audio
   attachedAudioOffset?: number; // Audio offset in seconds (positive = delay, negative = earlier)
   displayTime?: number;         // Display duration for image assets in seconds
   // Future expansion

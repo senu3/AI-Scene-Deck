@@ -5,8 +5,9 @@ This note captures how preview playback is structured and what must not be chang
 ## Modes
 ### Single Mode
 - Activated when `PreviewModal` receives a single `asset` prop.
-- Uses direct `<video>`/`<img>` rendering with per-element handlers.
-- IN/OUT is stored in local component state.
+- Video: uses direct `<video>` rendering with per-element handlers.
+- Image: uses the Sequence playback engine (`useSequencePlaybackController` + `createImageMediaSource`) even in Single Mode.
+- IN/OUT is stored in local component state (video) or controller range (image/sequence).
 - Audio sync uses a dedicated `AudioManager` tied to the video element.
 
 ### Sequence Mode
@@ -46,6 +47,8 @@ Video sources queue play/seek until the element is mounted, avoiding the "cut bo
 ## Must NOT Do
 - Do not control Sequence Mode playback by directly calling `<video>` methods.
   - Always route through `useSequencePlaybackController` + `MediaSource`.
+- Do not special-case Single Mode images back to plain `<img>` timers.
+  - Single image playback intentionally uses the Sequence engine.
 - Do not remove the pending play/seek logic in `createVideoMediaSource`.
   - It prevents the "needs two clicks to play" regression.
 - Do not reuse or keep old `MediaSource` instances.

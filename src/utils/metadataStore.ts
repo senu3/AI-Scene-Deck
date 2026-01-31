@@ -150,12 +150,14 @@ export function attachAudio(
   store: MetadataStore,
   assetId: string,
   audioAssetId: string,
+  sourceName: string,
   offset: number = 0
 ): MetadataStore {
   const existing = store.metadata[assetId] || { assetId };
   return updateAssetMetadata(store, {
     ...existing,
     attachedAudioId: audioAssetId,
+    attachedAudioSourceName: sourceName,
     attachedAudioOffset: offset,
   });
 }
@@ -173,7 +175,12 @@ export function detachAudio(
   const existing = store.metadata[assetId];
   if (!existing) return store;
 
-  const { attachedAudioId: _, attachedAudioOffset: __, ...rest } = existing;
+  const {
+    attachedAudioId: _,
+    attachedAudioSourceName: __,
+    attachedAudioOffset: ___,
+    ...rest
+  } = existing;
 
   // If no other metadata, remove the entry entirely
   if (Object.keys(rest).length <= 1) { // Only assetId remains

@@ -105,6 +105,10 @@ export default function DetailsPanel() {
   const cutScene = selectedCutData?.scene;
   const asset =
     cut?.asset || (cut?.assetId ? getAsset(cut.assetId) : undefined);
+  const attachedAudioMeta = asset?.id ? metadataStore?.metadata[asset.id] : undefined;
+  const attachedAudioSourceName =
+    attachedAudioMeta?.attachedAudioSourceName || attachedAudio?.name || "Unknown";
+  const hasAttachedAudio = !!attachedAudioMeta?.attachedAudioId;
 
   // Check for multi-selection
   const isMultiSelection = selectedCutIds.size > 1;
@@ -382,7 +386,7 @@ export default function DetailsPanel() {
     handleAudioOffsetChange(newOffset);
   };
 
-  const handleFrameCapture = async (timestamp: number) => {
+  const handleFrameCapture = async (timestamp: number): Promise<string | void> => {
     if (!cutScene || !asset?.path || !vaultPath) {
       alert("Cannot capture frame: missing required data");
       return;
@@ -428,25 +432,45 @@ export default function DetailsPanel() {
       const thumbnailBase64 =
         await window.electronAPI.readFileAsBase64(outputPath);
 
+      // Load image metadata if available
+      let imageMetadata: ImageMetadata | undefined;
+      if (window.electronAPI.readImageMetadata) {
+        try {
+          imageMetadata = await window.electronAPI.readImageMetadata(outputPath);
+        } catch {
+          // Metadata not critical
+        }
+      }
+
+      let fileSize: number | undefined;
+      if (window.electronAPI.getFileInfo) {
+        const info = await window.electronAPI.getFileInfo(outputPath);
+        fileSize = info?.size;
+      }
+
       // Create new asset for the captured frame
       const newAssetId = uuidv4();
+      const sourceLabel = `${baseName} @ ${formatClipTime(timestamp)}`;
       const newAsset: Asset = {
         id: newAssetId,
-        name: frameFileName,
+        name: sourceLabel,
         path: outputPath,
         type: "image",
         thumbnail: thumbnailBase64 || undefined,
+        metadata: imageMetadata,
+        fileSize,
         vaultRelativePath: `assets/${frameFileName}`,
       };
 
       // Cache the new asset
       cacheAsset(newAsset);
 
-      // Add new cut with the captured frame
-      await executeCommand(new AddCutCommand(cutScene.id, newAsset));
+      // Add new cut with the captured frame just below the current cut
+      const currentIndex = cutScene.cuts.findIndex((c) => c.id === cut.id);
+      const insertIndex = currentIndex >= 0 ? currentIndex + 1 : undefined;
+      await executeCommand(new AddCutCommand(cutScene.id, newAsset, undefined, insertIndex));
 
-      // Show success message
-      alert(`Frame captured!\n\nFile: ${frameFileName}`);
+      return `Captured frame: ${sourceLabel}`;
     } catch (error) {
       console.error("Frame capture failed:", error);
       alert(`Failed to capture frame: ${error}`);
@@ -1034,14 +1058,14 @@ export default function DetailsPanel() {
           )}
 
           {/* Attached Audio Section */}
-          {attachedAudio && (
+          {hasAttachedAudio && (
             <div className="attached-audio-section">
               <div className="attached-audio-header">
                 <Music size={14} />
                 <span>Attached Audio</span>
               </div>
               <div className="attached-audio-info">
-                <span className="audio-name">{attachedAudio.name}</span>
+                <span className="audio-name">{attachedAudioSourceName}</span>
               </div>
               {attachedAudioDuration !== null && (
                 <div className="attached-audio-duration">
@@ -1084,16 +1108,16 @@ export default function DetailsPanel() {
                 <button
                   className="audio-btn remove"
                   onClick={handleDetachAudio}
-                  title="Remove audio"
+                  title="Clear audio"
                 >
-                  Remove
+                  Clear
                 </button>
               </div>
             </div>
           )}
 
           <div className="details-actions">
-            <button className="action-btn primary" onClick={() => setShowLipSyncModal(true)}>
+            <button className="action-btn lip-sync" onClick={() => setShowLipSyncModal(true)}>
               <Mic size={16} />
               <span>QUICK LIPSYNC</span>
             </button>
@@ -1104,7 +1128,7 @@ export default function DetailsPanel() {
           </div>
 
           <div className="details-footer">
-            <button className="delete-btn" onClick={handleRelinkFile}>
+            <button className="relink-btn" onClick={handleRelinkFile}>
               <Link size={14} />
               <span>Relink File</span>
             </button>

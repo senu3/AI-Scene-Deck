@@ -1130,7 +1130,13 @@ export const useStore = create<AppState>((set, get) => ({
 
       // Update metadata store
       const currentStore = state.metadataStore || { version: 1, metadata: {} };
-      const newStore = attachAudio(currentStore, assetId, audioAsset.id, offset);
+      const newStore = attachAudio(
+        currentStore,
+        assetId,
+        audioAsset.id,
+        audioAsset.name,
+        offset
+      );
 
       return {
         assetCache: newCache,

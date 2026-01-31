@@ -41,7 +41,7 @@ interface SingleModeProps {
   onInPointSet?: (time: number) => void;
   onOutPointSet?: (time: number) => void;
   onClipSave?: (inPoint: number, outPoint: number) => void;
-  onFrameCapture?: (timestamp: number) => void;
+  onFrameCapture?: (timestamp: number) => Promise<string | void> | void;
 }
 
 // Base props shared by both modes
@@ -121,6 +121,7 @@ export default function PreviewModal({
   );
   const [isExporting, setIsExporting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
+  const [captureNotice, setCaptureNotice] = useState<string | null>(null);
   const overlayTimeoutRef = useRef<number | null>(null);
   // NOTE: Known issue (Free resolution only): very tall images can push overlay controls out of view.
   // Using the resolution simulator avoids the disappearance. Keep in mind for future layout tweaks.
@@ -451,6 +452,12 @@ export default function PreviewModal({
     };
   }, []);
 
+  useEffect(() => {
+    if (!captureNotice) return;
+    const timeout = window.setTimeout(() => setCaptureNotice(null), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [captureNotice]);
+
   // Skip seconds (Both modes)
   const skip = useCallback((seconds: number) => {
     if (!usesSequenceController) {
@@ -592,21 +599,30 @@ export default function PreviewModal({
     onOutPointSet?.(singleModeCurrentTime);
   }, [isSingleModeVideo, singleModeOutPoint, singleModeCurrentTime, onOutPointSet]);
 
-  // Single Mode Save handler: if both IN and OUT are set, save clip; if only IN is set, capture frame
+  // Single Mode Save handler: save clip when both IN and OUT are set
   const handleSingleModeSave = useCallback(() => {
     if (!isSingleModeVideo) return;
+    if (inPoint === null || outPoint === null) return;
 
-    if (inPoint !== null && outPoint !== null) {
-      // Both points set - save as clip
-      const start = Math.min(inPoint, outPoint);
-      const end = Math.max(inPoint, outPoint);
-      onClipSave?.(start, end);
-      onClose();
-    } else if (inPoint !== null && outPoint === null) {
-      // Only IN point set - capture frame at IN point
-      onFrameCapture?.(inPoint);
+    const start = Math.min(inPoint, outPoint);
+    const end = Math.max(inPoint, outPoint);
+    onClipSave?.(start, end);
+    onClose();
+  }, [isSingleModeVideo, inPoint, outPoint, onClipSave, onClose]);
+
+  const handleSingleModeCaptureFrame = useCallback(async () => {
+    if (!isSingleModeVideo || !onFrameCapture) return;
+    const timestamp = videoRef.current?.currentTime ?? singleModeCurrentTime;
+    try {
+      const message = await onFrameCapture(timestamp);
+      if (message) {
+        setCaptureNotice(message);
+      }
+    } catch (error) {
+      console.error('Frame capture failed:', error);
+      setCaptureNotice('Capture failed');
     }
-  }, [isSingleModeVideo, inPoint, outPoint, onClipSave, onFrameCapture, onClose]);
+  }, [isSingleModeVideo, onFrameCapture, singleModeCurrentTime]);
 
   // Single Mode play/pause
   const toggleSingleModePlay = useCallback(() => {
@@ -1699,15 +1715,13 @@ export default function PreviewModal({
     return null;
   }, [isSingleMode, asset, currentItem]);
 
-  // Check if range/IN-point is set for Save button
-  const hasInPoint = inPoint !== null;
   // _hasRange kept for future range export UI implementation
   const _hasRange = inPoint !== null && outPoint !== null;
   // Suppress unused variable warnings - code kept for future use
   void _hasRange;
 
-  // Single Mode: show Save button if IN point is set and callbacks are provided
-  const showSingleModeSaveButton = isSingleModeVideo && hasInPoint && (onClipSave || onFrameCapture);
+  // Single Mode: show Save button only when both IN/OUT are set
+  const showSingleModeSaveButton = isSingleModeVideo && inPoint !== null && outPoint !== null && !!onClipSave;
 
   // Single Mode progress
   const singleModeProgressPercent = singleModePlaybackDuration > 0
@@ -1936,21 +1950,21 @@ export default function PreviewModal({
                     <button
                       className="preview-ctrl-btn"
                       onClick={handleSingleModeSave}
-                      title={outPoint !== null ? 'Save clip' : 'Capture frame'}
+                      title="Save clip"
                     >
                       <Scissors size={18} />
                     </button>
                   )}
-                  {isSingleModeVideo && (
+                  <div className="preview-ctrl-divider" />
+                  {isSingleModeVideo && onFrameCapture && (
                     <button
                       className="preview-ctrl-btn"
-                      onClick={() => {/* TODO: Implement frame capture */}}
+                      onClick={handleSingleModeCaptureFrame}
                       title="Capture frame"
                     >
                       <Camera size={18} />
                     </button>
                   )}
-                  <div className="preview-ctrl-divider" />
                   <button
                     className={`preview-ctrl-btn ${isLooping ? 'is-active' : ''}`}
                     onClick={toggleLooping}
@@ -1980,6 +1994,11 @@ export default function PreviewModal({
                   >
                     <Maximize size={16} />
                   </button>
+                  {captureNotice && (
+                    <div className="preview-capture-popup" role="status" aria-live="polite">
+                      {captureNotice}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

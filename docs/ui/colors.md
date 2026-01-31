@@ -25,6 +25,7 @@ AI-Scene-Deck uses a cool-toned color scheme centered around the primary cyan co
 | `--accent-audio` | #a855f7 | `--accent-audio-rgb` | Audio files, attached audio |
 | `--accent-group` | #14b8a6 | `--accent-group-rgb` | Groups, multi-selection |
 | `--accent-success` | #10b981 | `--accent-success-rgb` | Success states with transparency |
+| `--accent-warning` | #f59e0b | `--accent-warning-rgb` | Warning states with transparency |
 | `--accent-danger` | #ef4444 | `--accent-danger-rgb` | Danger states with transparency |
 
 ## Color Spectrum
@@ -78,8 +79,9 @@ Notes
 | Button | Color | Class |
 |--------|-------|-------|
 | CREATE GROUP | Teal | `.action-btn.create-group` |
-| ATTACH AUDIO | Green gradient | `.action-btn.attach-audio` |
-| Lip Sync actions | Pink→Purple | `.action-btn.primary` |
+| ATTACH AUDIO | Neutral | `.action-btn.secondary` |
+| Primary actions | Blue→Purple | `.action-btn.primary` |
+| Lip Sync actions | Pink→Purple | `.action-btn.lip-sync` |
 
 ## Transparency Guidelines
 
