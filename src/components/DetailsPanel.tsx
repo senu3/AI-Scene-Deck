@@ -37,6 +37,7 @@ import { generateVideoThumbnail } from "../utils/videoUtils";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
 import LipSyncModal from "./LipSyncModal";
+import AssetModal from "./AssetModal";
 import type { ImageMetadata, Asset } from "../types";
 import { v4 as uuidv4 } from "uuid";
 import "./DetailsPanel.css";
@@ -75,6 +76,7 @@ export default function DetailsPanel() {
   const [noteText, setNoteText] = useState("");
   const [showVideoPreview, setShowVideoPreview] = useState(false);
   const [showLipSyncModal, setShowLipSyncModal] = useState(false);
+  const [showAssetModal, setShowAssetModal] = useState(false);
 
   // Attached audio state
   const [attachedAudio, setAttachedAudio] = useState<Asset | undefined>(undefined);
@@ -283,68 +285,17 @@ export default function DetailsPanel() {
     }
   };
 
-  // Attach audio handler
-  // TODO: 音声紐づけ後にPreviewModalを開くとクラッシュする問題あり（原因調査中）
-  const handleAttachAudio = async () => {
-    if (!asset || !vaultPath || !window.electronAPI) return;
+  // Attach audio handler - opens AssetModal with audio filter
+  const handleAttachAudio = () => {
+    setShowAssetModal(true);
+  };
 
-    let filePath: string | null = null;
-    try {
-      filePath = await window.electronAPI.showOpenFileDialog({
-        title: 'Attach Audio File',
-        filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'm4a', 'aac', 'flac'] }],
-      });
-    } catch (error) {
-      console.error('Failed to open file dialog:', error);
-      return;
+  // Handle audio selection from AssetModal
+  const handleAssetModalConfirm = (selectedAsset: Asset) => {
+    if (asset) {
+      attachAudioToAsset(asset.id, selectedAsset);
     }
-
-    if (!filePath) return;
-
-    try {
-      const audioAssetId = uuidv4();
-
-      // Import to vault
-      const importResult = await window.electronAPI.importAssetToVault(
-        filePath,
-        vaultPath,
-        audioAssetId
-      );
-
-      if (!importResult.success) {
-        alert(`Failed to import audio: ${importResult.error}`);
-        return;
-      }
-
-      // Get file info (with null check)
-      const audioPath = importResult.vaultPath;
-      if (!audioPath) {
-        alert('Failed to get audio path after import');
-        return;
-      }
-
-      const fileInfo = await window.electronAPI.getFileInfo(audioPath);
-
-      // Note: Duration is not fetched here to avoid mixing HTMLAudioElement with Web Audio API
-      // Duration will be available from AudioManager.getDuration() after load
-
-      // Create audio asset
-      const audioAsset: Asset = {
-        id: audioAssetId,
-        name: fileInfo?.name || filePath.split(/[/\\]/).pop() || 'audio',
-        path: audioPath,
-        type: 'audio',
-        vaultRelativePath: importResult.relativePath,
-        hash: importResult.hash,
-        fileSize: fileInfo?.size,
-      };
-
-      // Attach to asset
-      attachAudioToAsset(asset.id, audioAsset);
-    } catch (error) {
-      console.error('Failed to attach audio:', error);
-      alert(`Failed to attach audio: ${error}`);
-    }
+    setShowAssetModal(false);
   };
 
   // Detach audio handler
@@ -1180,6 +1131,16 @@ export default function DetailsPanel() {
             onClose={() => setShowLipSyncModal(false)}
           />
         )}
+
+        {/* Asset Modal for attaching audio */}
+        <AssetModal
+          open={showAssetModal}
+          onClose={() => setShowAssetModal(false)}
+          onConfirm={handleAssetModalConfirm}
+          title="Select Audio"
+          initialFilterType="audio"
+          allowImport={true}
+        />
       </aside>
     );
   }

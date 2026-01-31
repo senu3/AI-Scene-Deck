@@ -1,0 +1,74 @@
+/* AssetModal - Modal wrapper for asset selection */
+
+.asset-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.asset-modal {
+  width: 600px;
+  max-width: 90vw;
+  height: 80vh;
+  max-height: 700px;
+  background-color: var(--bg-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Modal-specific overrides for AssetPanel */
+.asset-modal .asset-panel {
+  border-radius: var(--radius-lg);
+}
+
+.asset-modal .asset-panel-header {
+  padding: 18px 20px;
+}
+
+.asset-modal .asset-panel-header h2 {
+  font-size: 18px;
+}
+
+.asset-modal .asset-panel-toolbar {
+  padding: 14px 16px;
+}
+
+.asset-modal .asset-panel-grid {
+  padding: 14px;
+}
+
+.asset-modal .asset-panel-footer {
+  padding: 14px 20px;
+}
