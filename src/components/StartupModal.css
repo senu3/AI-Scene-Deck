@@ -228,7 +228,7 @@
 .create-btn {
   margin-top: 8px;
   padding: 14px 20px;
-  background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+  background: linear-gradient(135deg, var(--accent-primary) 0%, #0096c7 100%);
   border-radius: var(--radius-md);
   color: white;
   font-size: 14px;

@@ -9,7 +9,7 @@ AI-Scene-Deck uses a cool-toned color scheme centered around the primary cyan co
 | Variable | HEX | Usage |
 |----------|-----|-------|
 | `--accent-primary` | #00b4d8 | Primary accent, single selection, notes |
-| `--accent-secondary` | #0096c7 | Secondary accent (darker cyan) |
+| `--accent-secondary` | #3b82f6 | Secondary role color (blue), cut usage indicators |
 | `--accent-success` | #10b981 | Success states, apply actions |
 | `--accent-warning` | #f59e0b | Warnings only |
 | `--accent-danger` | #ef4444 | Danger, delete actions |
@@ -20,9 +20,12 @@ AI-Scene-Deck uses a cool-toned color scheme centered around the primary cyan co
 
 | Variable | HEX | RGB Variable | Usage |
 |----------|-----|--------------|-------|
+| `--accent-secondary` | #3b82f6 | `--accent-secondary-rgb` | Cut usage in AssetDrawer |
 | `--accent-video` | #6366f1 | `--accent-video-rgb` | Video files, clip trimming |
 | `--accent-audio` | #a855f7 | `--accent-audio-rgb` | Audio files, attached audio |
 | `--accent-group` | #14b8a6 | `--accent-group-rgb` | Groups, multi-selection |
+| `--accent-success` | #10b981 | `--accent-success-rgb` | Success states with transparency |
+| `--accent-danger` | #ef4444 | `--accent-danger-rgb` | Danger states with transparency |
 
 ## Color Spectrum
 
@@ -125,7 +128,8 @@ box-shadow: 0 0 0 2px rgba(var(--accent-audio-rgb), 0.3);
 
 - Video type badge: `--accent-video`
 - Audio type badge: `--accent-audio`
-- Cut usage badge: `--accent-video`
+- Cut usage badge: `--accent-secondary`
+- Cut usage thumbnail: `--accent-secondary`
 - Audio usage badge: `--accent-audio`
 
 ### DetailsPanel

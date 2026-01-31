@@ -246,7 +246,7 @@
 }
 
 .select-folder-btn:hover {
-  background-color: var(--accent-secondary);
+  background-color: #0096c7;
 }
 
 .favorites-list {

@@ -17,7 +17,7 @@
   --text-muted: #6b7280;
 
   --accent-primary: #00b4d8;
-  --accent-secondary: #0096c7;
+  --accent-secondary: #3b82f6;  /* Blue - role color */
   --accent-success: #10b981;
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
@@ -33,6 +33,9 @@
   --accent-video-rgb: 99, 102, 241;
   --accent-audio-rgb: 168, 85, 247;
   --accent-group-rgb: 20, 184, 166;
+  --accent-success-rgb: 16, 185, 129;
+  --accent-danger-rgb: 239, 68, 68;
+  --accent-secondary-rgb: 59, 130, 246;
 
   --border-color: #3d444d;
   --border-light: #4a5260;

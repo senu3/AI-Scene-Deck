@@ -42,7 +42,7 @@
 }
 
 .missing-asset-modal .warning-icon {
-  color: #f59e0b;
+  color: var(--accent-warning);
   flex-shrink: 0;
 }
 
@@ -100,7 +100,7 @@
   top: 0;
   left: 0;
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(90deg, var(--accent-secondary), var(--accent-purple));
   transition: width 0.3s ease;
 }
 
@@ -141,8 +141,8 @@
 }
 
 .missing-asset-modal .asset-item.active {
-  background: rgba(59, 130, 246, 0.2);
-  border-left: 3px solid #3b82f6;
+  background: rgba(var(--accent-secondary-rgb), 0.2);
+  border-left: 3px solid var(--accent-secondary);
 }
 
 .missing-asset-modal .asset-item.decided {
@@ -183,13 +183,13 @@
 }
 
 .missing-asset-modal .asset-decision.relink {
-  background: rgba(34, 197, 94, 0.2);
-  color: #22c55e;
+  background: rgba(var(--accent-success-rgb), 0.2);
+  color: var(--accent-success);
 }
 
 .missing-asset-modal .asset-decision.delete {
-  background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  background: rgba(var(--accent-danger-rgb), 0.2);
+  color: var(--accent-danger);
 }
 
 .missing-asset-modal .asset-decision.skip {
@@ -242,7 +242,7 @@
 }
 
 .missing-asset-modal .detail-row.relinked .value {
-  color: #22c55e;
+  color: var(--accent-success);
 }
 
 .missing-asset-modal .action-buttons {
@@ -281,13 +281,13 @@
 }
 
 .missing-asset-modal .action-btn.relink:hover {
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.1);
+  border-color: var(--accent-success);
+  background: rgba(var(--accent-success-rgb), 0.1);
 }
 
 .missing-asset-modal .action-btn.delete:hover {
-  border-color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--accent-danger);
+  background: rgba(var(--accent-danger-rgb), 0.1);
 }
 
 .missing-asset-modal .action-btn.skip:hover {
@@ -353,7 +353,7 @@
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-purple));
   border: none;
   border-radius: 6px;
   color: #fff;
