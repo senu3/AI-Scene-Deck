@@ -1,0 +1,397 @@
+/* Form Controls - Input, Select, Radio, Checkbox */
+
+/* ========================================
+   Common base styles
+   ======================================== */
+.formControl {
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+/* ========================================
+   Input - Text input field
+   ======================================== */
+.input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.15);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--bg-secondary);
+}
+
+/* Input sizes */
+.input[data-size="sm"] {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.input[data-size="lg"] {
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+/* Number input with unit */
+.inputGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inputUnit {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+/* ========================================
+   Select - Dropdown
+   ======================================== */
+.selectContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.selectTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 120px;
+}
+
+.selectTrigger:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-light);
+}
+
+.selectTrigger[data-open="true"] {
+  border-color: var(--accent-primary);
+}
+
+.selectTrigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selectValue {
+  flex: 1;
+  text-align: left;
+}
+
+.selectIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.selectTrigger[data-open="true"] .selectIcon {
+  transform: rotate(180deg);
+}
+
+.selectDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  animation: dropdownSlideIn 0.15s ease;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selectOption {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.selectOption:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.selectOption[data-selected="true"] {
+  background-color: var(--accent-primary);
+  color: white;
+}
+
+/* ========================================
+   Radio - Radio button group
+   ======================================== */
+.radioGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.radioGroup[data-direction="horizontal"] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.radioItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.radioItem:has(.radioInput:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radioInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.radioCircle {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-light);
+  border-radius: 50%;
+  background-color: var(--bg-tertiary);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.radioItem:hover .radioCircle {
+  border-color: var(--accent-primary);
+}
+
+.radioInput:checked + .radioCircle {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-primary);
+}
+
+.radioInput:checked + .radioCircle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.radioInput:focus-visible + .radioCircle {
+  box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.3);
+}
+
+.radioLabel {
+  font-size: 13px;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.radioDescription {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ========================================
+   Checkbox
+   ======================================== */
+.checkboxItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.checkboxItem:has(.checkboxInput:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.checkboxInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkboxBox {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-tertiary);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.checkboxItem:hover .checkboxBox {
+  border-color: var(--accent-primary);
+}
+
+.checkboxInput:checked + .checkboxBox {
+  border-color: var(--accent-primary);
+  background-color: var(--accent-primary);
+}
+
+.checkboxInput:checked + .checkboxBox::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 5px;
+  height: 9px;
+  border: 2px solid white;
+  border-top: none;
+  border-left: none;
+  transform: rotate(45deg);
+}
+
+.checkboxInput:focus-visible + .checkboxBox {
+  box-shadow: 0 0 0 2px rgba(0, 180, 216, 0.3);
+}
+
+.checkboxLabel {
+  font-size: 13px;
+  color: var(--text-primary);
+  user-select: none;
+}
+
+.checkboxDescription {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ========================================
+   Field wrapper (label + input)
+   ======================================== */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Inline field (label and input on same line) */
+.fieldInline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fieldInline .fieldLabel {
+  min-width: 100px;
+  flex-shrink: 0;
+}
+
+/* Read-only value display */
+.readOnlyValue {
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 8px 0;
+}
+
+/* Path display with button */
+.pathField {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pathValue {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pathButton {
+  padding: 8px 14px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.pathButton:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}

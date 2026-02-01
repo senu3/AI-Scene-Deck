@@ -1,0 +1,68 @@
+/* Dialog - Confirm/Alert feedback */
+
+/* ========================================
+   Dialog Content
+   ======================================== */
+.dialogContent {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.dialogMessage {
+  margin: 0;
+}
+
+/* ========================================
+   Target Name (for danger dialogs)
+   ======================================== */
+.targetName {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: rgba(var(--accent-danger-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-danger-rgb), 0.2);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-primary);
+  word-break: break-all;
+}
+
+/* ========================================
+   Input field (for prompt dialogs)
+   ======================================== */
+.promptInput {
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease;
+}
+
+.promptInput:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+}
+
+.promptInput::placeholder {
+  color: var(--text-muted);
+}
+
+/* ========================================
+   Footer buttons order for danger
+   ======================================== */
+.dangerFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Cancel button emphasized in danger dialogs */
+.cancelButtonDanger {
+  font-weight: 600;
+}

@@ -11,6 +11,7 @@ import PlaybackControls from './components/PlaybackControls';
 import PreviewModal from './components/PreviewModal';
 import Header from './components/Header';
 import StartupModal from './components/StartupModal';
+import ExportModal, { type ExportSettings } from './components/ExportModal';
 import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
@@ -95,6 +96,7 @@ function App() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [exportResolution, setExportResolution] = useState({ name: 'Free', width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
@@ -455,10 +457,17 @@ function App() {
     }
   }, [selectedSceneId, scenes, createCutFromImport]);
 
-  // Export sequence from PlaybackControls
-  const handleExportFromControls = useCallback(async () => {
+  // Open export modal from PlaybackControls
+  const handleExportFromControls = useCallback(() => {
+    if (isExporting) return;
+    setShowExportModal(true);
+  }, [isExporting]);
+
+  // Handle export from ExportModal
+  const handleExport = useCallback(async (settings: ExportSettings) => {
     if (!window.electronAPI || isExporting) return;
 
+    setShowExportModal(false);
     setIsExporting(true);
 
     try {
@@ -479,7 +488,16 @@ function App() {
         return;
       }
 
-      // Show save dialog
+      // For now, use existing MP4 export logic
+      // TODO: Implement AviUtl export based on settings.format
+      if (settings.format === 'aviutl') {
+        // Placeholder: AviUtl export not yet implemented
+        alert(`AviUtl export to:\n${settings.outputPath}\n\nRounding: ${settings.aviutl.roundingMode}\nCopy media: ${settings.aviutl.copyMedia}\n\n(Export logic not yet implemented)`);
+        setIsExporting(false);
+        return;
+      }
+
+      // MP4 export (existing logic)
       const outputPath = await window.electronAPI.showSaveSequenceDialog('sequence_export.mp4');
       if (!outputPath) {
         setIsExporting(false);
@@ -656,6 +674,11 @@ function App() {
             onResolutionChange={setExportResolution}
           />
         )}
+        <ExportModal
+          open={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleExport}
+        />
       </div>
     </DndContext>
   );
