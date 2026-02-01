@@ -512,3 +512,98 @@
 .progress-text strong {
   color: #e2e8f0;
 }
+
+/* ====================================
+   Mask Editor Section
+   ==================================== */
+.lipsync-mask-area {
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.lipsync-create-mask-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.15), rgba(139, 92, 246, 0.15));
+  border: 1px dashed rgba(236, 72, 153, 0.4);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent-pink);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.lipsync-create-mask-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(236, 72, 153, 0.25), rgba(139, 92, 246, 0.25));
+  border-style: solid;
+}
+
+.lipsync-create-mask-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lipsync-mask-preview {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.mask-thumbnail {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mask-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mask-status {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-success);
+}
+
+.mask-edit-btn {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s;
+  width: fit-content;
+}
+
+.mask-edit-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+}
+
+.mask-edit-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.mask-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+}

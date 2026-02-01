@@ -6,8 +6,9 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { X, Camera, Play, Pause, Mic, Volume2, Film, Check } from "lucide-react";
+import { X, Camera, Play, Pause, Mic, Volume2, Film, Check, Brush } from "lucide-react";
 import type { Asset } from "../types";
+import MaskPaintModal from "./MaskPaintModal";
 import "./LipSyncModal.css";
 
 interface LipSyncModalProps {
@@ -48,6 +49,11 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
     t2: 0.15,
     t3: 0.30,
   });
+
+  // Mask state
+  const [showMaskEditor, setShowMaskEditor] = useState(false);
+  const [maskDataUrl, setMaskDataUrl] = useState<string | null>(null);
+  const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
 
   const isVideo = asset.type === "video";
 
@@ -147,9 +153,37 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
   };
 
   const handleRegister = () => {
-    console.log("Register lip sync with:", { frames, thresholds, sceneId });
+    console.log("Register lip sync with:", { frames, thresholds, sceneId, maskDataUrl });
     alert("Lip Sync registration (UI mock only)");
     onClose();
+  };
+
+  // Open mask editor - requires a base image (closed frame or thumbnail for testing)
+  const handleOpenMaskEditor = () => {
+    // Use the closed frame as base image, or fall back to thumbnail for testing
+    const baseFrame = frames.closed || asset.thumbnail;
+    if (!baseFrame) {
+      alert("No base image available. Please capture the 'Closed' frame or ensure asset has a thumbnail.");
+      return;
+    }
+
+    // Get image dimensions from the captured frame
+    const img = new Image();
+    img.onload = () => {
+      setBaseImageSize({ width: img.width, height: img.height });
+      setShowMaskEditor(true);
+    };
+    img.onerror = () => {
+      // Fallback dimensions if image fails to load
+      setBaseImageSize({ width: 1920, height: 1080 });
+      setShowMaskEditor(true);
+    };
+    img.src = baseFrame;
+  };
+
+  const handleSaveMask = (dataUrl: string) => {
+    setMaskDataUrl(dataUrl);
+    setShowMaskEditor(false);
   };
 
   const formatTime = (seconds: number): string => {
@@ -285,6 +319,46 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
               </div>
             </div>
 
+            {/* Mask Editor */}
+            <div className="lipsync-section">
+              <h4 className="lipsync-section-title">
+                <Brush size={12} />
+                Mouth Mask
+              </h4>
+              <div className="lipsync-mask-area">
+                {maskDataUrl ? (
+                  <div className="lipsync-mask-preview">
+                    <img src={maskDataUrl} alt="Mask" className="mask-thumbnail" />
+                    <div className="mask-info">
+                      <span className="mask-status">Mask created</span>
+                      <button
+                        className="mask-edit-btn"
+                        onClick={handleOpenMaskEditor}
+                        disabled={!frames.closed && !asset.thumbnail}
+                      >
+                        Edit Mask
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    className="lipsync-create-mask-btn"
+                    onClick={handleOpenMaskEditor}
+                    disabled={!frames.closed && !asset.thumbnail}
+                  >
+                    <Brush size={16} />
+                    Create Mouth Mask
+                  </button>
+                )}
+                {!frames.closed && !asset.thumbnail && (
+                  <p className="mask-hint">Capture "Closed" frame first</p>
+                )}
+                {!frames.closed && asset.thumbnail && (
+                  <p className="mask-hint">Using thumbnail as base (dev mode)</p>
+                )}
+              </div>
+            </div>
+
             {/* Thresholds */}
             <div className="lipsync-section">
               <h4 className="lipsync-section-title">
@@ -350,6 +424,18 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
           </div>
         </div>
       </div>
+
+      {/* Mask Paint Modal */}
+      {showMaskEditor && (frames.closed || asset.thumbnail) && (
+        <MaskPaintModal
+          baseImage={frames.closed || asset.thumbnail!}
+          imageWidth={baseImageSize.width}
+          imageHeight={baseImageSize.height}
+          existingMask={maskDataUrl || undefined}
+          onSave={handleSaveMask}
+          onClose={() => setShowMaskEditor(false)}
+        />
+      )}
     </div>
   );
 }
