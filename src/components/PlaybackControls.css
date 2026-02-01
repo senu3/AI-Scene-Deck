@@ -1,98 +1,182 @@
+/* Playback Controls - Minimal footer with stats and actions */
+
 .playback-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 56px;
+  height: 48px;
   padding: 0 20px;
   background-color: var(--bg-primary);
   border-top: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
-.controls-left {
-  flex: 1;
-}
-
-.timeline-stats {
+/* Stats Section */
+.footer-stats {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
   font-size: 12px;
   color: var(--text-secondary);
 }
 
-.stat strong {
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-item svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.stat-value {
   color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  color: var(--text-secondary);
+}
+
+/* Time Display */
+.stat-item.time {
+  gap: 4px;
+}
+
+.stat-item.time .time-current {
+  color: var(--accent-primary);
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
   font-weight: 600;
 }
 
-.stat-divider {
+.stat-item.time .time-separator {
   color: var(--text-muted);
+  font-size: 10px;
 }
 
-.controls-center {
+.stat-item.time .time-total {
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 11px;
+}
+
+/* Actions Section */
+.footer-actions {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.control-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--bg-secondary);
-  color: var(--text-secondary);
+/* Base Button Styles */
+.footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.control-btn:hover:not(:disabled) {
-  background-color: var(--bg-hover);
-  color: var(--text-primary);
-}
-
-.control-btn:disabled {
+.footer-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.control-btn.primary {
-  width: 48px;
-  height: 48px;
-  background-color: var(--accent-primary);
-  color: white;
+/* Preview Button - Outline Style */
+.preview-btn {
+  background: transparent;
+  border: 1px solid var(--accent-primary);
+  color: var(--accent-primary);
 }
 
-.control-btn.primary:hover:not(:disabled) {
-  background-color: #0096c7;
-  transform: scale(1.05);
+.preview-btn:hover:not(:disabled) {
+  background: rgba(0, 180, 216, 0.1);
 }
 
-.controls-right {
-  flex: 1;
-  display: flex;
-  justify-content: flex-end;
+.preview-btn:active:not(:disabled) {
+  background: rgba(0, 180, 216, 0.2);
 }
 
+/* Export Button - Filled Style */
 .export-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  transition: all 0.15s ease;
+  position: relative;
+  background: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  color: white;
+  overflow: hidden;
 }
 
-.export-btn:hover {
-  background-color: var(--bg-hover);
+.export-btn:hover:not(:disabled) {
+  background: #0096c7;
+  border-color: #0096c7;
+}
+
+.export-btn:active:not(:disabled) {
+  background: #0077a3;
+  border-color: #0077a3;
+}
+
+/* Export Progress State */
+.export-btn.exporting {
+  background: var(--bg-primary);
   border-color: var(--accent-primary);
-  color: var(--accent-primary);
+  color: var(--text-primary);
 }
 
-.export-btn svg {
-  color: var(--accent-primary);
+.export-btn.exporting::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--progress, 0%);
+  background: rgba(0, 180, 216, 0.15);
+  transition: width 0.3s ease;
+}
+
+.export-btn.exporting::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--progress, 0%);
+  width: 2px;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+  opacity: var(--progress, 0) > 0 ? 1 : 0;
+}
+
+.export-btn svg,
+.export-btn span {
+  position: relative;
+  z-index: 1;
+}
+
+/* Responsive: Stack on narrow screens */
+@media (max-width: 600px) {
+  .playback-controls {
+    flex-wrap: wrap;
+    height: auto;
+    padding: 12px 16px;
+    gap: 12px;
+  }
+
+  .footer-stats {
+    width: 100%;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .footer-actions {
+    width: 100%;
+    justify-content: center;
+  }
 }

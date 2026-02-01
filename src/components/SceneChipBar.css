@@ -1,0 +1,108 @@
+/* Scene Chip Bar - Navigation for scenes above storyline */
+
+.scene-chip-bar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 16px;
+  gap: 6px;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border-color);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+/* Hide scrollbar but keep functionality */
+.scene-chip-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.scene-chip-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scene-chip-bar::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 2px;
+}
+
+.scene-chip-bar::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Scene Chip */
+.scene-chip {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 12px;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scene-chip:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
+.scene-chip.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+}
+
+.scene-chip-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scene-chip-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.scene-chip:not(.active) .scene-chip-count {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+/* Add Scene Button */
+.scene-chip-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: 14px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.scene-chip-add:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  border-style: solid;
+}

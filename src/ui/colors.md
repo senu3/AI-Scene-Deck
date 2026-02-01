@@ -1,10 +1,35 @@
 # Color System
 
-AI-Scene-Deck uses a cool-toned color scheme centered around the primary cyan color (#00b4d8).
+AI-Scene-Deck uses a slate-tinted dark color scheme with cool cyan accents.
 
 ## Color Variables
 
-### Base Colors (globals.css)
+### Background Colors (globals.css)
+
+| Variable | HEX | Usage |
+|----------|-----|-------|
+| `--bg-primary` | #0f172a | Main background (header, footer, panels) |
+| `--bg-secondary` | #151c2c | Cards, elevated surfaces |
+| `--bg-tertiary` | #0d1321 | Deepest background (storyline area) |
+| `--bg-hover` | #334155 | Hover states |
+| `--bg-selected` | #3b4a5f | Selected states |
+
+### Text Colors
+
+| Variable | HEX | Usage |
+|----------|-----|-------|
+| `--text-primary` | #f1f5f9 | Primary text (headings, values) |
+| `--text-secondary` | #94a3b8 | Secondary text (labels, descriptions) |
+| `--text-muted` | #64748b | Muted text (placeholders, icons) |
+
+### Border Colors
+
+| Variable | HEX | Usage |
+|----------|-----|-------|
+| `--border-color` | #334155 | Default borders |
+| `--border-light` | #475569 | Lighter borders |
+
+### Accent Colors (globals.css)
 
 | Variable | HEX | Usage |
 |----------|-----|-------|

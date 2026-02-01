@@ -1,87 +1,72 @@
-import { Play, SkipForward, Pause, Download } from 'lucide-react';
-import { useStore } from '../store/useStore';
+import { Play, Download, LayoutGrid, Film, Clock } from 'lucide-react';
+import { useTimelinePosition, formatTimeCode } from '../hooks/useTimelinePosition';
 import './PlaybackControls.css';
 
 interface PlaybackControlsProps {
   onPreview: () => void;
   onExport: () => void;
   isExporting: boolean;
+  /** Export progress (0-100), only shown when isExporting is true */
+  exportProgress?: number;
 }
 
-export default function PlaybackControls({ onPreview, onExport, isExporting }: PlaybackControlsProps) {
-  const { scenes, previewMode, setPreviewMode, selectedSceneId } = useStore();
+export default function PlaybackControls({
+  onPreview,
+  onExport,
+  isExporting,
+  exportProgress,
+}: PlaybackControlsProps) {
+  const { sceneCount, cutCount, currentPosition, totalDuration, hasSelection } = useTimelinePosition();
 
-  const totalCuts = scenes.reduce((acc, scene) => acc + scene.cuts.length, 0);
-  const totalDuration = scenes.reduce((acc, scene) =>
-    acc + scene.cuts.reduce((cutAcc, cut) => cutAcc + cut.displayTime, 0), 0
-  );
+  const canPreview = cutCount > 0;
+  const canExport = cutCount > 0 && !isExporting;
 
-  const handlePlayAll = () => {
-    setPreviewMode('all');
-    onPreview();
-  };
-
-  const handlePlayScene = () => {
-    if (selectedSceneId) {
-      setPreviewMode('scene');
-      onPreview();
-    }
-  };
+  // Format the timecode display
+  const currentTimeDisplay = hasSelection ? formatTimeCode(currentPosition) : '--';
+  const totalTimeDisplay = formatTimeCode(totalDuration);
 
   return (
-    <div className="playback-controls">
-      <div className="controls-left">
-        <div className="timeline-stats">
-          <span className="stat">
-            <strong>{scenes.length}</strong> Scenes
-          </span>
-          <span className="stat-divider">·</span>
-          <span className="stat">
-            <strong>{totalCuts}</strong> Cuts
-          </span>
-          <span className="stat-divider">·</span>
-          <span className="stat">
-            <strong>{totalDuration.toFixed(1)}s</strong> Total
-          </span>
+    <footer className="playback-controls">
+      <div className="footer-stats">
+        <div className="stat-item">
+          <LayoutGrid size={14} />
+          <span className="stat-value">{sceneCount}</span>
+          <span className="stat-label">scenes</span>
+        </div>
+        <div className="stat-item">
+          <Film size={14} />
+          <span className="stat-value">{cutCount}</span>
+          <span className="stat-label">cuts</span>
+        </div>
+        <div className="stat-item time">
+          <Clock size={14} />
+          <span className="time-current">{currentTimeDisplay}</span>
+          <span className="time-separator">/</span>
+          <span className="time-total">{totalTimeDisplay}</span>
         </div>
       </div>
 
-      <div className="controls-center">
+      <div className="footer-actions">
         <button
-          className="control-btn"
-          onClick={handlePlayScene}
-          disabled={!selectedSceneId}
-          title="Preview Selected Scene"
+          className="footer-btn preview-btn"
+          onClick={onPreview}
+          disabled={!canPreview}
+          title="Preview All (Space)"
         >
-          <SkipForward size={20} />
+          <Play size={14} fill="currentColor" />
+          <span>PREVIEW</span>
         </button>
         <button
-          className="control-btn primary"
-          onClick={handlePlayAll}
-          disabled={totalCuts === 0}
-          title="Preview All"
-        >
-          {previewMode === 'all' ? <Play size={24} /> : <Play size={24} />}
-        </button>
-        <button
-          className="control-btn"
-          disabled
-          title="Pause"
-        >
-          <Pause size={20} />
-        </button>
-      </div>
-
-      <div className="controls-right">
-        <button
-          className="export-btn"
+          className={`footer-btn export-btn ${isExporting ? 'exporting' : ''}`}
           onClick={onExport}
-          disabled={isExporting || totalCuts === 0}
+          disabled={!canExport}
+          title="Export Video"
+          style={isExporting && exportProgress !== undefined ? { '--progress': `${exportProgress}%` } as React.CSSProperties : undefined}
         >
-          <Download size={16} />
-          <span>{isExporting ? 'EXPORTING...' : 'EXPORT VIDEO'}</span>
+          <Download size={14} />
+          <span>{isExporting ? `EXPORTING...${exportProgress !== undefined ? ` ${Math.round(exportProgress)}%` : ''}` : 'EXPORT'}</span>
         </button>
       </div>
-    </div>
+    </footer>
   );
 }

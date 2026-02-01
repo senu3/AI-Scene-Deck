@@ -588,6 +588,7 @@ function SceneColumn({
   return (
     <div
       className={`scene-column ${isSelected ? 'selected' : ''}`}
+      data-scene-id={sceneId}
     >
       <div
         className="scene-header"
