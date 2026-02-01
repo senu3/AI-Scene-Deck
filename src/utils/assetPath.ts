@@ -126,23 +126,7 @@ export async function importFileToVault(
     return null;
   }
 
-  // Check if already in vault
   const inVault = await isPathInVaultAssets(vaultPath, sourcePath);
-  if (inVault) {
-    // Already in vault, just get relative path
-    const relativePath = await window.electronAPI.getRelativePath(vaultPath, sourcePath);
-    if (relativePath) {
-      return {
-        id: assetId,
-        name: existingAsset?.name || sourcePath.split(/[/\\]/).pop() || 'Unknown',
-        path: sourcePath,
-        type: existingAsset?.type || getMediaTypeFromPath(sourcePath),
-        vaultRelativePath: relativePath,
-        originalPath: sourcePath,
-        ...existingAsset,
-      } as Asset;
-    }
-  }
 
   // Import to vault
   const result = await window.electronAPI.importAssetToVault(sourcePath, vaultPath, assetId);
@@ -150,6 +134,19 @@ export async function importFileToVault(
   if (!result.success) {
     console.error('Failed to import asset to vault:', result.error);
     return null;
+  }
+
+  // If the source was already inside assets/ but got re-hashed, move the original to trash
+  if (inVault && result.vaultPath && result.vaultPath !== sourcePath && window.electronAPI.moveToTrash) {
+    const trashPath = `${vaultPath}/.trash`.replace(/\\/g, '/');
+    if (window.electronAPI.moveToTrashWithMeta) {
+      await window.electronAPI.moveToTrashWithMeta(sourcePath, trashPath, {
+        assetId,
+        reason: 'rehash',
+      });
+    } else {
+      await window.electronAPI.moveToTrash(sourcePath, trashPath);
+    }
   }
 
   return {

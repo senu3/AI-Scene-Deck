@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
 import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore, CutGroup } from '../types';
-import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis } from '../utils/metadataStore';
+import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis, upsertSceneMetadata, removeSceneMetadata, syncSceneMetadata } from '../utils/metadataStore';
 import { analyzeAudioRms } from '../utils/audioUtils';
 import type { CutImportSource } from '../utils/cutImport';
 import { buildAssetForCut } from '../utils/cutImport';
@@ -432,35 +432,55 @@ export const useStore = create<AppState>((set, get) => ({
     const id = uuidv4();
     set((state) => {
       const newOrder = state.scenes.length;
+      const newScene: Scene = {
+        id,
+        name: name || `Scene ${newOrder + 1}`,
+        cuts: [],
+        order: newOrder,
+        notes: [],
+      };
+      const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
+      const updatedStore = upsertSceneMetadata(currentStore, newScene);
+
       return {
-        scenes: [
-          ...state.scenes,
-          {
-            id,
-            name: name || `Scene ${newOrder + 1}`,
-            cuts: [],
-            order: newOrder,
-            notes: [],
-          },
-        ],
+        scenes: [...state.scenes, newScene],
+        metadataStore: updatedStore,
       };
     });
+    get().saveMetadata();
     return id;
   },
 
-  removeScene: (sceneId) => set((state) => ({
-    scenes: state.scenes
-      .filter((s) => s.id !== sceneId)
-      .map((s, idx) => ({ ...s, order: idx })),
-    selectedSceneId: state.selectedSceneId === sceneId ? null : state.selectedSceneId,
-    selectionType: state.selectedSceneId === sceneId ? null : state.selectionType,
-  })),
+  removeScene: (sceneId) => {
+    set((state) => {
+      const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
+      const updatedStore = removeSceneMetadata(currentStore, sceneId);
+      return {
+        scenes: state.scenes
+          .filter((s) => s.id !== sceneId)
+          .map((s, idx) => ({ ...s, order: idx })),
+        selectedSceneId: state.selectedSceneId === sceneId ? null : state.selectedSceneId,
+        selectionType: state.selectedSceneId === sceneId ? null : state.selectionType,
+        metadataStore: updatedStore,
+      };
+    });
+    get().saveMetadata();
+  },
 
-  renameScene: (sceneId, name) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId ? { ...s, name } : s
-    ),
-  })),
+  renameScene: (sceneId, name) => {
+    set((state) => {
+      let updatedScene: Scene | null = null;
+      const scenes = state.scenes.map((s) => {
+        if (s.id !== sceneId) return s;
+        updatedScene = { ...s, name };
+        return updatedScene;
+      });
+      const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
+      const updatedStore = updatedScene ? upsertSceneMetadata(currentStore, updatedScene) : currentStore;
+      return { scenes, metadataStore: updatedStore };
+    });
+    get().saveMetadata();
+  },
 
   reorderScenes: (fromIndex, toIndex) => set((state) => {
     const newScenes = [...state.scenes];
@@ -478,47 +498,68 @@ export const useStore = create<AppState>((set, get) => ({
   })),
 
   // Scene notes actions
-  addSceneNote: (sceneId, note) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId
-        ? {
-            ...s,
-            notes: [
-              ...s.notes,
-              {
-                ...note,
-                id: uuidv4(),
-                createdAt: new Date().toISOString(),
-              },
-            ],
-          }
-        : s
-    ),
-  })),
+  addSceneNote: (sceneId, note) => {
+    set((state) => {
+      let updatedScene: Scene | null = null;
+      const scenes = state.scenes.map((s) =>
+        s.id === sceneId
+          ? (updatedScene = {
+              ...s,
+              notes: [
+                ...s.notes,
+                {
+                  ...note,
+                  id: uuidv4(),
+                  createdAt: new Date().toISOString(),
+                },
+              ],
+            })
+          : s
+      );
+      const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
+      const updatedStore = updatedScene ? upsertSceneMetadata(currentStore, updatedScene) : currentStore;
+      return { scenes, metadataStore: updatedStore };
+    });
+    get().saveMetadata();
+  },
 
-  updateSceneNote: (sceneId, noteId, content) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId
-        ? {
-            ...s,
-            notes: s.notes.map((n) =>
-              n.id === noteId ? { ...n, content } : n
-            ),
-          }
-        : s
-    ),
-  })),
+  updateSceneNote: (sceneId, noteId, content) => {
+    set((state) => {
+      let updatedScene: Scene | null = null;
+      const scenes = state.scenes.map((s) =>
+        s.id === sceneId
+          ? (updatedScene = {
+              ...s,
+              notes: s.notes.map((n) =>
+                n.id === noteId ? { ...n, content } : n
+              ),
+            })
+          : s
+      );
+      const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
+      const updatedStore = updatedScene ? upsertSceneMetadata(currentStore, updatedScene) : currentStore;
+      return { scenes, metadataStore: updatedStore };
+    });
+    get().saveMetadata();
+  },
 
-  removeSceneNote: (sceneId, noteId) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId
-        ? {
-            ...s,
-            notes: s.notes.filter((n) => n.id !== noteId),
-          }
-        : s
-    ),
-  })),
+  removeSceneNote: (sceneId, noteId) => {
+    set((state) => {
+      let updatedScene: Scene | null = null;
+      const scenes = state.scenes.map((s) =>
+        s.id === sceneId
+          ? (updatedScene = {
+              ...s,
+              notes: s.notes.filter((n) => n.id !== noteId),
+            })
+          : s
+      );
+      const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
+      const updatedStore = updatedScene ? upsertSceneMetadata(currentStore, updatedScene) : currentStore;
+      return { scenes, metadataStore: updatedStore };
+    });
+    get().saveMetadata();
+  },
 
   // Cut actions
   addCutToScene: (sceneId, asset, insertIndex) => {
@@ -1118,7 +1159,9 @@ export const useStore = create<AppState>((set, get) => ({
   saveMetadata: async () => {
     const state = get();
     if (state.vaultPath && state.metadataStore) {
-      await saveMetadataStore(state.vaultPath, state.metadataStore);
+      const syncedStore = syncSceneMetadata(state.metadataStore, state.scenes);
+      set({ metadataStore: syncedStore });
+      await saveMetadataStore(state.vaultPath, syncedStore);
     }
   },
 
@@ -1129,7 +1172,7 @@ export const useStore = create<AppState>((set, get) => ({
       newCache.set(audioAsset.id, audioAsset);
 
       // Update metadata store
-      const currentStore = state.metadataStore || { version: 1, metadata: {} };
+      const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
       const newStore = attachAudio(
         currentStore,
         assetId,
@@ -1155,7 +1198,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!audioAsset.path || audioAsset.type !== 'audio') return;
 
     const state = get();
-    const currentStore = state.metadataStore || { version: 1, metadata: {} };
+    const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
     const existing = currentStore.metadata[audioAsset.id]?.audioAnalysis;
 
     if (existing && audioAsset.hash && existing.hash === audioAsset.hash && existing.fps === fps) {
@@ -1166,7 +1209,7 @@ export const useStore = create<AppState>((set, get) => ({
     if (!analysis) return;
 
     set((s) => {
-      const store = s.metadataStore || { version: 1, metadata: {} };
+      const store = s.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
       const updated = updateAudioAnalysis(store, audioAsset.id, analysis);
       return { metadataStore: updated };
     });

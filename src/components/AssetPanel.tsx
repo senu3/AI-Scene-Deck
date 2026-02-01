@@ -576,7 +576,15 @@ export default function AssetPanel({
     }
 
     try {
-      const moved = await window.electronAPI.moveToTrash(asset.path, targetTrashPath);
+      let moved: string | null = null;
+      if (window.electronAPI.moveToTrashWithMeta) {
+        moved = await window.electronAPI.moveToTrashWithMeta(asset.path, targetTrashPath, {
+          assetId: asset.id,
+          reason: 'asset-panel-delete',
+        });
+      } else {
+        moved = await window.electronAPI.moveToTrash(asset.path, targetTrashPath);
+      }
       if (!moved) {
         alert('Failed to move asset to trash.');
       }

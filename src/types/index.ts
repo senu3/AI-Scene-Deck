@@ -47,10 +47,20 @@ export interface AssetIndexEntry {
   hash: string;
   filename: string;           // e.g., "img_abc123.png"
   originalName: string;       // e.g., "my_photo.png"
-  originalPath: string;       // Original source path
+  originalPath: string;       // Vault-relative original path
+  usageRefs?: AssetUsageRef[]; // Scene/cut usage info
   type: 'image' | 'video' | 'audio';
   fileSize: number;
   importedAt: string;
+}
+
+export interface AssetUsageRef {
+  sceneId: string;
+  sceneName: string;
+  sceneOrder: number;
+  cutId: string;
+  cutOrder: number;
+  cutIndex: number; // 1-based position in the scene
 }
 
 // Asset index stored in assets/.index.json
@@ -182,4 +192,12 @@ export interface AudioAnalysis {
 export interface MetadataStore {
   version: number;
   metadata: { [assetId: string]: AssetMetadata };
+  sceneMetadata?: { [sceneId: string]: SceneMetadata };
+}
+
+export interface SceneMetadata {
+  id: string;
+  name: string;
+  notes: SceneNote[];
+  updatedAt: string;
 }

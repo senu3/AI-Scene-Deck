@@ -49,6 +49,14 @@ export interface AssetIndexEntry {
   filename: string;
   originalName: string;
   originalPath: string;
+  usageRefs?: Array<{
+    sceneId: string;
+    sceneName: string;
+    sceneOrder: number;
+    cutId: string;
+    cutOrder: number;
+    cutIndex: number;
+  }>;
   type: 'image' | 'video' | 'audio';
   fileSize: number;
   importedAt: string;
@@ -138,6 +146,18 @@ export interface RecentProject {
   date: string;
 }
 
+export interface TrashOriginRef {
+  sceneId?: string;
+  cutId?: string;
+  note?: string;
+}
+
+export interface TrashMeta {
+  assetId?: string;
+  originRefs?: TrashOriginRef[];
+  reason?: string;
+}
+
 export interface OpenFileDialogOptions {
   title?: string;
   filters?: { name: string; extensions: string[] }[];
@@ -192,6 +212,9 @@ const electronAPI = {
 
   moveToTrash: (filePath: string, trashPath: string): Promise<string | null> =>
     ipcRenderer.invoke('move-to-trash', filePath, trashPath),
+
+  moveToTrashWithMeta: (filePath: string, trashPath: string, meta: TrashMeta): Promise<string | null> =>
+    ipcRenderer.invoke('move-to-trash-with-meta', filePath, trashPath, meta),
 
   pathExists: (path: string): Promise<boolean> =>
     ipcRenderer.invoke('path-exists', path),

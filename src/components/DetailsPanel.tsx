@@ -34,6 +34,7 @@ import {
   RenameGroupCommand,
 } from "../store/commands";
 import { generateVideoThumbnail } from "../utils/videoUtils";
+import { importFileToVault } from "../utils/assetPath";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
 import LipSyncModal from "./LipSyncModal";
@@ -451,7 +452,7 @@ export default function DetailsPanel() {
       // Create new asset for the captured frame
       const newAssetId = uuidv4();
       const sourceLabel = `${baseName} @ ${formatClipTime(timestamp)}`;
-      const newAsset: Asset = {
+      const baseAsset: Asset = {
         id: newAssetId,
         name: sourceLabel,
         path: outputPath,
@@ -462,13 +463,16 @@ export default function DetailsPanel() {
         vaultRelativePath: `assets/${frameFileName}`,
       };
 
+      const importedAsset = await importFileToVault(outputPath, vaultPath, newAssetId, baseAsset);
+      const finalAsset = importedAsset ?? baseAsset;
+
       // Cache the new asset
-      cacheAsset(newAsset);
+      cacheAsset(finalAsset);
 
       // Add new cut with the captured frame just below the current cut
       const currentIndex = cutScene.cuts.findIndex((c) => c.id === cut.id);
       const insertIndex = currentIndex >= 0 ? currentIndex + 1 : undefined;
-      await executeCommand(new AddCutCommand(cutScene.id, newAsset, undefined, insertIndex));
+      await executeCommand(new AddCutCommand(cutScene.id, finalAsset, undefined, insertIndex));
 
       return `Captured frame: ${sourceLabel}`;
     } catch (error) {

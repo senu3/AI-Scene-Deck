@@ -51,15 +51,37 @@ interface RecentProject {
   date: string;
 }
 
+interface TrashOriginRef {
+  sceneId?: string;
+  cutId?: string;
+  note?: string;
+}
+
+interface TrashMeta {
+  assetId?: string;
+  originRefs?: TrashOriginRef[];
+  reason?: string;
+}
+
 interface AssetIndexEntry {
   id: string;
   hash: string;
   filename: string;
   originalName: string;
   originalPath: string;
+  usageRefs?: AssetUsageRef[];
   type: 'image' | 'video' | 'audio';
   fileSize: number;
   importedAt: string;
+}
+
+interface AssetUsageRef {
+  sceneId: string;
+  sceneName: string;
+  sceneOrder: number;
+  cutId: string;
+  cutOrder: number;
+  cutIndex: number;
 }
 
 interface AssetIndex {
@@ -166,6 +188,7 @@ interface ElectronAPI {
   // File operations
   moveToVault: (sourcePath: string, destFolder: string, newName?: string) => Promise<string | null>;
   moveToTrash: (filePath: string, trashPath: string) => Promise<string | null>;
+  moveToTrashWithMeta: (filePath: string, trashPath: string, meta: TrashMeta) => Promise<string | null>;
   pathExists: (path: string) => Promise<boolean>;
 
   // File dialog

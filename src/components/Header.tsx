@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
+import { useDialog } from '../ui';
 import { useHistoryStore } from '../store/historyStore';
-import type { Scene, Asset, SourcePanelState } from '../types';
+import type { Scene, Asset, SourcePanelState, AssetUsageRef } from '../types';
 import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from './MissingAssetRecoveryModal';
 import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
+import { v4 as uuidv4 } from 'uuid';
 import './Header.css';
 
 // Helper to detect media type from filename
@@ -114,9 +116,66 @@ function prepareScenesForSave(scenes: Scene[]): Scene[] {
   }));
 }
 
+function getOrderedAssetIdsFromScenes(scenes: Scene[]): string[] {
+  const orderedIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const scene of scenes) {
+    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    for (const cut of cuts) {
+      const assetId = cut.asset?.id || cut.assetId;
+      if (assetId && !seen.has(assetId)) {
+        seen.add(assetId);
+        orderedIds.push(assetId);
+      }
+    }
+  }
+
+  return orderedIds;
+}
+
+function buildAssetUsageRefs(scenes: Scene[]): Map<string, AssetUsageRef[]> {
+  const usageMap = new Map<string, AssetUsageRef[]>();
+  const orderedScenes = [...scenes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  for (const scene of orderedScenes) {
+    const sceneOrder = scene.order ?? 0;
+    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    cuts.forEach((cut, index) => {
+      const assetId = cut.asset?.id || cut.assetId;
+      if (!assetId) return;
+      const ref: AssetUsageRef = {
+        sceneId: scene.id,
+        sceneName: scene.name,
+        sceneOrder,
+        cutId: cut.id,
+        cutOrder: cut.order ?? index,
+        cutIndex: index + 1,
+      };
+      const existing = usageMap.get(assetId) || [];
+      existing.push(ref);
+      usageMap.set(assetId, existing);
+    });
+  }
+
+  return usageMap;
+}
+
+function ensureSceneIds(scenes: Scene[]): { scenes: Scene[]; missingCount: number } {
+  let missingCount = 0;
+  const updatedScenes = scenes.map((scene) => {
+    if (typeof scene.id === 'string' && scene.id.trim().length > 0) return scene;
+    missingCount += 1;
+    return { ...scene, id: uuidv4() };
+  });
+
+  return { scenes: updatedScenes, missingCount };
+}
+
 export default function Header() {
-  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel, loadMetadata } = useStore();
+  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel, loadMetadata, loadProject } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
+  const { alert: dialogAlert } = useDialog();
 
   // Recovery dialog state
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
@@ -124,15 +183,50 @@ export default function Header() {
   const [pendingProject, setPendingProject] = useState<PendingProject | null>(null);
   const handleSaveProject = async () => {
     if (!window.electronAPI) {
-      alert('File system access is only available in the desktop app.');
+      window.alert('File system access is only available in the desktop app.');
       return;
     }
 
+    const { scenes: normalizedScenes, missingCount } = ensureSceneIds(scenes);
+    if (missingCount > 0) {
+      await dialogAlert({
+        title: 'Scene ID の自動付与',
+        message: `Scene ID が未設定のシーンが ${missingCount} 件あります。OK を押すと自動付与して保存を続行します。`,
+        variant: 'warning',
+        confirmLabel: 'OK',
+      });
+      loadProject(normalizedScenes);
+    }
+
     // Prepare scenes with relative paths for portability
-    const scenesToSave = prepareScenesForSave(scenes);
+    const scenesToSave = prepareScenesForSave(normalizedScenes);
 
     // Get source panel state for saving
     const sourcePanelState = getSourcePanelState();
+
+    // Reorder asset index by Storyline order (scene/cut order)
+    if (vaultPath && window.electronAPI.loadAssetIndex && window.electronAPI.saveAssetIndex) {
+      try {
+        const orderedIds = getOrderedAssetIdsFromScenes(normalizedScenes);
+        const usageRefs = buildAssetUsageRefs(normalizedScenes);
+        const index = await window.electronAPI.loadAssetIndex(vaultPath);
+        const normalizedAssets = index.assets.map((entry) => ({
+          ...entry,
+          usageRefs: usageRefs.get(entry.id) || [],
+        }));
+        const remaining = normalizedAssets.filter(entry => !orderedIds.includes(entry.id));
+        const ordered = orderedIds
+          .map(id => normalizedAssets.find(entry => entry.id === id))
+          .filter((entry): entry is NonNullable<typeof entry> => !!entry);
+        const newIndex = {
+          ...index,
+          assets: [...ordered, ...remaining],
+        };
+        await window.electronAPI.saveAssetIndex(vaultPath, newIndex);
+      } catch (error) {
+        console.error('Failed to reorder asset index:', error);
+      }
+    }
 
     const projectData = JSON.stringify({
       version: 3, // Version 3 includes source panel state

@@ -16,6 +16,7 @@ import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
 import { generateVideoThumbnail } from './utils/videoUtils';
+import { importFileToVault } from './utils/assetPath';
 import './styles/App.css';
 
 function TrashZone({ isActive }: { isActive: boolean }) {
@@ -288,7 +289,16 @@ function App() {
 
       // Move file to trash if we have the API and no other cuts use this asset
       if (shouldDeleteFile && removedCut?.asset?.path && trashPath && window.electronAPI) {
-        await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
+        const assetId = removedCut.asset.id || removedCut.assetId;
+        if (window.electronAPI.moveToTrashWithMeta) {
+          await window.electronAPI.moveToTrashWithMeta(removedCut.asset.path, trashPath, {
+            assetId,
+            originRefs: [{ sceneId: activeData.sceneId, cutId }],
+            reason: 'trash-drop',
+          });
+        } else {
+          await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
+        }
         // Refresh sidebar after moving to trash
         refreshAllSourceFolders();
       }
@@ -602,7 +612,7 @@ function App() {
       const thumbnailBase64 = await window.electronAPI.readFileAsBase64(outputPath);
 
       const newAssetId = uuidv4();
-      const newAsset: Asset = {
+      const baseAsset: Asset = {
         id: newAssetId,
         name: frameFileName,
         path: outputPath,
@@ -611,8 +621,11 @@ function App() {
         vaultRelativePath: `assets/${frameFileName}`,
       };
 
-      cacheAsset(newAsset);
-      await executeCommand(new AddCutCommand(scene.id, newAsset));
+      const importedAsset = await importFileToVault(outputPath, vaultPath, newAssetId, baseAsset);
+      const finalAsset = importedAsset ?? baseAsset;
+
+      cacheAsset(finalAsset);
+      await executeCommand(new AddCutCommand(scene.id, finalAsset));
 
       alert(`Frame captured!\n\nFile: ${frameFileName}`);
     } catch (error) {

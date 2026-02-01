@@ -2,7 +2,7 @@
  * Metadata store utilities for persisting asset attachments in .metadata.json
  */
 
-import type { MetadataStore, AssetMetadata } from '../types';
+import type { MetadataStore, AssetMetadata, Scene, SceneMetadata } from '../types';
 
 const METADATA_FILE = '.metadata.json';
 const CURRENT_VERSION = 1;
@@ -16,13 +16,13 @@ export async function loadMetadataStore(vaultPath: string): Promise<MetadataStor
   const metadataPath = `${vaultPath}/${METADATA_FILE}`.replace(/\\/g, '/');
 
   if (!window.electronAPI) {
-    return { version: CURRENT_VERSION, metadata: {} };
+    return { version: CURRENT_VERSION, metadata: {}, sceneMetadata: {} };
   }
 
   try {
     const exists = await window.electronAPI.pathExists(metadataPath);
     if (!exists) {
-      return { version: CURRENT_VERSION, metadata: {} };
+      return { version: CURRENT_VERSION, metadata: {}, sceneMetadata: {} };
     }
 
     // Load project from path returns JSON parsed data
@@ -31,14 +31,18 @@ export async function loadMetadataStore(vaultPath: string): Promise<MetadataStor
       const data = result.data as MetadataStore;
       // Ensure version compatibility
       if (typeof data.version === 'number' && typeof data.metadata === 'object') {
-        return data;
+        return {
+          version: data.version,
+          metadata: data.metadata || {},
+          sceneMetadata: data.sceneMetadata || {},
+        };
       }
     }
   } catch (error) {
     console.error('Failed to load metadata store:', error);
   }
 
-  return { version: CURRENT_VERSION, metadata: {} };
+  return { version: CURRENT_VERSION, metadata: {}, sceneMetadata: {} };
 }
 
 /**
@@ -99,6 +103,61 @@ export function updateAssetMetadata(
       ...store.metadata,
       [metadata.assetId]: metadata,
     },
+  };
+}
+
+export function upsertSceneMetadata(
+  store: MetadataStore,
+  scene: Scene
+): MetadataStore {
+  const sceneMetadata: SceneMetadata = {
+    id: scene.id,
+    name: scene.name,
+    notes: scene.notes,
+    updatedAt: new Date().toISOString(),
+  };
+
+  return {
+    ...store,
+    sceneMetadata: {
+      ...(store.sceneMetadata || {}),
+      [scene.id]: sceneMetadata,
+    },
+  };
+}
+
+export function removeSceneMetadata(
+  store: MetadataStore,
+  sceneId: string
+): MetadataStore {
+  if (!store.sceneMetadata) return store;
+  const { [sceneId]: _, ...remaining } = store.sceneMetadata;
+  return {
+    ...store,
+    sceneMetadata: remaining,
+  };
+}
+
+export function syncSceneMetadata(
+  store: MetadataStore,
+  scenes: Scene[]
+): MetadataStore {
+  const nextSceneMetadata: Record<string, SceneMetadata> = {
+    ...(store.sceneMetadata || {}),
+  };
+
+  for (const scene of scenes) {
+    nextSceneMetadata[scene.id] = {
+      id: scene.id,
+      name: scene.name,
+      notes: scene.notes,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
+  return {
+    ...store,
+    sceneMetadata: nextSceneMetadata,
   };
 }
 
