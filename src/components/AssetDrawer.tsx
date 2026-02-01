@@ -9,6 +9,7 @@ export default function AssetDrawer() {
     assetDrawerOpen,
     closeAssetDrawer,
     toggleAssetDrawer,
+    closeDetailsPanel,
   } = useStore();
 
   const [isDragging, setIsDragging] = useState(false);
@@ -39,7 +40,8 @@ export default function AssetDrawer() {
   // Track drag state from AssetPanel
   const handleDragStart = useCallback(() => {
     setIsDragging(true);
-  }, []);
+    closeDetailsPanel();
+  }, [closeDetailsPanel]);
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);

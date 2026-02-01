@@ -176,6 +176,7 @@ export default function AssetPanel({
     trashPath,
     getCutGroup,
     updateGroupCutOrder,
+    closeDetailsPanel,
   } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -612,7 +613,12 @@ export default function AssetPanel({
       originalPath: asset.path,
     };
     e.dataTransfer.setData('application/json', JSON.stringify(dragAsset));
+    e.dataTransfer.setData('text/scene-deck-asset', '1');
     e.dataTransfer.effectAllowed = 'copy';
+    closeDetailsPanel();
+    if (mode === 'drawer' && onClose) {
+      requestAnimationFrame(() => onClose());
+    }
   };
 
   // Handle double-click to add to timeline (drawer mode)

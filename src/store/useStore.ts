@@ -75,6 +75,8 @@ interface AppState {
   assetDrawerOpen: boolean;
   // Sidebar state
   sidebarOpen: boolean;
+  // Details panel state
+  detailsPanelOpen: boolean;
 
   // Actions - Project
   setProjectLoaded: (loaded: boolean) => void;
@@ -174,6 +176,9 @@ interface AppState {
   openSidebar: () => void;
   closeSidebar: () => void;
   toggleSidebar: () => void;
+  // Actions - Details panel
+  openDetailsPanel: () => void;
+  closeDetailsPanel: () => void;
 
   // Actions - Asset cache
   cacheAsset: (asset: Asset) => void;
@@ -242,6 +247,7 @@ export const useStore = create<AppState>((set, get) => ({
   isImportingAsset: null,
   assetDrawerOpen: false,
   sidebarOpen: false,
+  detailsPanelOpen: false,
 
   // Project actions
   setProjectLoaded: (loaded) => set({ projectLoaded: loaded }),
@@ -269,6 +275,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedCutIds: new Set(),
       lastSelectedCutId: null,
       selectionType: null,
+      detailsPanelOpen: false,
     });
   },
 
@@ -289,6 +296,7 @@ export const useStore = create<AppState>((set, get) => ({
     sourceFolders: [],
     assetCache: new Map(),
     selectedGroupId: null,
+    detailsPanelOpen: false,
   }),
 
   loadProject: (scenes) => set({ scenes }),
@@ -455,12 +463,14 @@ export const useStore = create<AppState>((set, get) => ({
     set((state) => {
       const currentStore = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
       const updatedStore = removeSceneMetadata(currentStore, sceneId);
+      const clearedSelection = state.selectedSceneId === sceneId;
       return {
         scenes: state.scenes
           .filter((s) => s.id !== sceneId)
           .map((s, idx) => ({ ...s, order: idx })),
         selectedSceneId: state.selectedSceneId === sceneId ? null : state.selectedSceneId,
         selectionType: state.selectedSceneId === sceneId ? null : state.selectionType,
+        detailsPanelOpen: clearedSelection ? false : state.detailsPanelOpen,
         metadataStore: updatedStore,
       };
     });
@@ -706,6 +716,7 @@ export const useStore = create<AppState>((set, get) => ({
       ),
       selectedCutId: state.selectedCutId === cutId ? null : state.selectedCutId,
       selectionType: state.selectedCutId === cutId ? null : state.selectionType,
+      detailsPanelOpen: state.selectedCutId === cutId ? false : state.detailsPanelOpen,
     }));
 
     return cutToRemove;
@@ -901,6 +912,7 @@ export const useStore = create<AppState>((set, get) => ({
     lastSelectedCutId: null,
     selectedGroupId: null,  // Clear group selection
     selectionType: sceneId ? 'scene' : null,
+    detailsPanelOpen: !!sceneId,
   }),
 
   selectCut: (cutId) => set((state) => {
@@ -920,6 +932,7 @@ export const useStore = create<AppState>((set, get) => ({
       lastSelectedCutId: cutId,
       selectedGroupId: null,  // Clear group selection
       selectionType: cutId ? 'cut' : null,
+      detailsPanelOpen: !!cutId,
     };
   }),
 
@@ -953,6 +966,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedSceneId: sceneId,
       selectedGroupId: null,  // Clear group selection
       selectionType: newSelectedIds.size > 0 ? 'cut' : null,
+      detailsPanelOpen: newSelectedIds.size > 0,
     };
   }),
 
@@ -973,6 +987,7 @@ export const useStore = create<AppState>((set, get) => ({
         selectedSceneId: sceneId,
         selectedGroupId: null,  // Clear group selection
         selectionType: 'cut',
+        detailsPanelOpen: true,
       };
     }
 
@@ -1005,6 +1020,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedSceneId: allCuts[endIndex]?.sceneId || state.selectedSceneId,
       selectedGroupId: null,  // Clear group selection
       selectionType: 'cut',
+      detailsPanelOpen: newSelectedIds.size > 0,
       // Don't update lastSelectedCutId to allow extending the range
     };
   }),
@@ -1030,6 +1046,7 @@ export const useStore = create<AppState>((set, get) => ({
       lastSelectedCutId: firstCutId,
       selectedSceneId: sceneId,
       selectionType: cutIds.length > 0 ? 'cut' : null,
+      detailsPanelOpen: cutIds.length > 0,
     };
   }),
 
@@ -1038,6 +1055,7 @@ export const useStore = create<AppState>((set, get) => ({
     selectedCutId: null,
     lastSelectedCutId: null,
     selectionType: null,
+    detailsPanelOpen: false,
   }),
 
   isMultiSelected: (cutId) => get().selectedCutIds.has(cutId),
@@ -1108,6 +1126,7 @@ export const useStore = create<AppState>((set, get) => ({
       lastSelectedCutId: newCutIds[newCutIds.length - 1] || null,
       selectedSceneId: targetSceneId,
       selectionType: 'cut',
+      detailsPanelOpen: newCutIds.length > 0,
     }));
 
     return newCutIds;
@@ -1140,6 +1159,9 @@ export const useStore = create<AppState>((set, get) => ({
   openSidebar: () => set({ sidebarOpen: true }),
   closeSidebar: () => set({ sidebarOpen: false }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
+  // Details panel actions
+  openDetailsPanel: () => set({ detailsPanelOpen: true }),
+  closeDetailsPanel: () => set({ detailsPanelOpen: false }),
 
   // Asset cache actions
   cacheAsset: (asset) => set((state) => {
@@ -1400,6 +1422,7 @@ export const useStore = create<AppState>((set, get) => ({
       selectedCutIds: new Set(),
       lastSelectedCutId: null,
       selectionType: groupId ? 'cut' : null, // Use 'cut' type for details panel
+      detailsPanelOpen: !!groupId,
     });
   },
 

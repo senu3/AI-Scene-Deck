@@ -15,7 +15,7 @@ import './Storyline.css';
 interface PlaceholderState {
   sceneId: string;
   insertIndex: number;
-  type: 'external' | 'move';
+  type: 'external' | 'move' | 'asset';
 }
 
 // Helper to detect media type from filename
@@ -60,19 +60,25 @@ function hasSupportedMediaDrag(dataTransfer: DataTransfer): boolean {
   return Array.from(dataTransfer.files || []).some(file => getMediaType(file.name) !== null);
 }
 
+function hasAssetPanelDrag(dataTransfer: DataTransfer): boolean {
+  return dataTransfer.types.includes('text/scene-deck-asset')
+    || dataTransfer.types.includes('application/json');
+}
+
 interface StorylineProps {
   activeId: string | null;
   activeType: 'cut' | 'scene' | null;
 }
 
 export default function Storyline({ activeId }: StorylineProps) {
-  const { scenes, selectedSceneId, selectScene, vaultPath, createCutFromImport } = useStore();
+  const { scenes, selectedSceneId, selectScene, vaultPath, createCutFromImport, closeDetailsPanel } = useStore();
   const { executeCommand } = useHistoryStore();
   const { active, over } = useDndContext();
 
   // Placeholder state for cross-scene moves and external file drops
   const [placeholder, setPlaceholder] = useState<PlaceholderState | null>(null);
   const [externalDragFiles, setExternalDragFiles] = useState<File[] | null>(null);
+  const [isExternalDragActive, setIsExternalDragActive] = useState(false);
 
   // Track the source scene for the active drag (for cross-scene detection)
   const activeData = active?.data?.current as { sceneId?: string; type?: string } | undefined;
@@ -129,6 +135,7 @@ export default function Storyline({ activeId }: StorylineProps) {
     // Clear placeholder state
     setPlaceholder(null);
     setExternalDragFiles(null);
+    setIsExternalDragActive(false);
 
     try {
       const data = e.dataTransfer.getData('application/json');
@@ -185,61 +192,89 @@ export default function Storyline({ activeId }: StorylineProps) {
     const scene = scenes.find(s => s.id === sceneId);
     if (!scene) return 0;
 
-    const cutElements = cutsContainer.querySelectorAll('.cut-card:not(.placeholder-card)');
+    const cutElements = cutsContainer.querySelectorAll('.cut-card:not(.placeholder-card), .cut-group-card');
     if (cutElements.length === 0) return 0;
 
     for (let i = 0; i < cutElements.length; i++) {
       const rect = cutElements[i].getBoundingClientRect();
       const midY = rect.top + rect.height / 2;
-      if (clientY < midY) {
-        return i;
-      }
+      if (clientY < midY) return i;
     }
     return scene.cuts.length;
   }, [scenes]);
 
   // External file drag handlers for scenes
   const handleExternalDragEnter = useCallback((_sceneId: string, e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes('Files')) return;
+    if (!e.dataTransfer.types.includes('Files') && !hasAssetPanelDrag(e.dataTransfer)) return;
     e.preventDefault();
     e.stopPropagation();
-
-    const files = getSupportedMediaFiles(e.dataTransfer);
-    if (files.length > 0) {
-      setExternalDragFiles(files);
-      return;
-    }
-
-    if (hasSupportedMediaDrag(e.dataTransfer)) {
-      setExternalDragFiles([]);
-    }
-  }, []);
-
-  const handleExternalDragOver = useCallback((sceneId: string, e: React.DragEvent, cutsContainer: HTMLElement) => {
-    if (!e.dataTransfer.types.includes('Files')) return;
-    e.preventDefault();
-    e.stopPropagation();
-
-    const supportedFiles = getSupportedMediaFiles(e.dataTransfer);
-    if (supportedFiles.length === 0 && !hasSupportedMediaDrag(e.dataTransfer) && !externalDragFiles) {
-      setPlaceholder(prev => (prev?.sceneId === sceneId && prev?.type === 'external') ? null : prev);
+    closeDetailsPanel();
+    setIsExternalDragActive(true);
+    if (hasAssetPanelDrag(e.dataTransfer)) {
       setExternalDragFiles(null);
       return;
     }
 
-    const insertIndex = calculateInsertIndex(sceneId, e.clientY, cutsContainer);
-    setPlaceholder(prev => {
-      // Only update if something changed to avoid unnecessary re-renders
-      if (prev?.sceneId === sceneId && prev?.insertIndex === insertIndex && prev?.type === 'external') {
-        return prev;
+    if (e.dataTransfer.types.includes('Files')) {
+      const files = getSupportedMediaFiles(e.dataTransfer);
+      if (files.length > 0) {
+        setExternalDragFiles(files);
+        return;
       }
-      return {
-        sceneId,
-        insertIndex,
-        type: 'external',
-      };
-    });
-  }, [calculateInsertIndex, externalDragFiles]);
+
+      if (hasSupportedMediaDrag(e.dataTransfer)) {
+        setExternalDragFiles([]);
+      }
+      return;
+    }
+
+  }, [closeDetailsPanel]);
+
+  const handleExternalDragOver = useCallback((sceneId: string, e: React.DragEvent, cutsContainer: HTMLElement) => {
+    if (!e.dataTransfer.types.includes('Files') && !hasAssetPanelDrag(e.dataTransfer)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    closeDetailsPanel();
+    setIsExternalDragActive(true);
+    if (hasAssetPanelDrag(e.dataTransfer)) {
+      const insertIndex = calculateInsertIndex(sceneId, e.clientY, cutsContainer);
+      setPlaceholder(prev => {
+        if (prev?.sceneId === sceneId && prev?.insertIndex === insertIndex && prev?.type === 'asset') {
+          return prev;
+        }
+        return {
+          sceneId,
+          insertIndex,
+          type: 'asset',
+        };
+      });
+      return;
+    }
+
+    if (e.dataTransfer.types.includes('Files')) {
+      const supportedFiles = getSupportedMediaFiles(e.dataTransfer);
+      if (supportedFiles.length === 0 && !hasSupportedMediaDrag(e.dataTransfer) && !externalDragFiles) {
+        setPlaceholder(prev => (prev?.sceneId === sceneId && prev?.type === 'external') ? null : prev);
+        setExternalDragFiles(null);
+        return;
+      }
+
+      const insertIndex = calculateInsertIndex(sceneId, e.clientY, cutsContainer);
+      setPlaceholder(prev => {
+        // Only update if something changed to avoid unnecessary re-renders
+        if (prev?.sceneId === sceneId && prev?.insertIndex === insertIndex && prev?.type === 'external') {
+          return prev;
+        }
+        return {
+          sceneId,
+          insertIndex,
+          type: 'external',
+        };
+      });
+      return;
+    }
+
+  }, [calculateInsertIndex, externalDragFiles, closeDetailsPanel]);
 
   const handleExternalDragLeave = useCallback((sceneId: string, e: React.DragEvent) => {
     // Only clear if truly leaving the scene (not entering a child)
@@ -247,15 +282,38 @@ export default function Storyline({ activeId }: StorylineProps) {
     const currentTarget = e.currentTarget as HTMLElement;
 
     if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
-      if (placeholder?.sceneId === sceneId && placeholder?.type === 'external') {
+      if (placeholder?.sceneId === sceneId && (placeholder?.type === 'external' || placeholder?.type === 'asset')) {
         setPlaceholder(null);
         setExternalDragFiles(null);
       }
+      setIsExternalDragActive(false);
     }
   }, [placeholder]);
 
+  const handleBackgroundClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.cut-card')) return;
+    if (target.closest('.scene-header')) return;
+    if (target.closest('.scene-menu')) return;
+    if (target.closest('.scene-menu-btn')) return;
+    if (target.closest('.scene-name-input')) return;
+    if (target.closest('.add-scene-btn')) return;
+    selectScene(null);
+  };
+
+  const handleTimelineDragLeave = (e: React.DragEvent) => {
+    const relatedTarget = e.relatedTarget as HTMLElement | null;
+    const currentTarget = e.currentTarget as HTMLElement;
+
+    if (!relatedTarget || !currentTarget.contains(relatedTarget)) {
+      setPlaceholder(null);
+      setExternalDragFiles(null);
+      setIsExternalDragActive(false);
+    }
+  };
+
   return (
-    <div className="timeline">
+    <div className="timeline" onClick={handleBackgroundClick} onDragLeave={handleTimelineDragLeave}>
       <div className="timeline-content">
         {scenes.map((scene) => (
           <SceneColumn
@@ -270,6 +328,7 @@ export default function Storyline({ activeId }: StorylineProps) {
             activeId={activeId}
             placeholder={placeholder?.sceneId === scene.id ? placeholder : null}
             externalDragFiles={externalDragFiles}
+            isExternalDragActive={isExternalDragActive}
             onExternalDragEnter={(e) => handleExternalDragEnter(scene.id, e)}
             onExternalDragOver={(e, container) => handleExternalDragOver(scene.id, e, container)}
             onExternalDragLeave={(e) => handleExternalDragLeave(scene.id, e)}
@@ -311,6 +370,7 @@ interface SceneColumnProps {
   activeId: string | null;
   placeholder: PlaceholderState | null;
   externalDragFiles: File[] | null;
+  isExternalDragActive: boolean;
   onExternalDragEnter: (e: React.DragEvent) => void;
   onExternalDragOver: (e: React.DragEvent, cutsContainer: HTMLElement) => void;
   onExternalDragLeave: (e: React.DragEvent) => void;
@@ -329,6 +389,7 @@ function SceneColumn({
   activeId,
   placeholder,
   externalDragFiles,
+  isExternalDragActive,
   onExternalDragEnter,
   onExternalDragOver,
   onExternalDragLeave,
@@ -361,6 +422,12 @@ function SceneColumn({
   // Handle drag over for external files
   const handleDragOver = (e: React.DragEvent) => {
     if (e.dataTransfer.types.includes('Files') && (getSupportedMediaFiles(e.dataTransfer).length > 0 || hasSupportedMediaDrag(e.dataTransfer) || externalDragFiles)) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (cutsContainerRef.current) {
+        onExternalDragOver(e, cutsContainerRef.current);
+      }
+    } else if (hasAssetPanelDrag(e.dataTransfer)) {
       e.preventDefault();
       e.stopPropagation();
       if (cutsContainerRef.current) {
@@ -592,7 +659,10 @@ function SceneColumn({
     >
       <div
         className="scene-header"
-        onClick={onSelect}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
       >
         <div className="scene-indicator">
           <Circle size={16} />
@@ -665,12 +735,6 @@ function SceneColumn({
           onDragLeave={onExternalDragLeave}
         >
           {renderItems()}
-
-          {!placeholder && (
-            <div className="drop-placeholder">
-              <Plus size={20} />
-            </div>
-          )}
         </div>
       </SortableContext>
     </div>

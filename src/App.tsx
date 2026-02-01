@@ -1,4 +1,4 @@
-import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin, useDroppable, useSensors, useSensor, PointerSensor } from '@dnd-kit/core';
+import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin, useDroppable, useSensors, useSensor, PointerSensor, useDndMonitor } from '@dnd-kit/core';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
@@ -37,6 +37,13 @@ function TrashZone({ isActive }: { isActive: boolean }) {
       <span>Drop to remove</span>
     </div>
   );
+}
+
+function DndMonitorShim({ onDragStart }: { onDragStart: () => void }) {
+  useDndMonitor({
+    onDragStart,
+  });
+  return null;
 }
 
 // Helper to detect media type from filename
@@ -91,6 +98,9 @@ function App() {
     getCutGroup,
     removeCutFromGroup,
     updateGroupCutOrder,
+    selectionType,
+    detailsPanelOpen,
+    closeDetailsPanel,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -251,6 +261,7 @@ function App() {
     setActiveId(event.active.id as string);
     setActiveType(data?.type === 'scene' ? 'scene' : 'cut');
     dragDataRef.current = data || {};
+    closeDetailsPanel();
   };
 
   const handleDragOver = (_event: DragOverEvent) => {
@@ -422,8 +433,9 @@ function App() {
     if (e.dataTransfer.types.includes('Files')) {
       e.preventDefault();
       e.stopPropagation();
+      closeDetailsPanel();
     }
-  }, []);
+  }, [closeDetailsPanel]);
 
   const handleWorkspaceDragLeave = useCallback((_e: React.DragEvent) => {
     // No-op, kept for consistency
@@ -648,6 +660,7 @@ function App() {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      <DndMonitorShim onDragStart={closeDetailsPanel} />
       <div className="app">
         <AssetDrawer />
         <Header />
@@ -667,7 +680,9 @@ function App() {
               isExporting={isExporting}
             />
           </main>
-          <DetailsPanel />
+          <div className={`details-panel-wrapper ${detailsPanelOpen && selectionType ? 'open' : ''}`}>
+            <DetailsPanel />
+          </div>
         </div>
         <TrashZone isActive={activeType === 'cut'} />
         {showPreview && (
