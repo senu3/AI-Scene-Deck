@@ -87,6 +87,7 @@ function App() {
     toggleSidebar,
     getCutGroup,
     removeCutFromGroup,
+    updateGroupCutOrder,
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
@@ -97,6 +98,31 @@ function App() {
   const [exportResolution, setExportResolution] = useState({ name: 'Free', width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
+
+  const insertCutsIntoGroup = useCallback((sceneId: string, groupId: string, cutIds: string[], insertIndex?: number) => {
+    const scene = scenes.find(s => s.id === sceneId);
+    const group = scene?.groups?.find(g => g.id === groupId);
+    if (!group) return;
+
+    const incoming = cutIds.filter(id => !group.cutIds.includes(id));
+    if (incoming.length === 0) return;
+
+    const nextOrder = [...group.cutIds];
+    const safeIndex = insertIndex !== undefined
+      ? Math.min(Math.max(insertIndex, 0), nextOrder.length)
+      : nextOrder.length;
+    nextOrder.splice(safeIndex, 0, ...incoming);
+    updateGroupCutOrder(sceneId, groupId, nextOrder);
+  }, [scenes, updateGroupCutOrder]);
+
+  const removeCutsFromGroups = useCallback((sceneId: string, cutIds: string[], keepGroupId?: string) => {
+    for (const cutId of cutIds) {
+      const group = getCutGroup(sceneId, cutId);
+      if (group && group.id !== keepGroupId) {
+        removeCutFromGroup(sceneId, group.id, cutId);
+      }
+    }
+  }, [getCutGroup, removeCutFromGroup]);
 
   // Configure drag sensors with distance activation constraint
   const sensors = useSensors(
@@ -245,7 +271,7 @@ function App() {
       return;
     }
 
-    const overData = over.data.current as { sceneId?: string; index?: number; type?: string } | undefined;
+    const overData = over.data.current as { sceneId?: string; index?: number; type?: string; groupId?: string } | undefined;
 
     // Handle trash drop - move file to .trash folder
     if (overData?.type === 'trash' && activeData.type === 'cut' && activeData.sceneId) {
@@ -299,13 +325,17 @@ function App() {
       // Check if this cut is in a group
       const cutGroup = getCutGroup(fromSceneId, cutId);
 
-      // Check if the drop target is inside the same group
+      // Check if the drop target is inside a group
       const overId = over.id as string;
       const overCutGroup = overData.type !== 'dropzone' && overData.type !== 'group'
         ? getCutGroup(toSceneId, overId)
         : undefined;
 
-      const isMovingOutOfGroup = cutGroup && (!overCutGroup || overCutGroup.id !== cutGroup.id);
+      const targetGroupId = overCutGroup?.id || overData.groupId;
+      const targetGroupInsertIndex = overCutGroup
+        ? Math.max(0, overCutGroup.cutIds.indexOf(overId))
+        : undefined;
+      const isMovingOutOfGroup = cutGroup && (!targetGroupId || targetGroupId !== cutGroup.id);
 
       // Check if this is a multi-select drag
       const selectedIds = getSelectedCutIds();
@@ -317,17 +347,19 @@ function App() {
           (scenes.find(s => s.id === toSceneId)?.cuts.length || 0) :
           (overData.index ?? 0);
 
-        executeCommand(new MoveCutsToSceneCommand(selectedIds, toSceneId, toIndex)).catch((error) => {
+        try {
+          await executeCommand(new MoveCutsToSceneCommand(selectedIds, toSceneId, toIndex));
+        } catch (error) {
           console.error('Failed to move cuts:', error);
-        });
+        }
 
         // Remove from group if moving out
-        if (isMovingOutOfGroup && cutGroup) {
-          for (const id of selectedIds) {
-            if (cutGroup.cutIds.includes(id)) {
-              removeCutFromGroup(fromSceneId, cutGroup.id, id);
-            }
-          }
+        if (isMovingOutOfGroup) {
+          removeCutsFromGroups(fromSceneId, selectedIds, targetGroupId);
+        }
+
+        if (targetGroupId) {
+          insertCutsIntoGroup(toSceneId, targetGroupId, selectedIds, targetGroupInsertIndex);
         }
       } else if (fromSceneId === toSceneId) {
         // Single drag: Reorder within same scene
@@ -338,23 +370,35 @@ function App() {
         const toIndex = overData.type === 'dropzone' ? scene.cuts.length : (overData.index ?? 0);
 
         if (fromIndex !== toIndex) {
-          executeCommand(new ReorderCutsCommand(fromSceneId, cutId, toIndex, fromIndex)).catch((error) => {
+          try {
+            await executeCommand(new ReorderCutsCommand(fromSceneId, cutId, toIndex, fromIndex));
+          } catch (error) {
             console.error('Failed to reorder cuts:', error);
-          });
-
-          // Remove from group if moving out of the group
-          if (isMovingOutOfGroup && cutGroup) {
-            removeCutFromGroup(fromSceneId, cutGroup.id, cutId);
           }
+        }
+
+        // Remove from group if moving out of the group
+        if (isMovingOutOfGroup && cutGroup) {
+          removeCutFromGroup(fromSceneId, cutGroup.id, cutId);
+        }
+
+        if (targetGroupId && targetGroupId !== cutGroup?.id) {
+          insertCutsIntoGroup(toSceneId, targetGroupId, [cutId], targetGroupInsertIndex);
         }
       } else {
         // Single drag: Move between scenes (automatically removes from group in store)
         const toIndex = overData.type === 'dropzone' ?
           (scenes.find(s => s.id === toSceneId)?.cuts.length || 0) :
           (overData.index ?? 0);
-        executeCommand(new MoveCutBetweenScenesCommand(fromSceneId, toSceneId, cutId, toIndex)).catch((error) => {
+        try {
+          await executeCommand(new MoveCutBetweenScenesCommand(fromSceneId, toSceneId, cutId, toIndex));
+        } catch (error) {
           console.error('Failed to move cut between scenes:', error);
-        });
+        }
+
+        if (targetGroupId) {
+          insertCutsIntoGroup(toSceneId, targetGroupId, [cutId], targetGroupInsertIndex);
+        }
       }
     }
   };

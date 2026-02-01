@@ -94,6 +94,7 @@ interface FinalizeClipOptions {
   outputPath: string;
   inPoint: number;
   outPoint: number;
+  reverse?: boolean;
 }
 
 interface FinalizeClipResult {

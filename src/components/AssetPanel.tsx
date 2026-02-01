@@ -174,6 +174,8 @@ export default function AssetPanel({
     pasteCuts,
     getAsset,
     trashPath,
+    getCutGroup,
+    updateGroupCutOrder,
   } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -459,7 +461,7 @@ export default function AssetPanel({
     setCutContextMenu(null);
   };
 
-  const handleCutMenuFinalizeClip = async () => {
+  const handleCutMenuFinalizeClip = async (reverseOutput: boolean) => {
     if (!cutContextMenu) return;
     const { sceneId, cutId } = cutContextMenu;
     const scene = scenes.find((s) => s.id === sceneId);
@@ -490,6 +492,14 @@ export default function AssetPanel({
       return;
     }
 
+    if (reverseOutput) {
+      const proceed = confirm('Reverse export is memory intensive and may temporarily pause the app.\nContinue?');
+      if (!proceed) {
+        setCutContextMenu(null);
+        return;
+      }
+    }
+
     try {
       const assetsFolder = await window.electronAPI.ensureAssetsFolder(vaultPath);
       if (!assetsFolder) {
@@ -498,20 +508,44 @@ export default function AssetPanel({
         return;
       }
 
+      const clipStart = Math.min(cut.inPoint, cut.outPoint);
+      const clipEnd = Math.max(cut.inPoint, cut.outPoint);
+      const clipDuration = Math.abs(cut.outPoint - cut.inPoint);
+
       const baseName = asset.name.replace(/\.[^/.]+$/, '');
       const timestamp = Date.now();
-      const clipFileName = `${baseName}_clip_${timestamp}.mp4`;
+      const clipFileName = reverseOutput
+        ? `${baseName}_clip_reverse_${timestamp}.mp4`
+        : `${baseName}_clip_${timestamp}.mp4`;
       const outputPath = `${assetsFolder}/${clipFileName}`.replace(/\\/g, '/');
 
       const result = await window.electronAPI.finalizeClip({
         sourcePath: asset.path,
         outputPath,
-        inPoint: cut.inPoint,
-        outPoint: cut.outPoint,
+        inPoint: clipStart,
+        outPoint: clipEnd,
+        reverse: reverseOutput,
       });
 
       if (result.success) {
-        alert(`Clip exported to vault!\n\nFile: ${clipFileName}\nSize: ${(result.fileSize! / 1024 / 1024).toFixed(2)} MB`);
+        const newCutId = await createCutFromImport(sceneId, {
+          assetId: uuidv4(),
+          name: clipFileName,
+          sourcePath: outputPath,
+          type: 'video',
+          fileSize: result.fileSize,
+          preferredDuration: clipDuration,
+        }, cutContextMenu.index + 1, vaultPath);
+
+        const latestGroup = getCutGroup(sceneId, cutId);
+        if (latestGroup && !latestGroup.cutIds.includes(newCutId)) {
+          const insertAt = Math.max(0, latestGroup.cutIds.indexOf(cutId) + 1);
+          const nextOrder = [...latestGroup.cutIds];
+          nextOrder.splice(insertAt, 0, newCutId);
+          updateGroupCutOrder(sceneId, latestGroup.id, nextOrder);
+        }
+
+        alert(`Clip exported and added to timeline!\n\nFile: ${clipFileName}\nSize: ${(result.fileSize! / 1024 / 1024).toFixed(2)} MB`);
       } else {
         alert(`Failed to export clip: ${result.error}`);
       }
@@ -521,6 +555,9 @@ export default function AssetPanel({
 
     setCutContextMenu(null);
   };
+
+  const handleCutMenuFinalizeClipNormal = () => handleCutMenuFinalizeClip(false);
+  const handleCutMenuReverseClip = () => handleCutMenuFinalizeClip(true);
 
   const handleDeleteUnusedAsset = async () => {
     if (!unusedContextMenu) return;
@@ -772,7 +809,8 @@ export default function AssetPanel({
           onPaste={handleCutMenuPaste}
           onDelete={handleCutMenuDelete}
           onMoveToScene={handleCutMenuMove}
-          onFinalizeClip={handleCutMenuFinalizeClip}
+          onFinalizeClip={handleCutMenuFinalizeClipNormal}
+          onReverseClip={handleCutMenuReverseClip}
         />
       )}
 

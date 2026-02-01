@@ -86,6 +86,7 @@ export interface FinalizeClipOptions {
   outputPath: string;
   inPoint: number;
   outPoint: number;
+  reverse?: boolean;
 }
 
 export interface FinalizeClipResult {

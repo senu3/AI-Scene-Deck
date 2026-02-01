@@ -1341,6 +1341,7 @@ interface FinalizeClipOptions {
   outputPath: string;
   inPoint: number;
   outPoint: number;
+  reverse?: boolean;
 }
 
 // Show save dialog for clip export
@@ -1360,7 +1361,7 @@ ipcMain.handle('show-save-clip-dialog', async (_, defaultName: string) => {
 
 // Finalize video clip using ffmpeg
 ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
-  const { sourcePath, outputPath, inPoint, outPoint } = options;
+  const { sourcePath, outputPath, inPoint, outPoint, reverse } = options;
 
   // Get ffmpeg path - it can be null if not found
   const ffmpegBinary = ffmpegPath as string | null;
@@ -1369,63 +1370,100 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
   }
 
   return enqueueFfmpegHeavy(() => new Promise<{ success: boolean; outputPath?: string; fileSize?: number; error?: string }>((resolve) => {
-    // Calculate duration
-    const duration = outPoint - inPoint;
+    const start = Math.min(inPoint, outPoint);
+    const duration = Math.abs(outPoint - inPoint);
 
-    // Build ffmpeg arguments
-    // -ss before -i for fast seeking (input seeking)
-    // -t for duration
-    // -c copy for fast stream copy (no re-encoding)
-    const args = [
-      '-y',                    // Overwrite output file
-      '-ss', inPoint.toString(), // Seek to start position
-      '-i', sourcePath,        // Input file
-      '-t', duration.toString(), // Duration
-      '-c', 'copy',            // Copy streams without re-encoding
-      '-avoid_negative_ts', 'make_zero', // Fix timestamp issues
+    const runFfmpeg = (args: string[]) => new Promise<{ success: boolean; outputPath?: string; fileSize?: number; error?: string }>((innerResolve) => {
+      console.log('[ffmpeg] Running:', ffmpegBinary, args.join(' '));
+      const ffmpegProcess = spawn(ffmpegBinary, args);
+      let stderr = '';
+
+      ffmpegProcess.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+        console.log('[ffmpeg]', data.toString());
+      });
+
+      ffmpegProcess.on('close', (code: number | null) => {
+        if (code === 0) {
+          if (fs.existsSync(outputPath)) {
+            const stats = fs.statSync(outputPath);
+            innerResolve({
+              success: true,
+              outputPath,
+              fileSize: stats.size,
+            });
+          } else {
+            innerResolve({
+              success: false,
+              error: 'Output file was not created',
+            });
+          }
+        } else {
+          innerResolve({
+            success: false,
+            error: `ffmpeg exited with code ${code}: ${stderr}`,
+          });
+        }
+      });
+
+      ffmpegProcess.on('error', (err: Error) => {
+        innerResolve({
+          success: false,
+          error: `Failed to start ffmpeg: ${err.message}`,
+        });
+      });
+    });
+
+    const baseArgs = [
+      '-y',
+      '-ss', start.toString(),
+      '-i', sourcePath,
+      '-t', duration.toString(),
+    ];
+
+    if (!reverse) {
+      const args = [
+        ...baseArgs,
+        '-c', 'copy',
+        '-avoid_negative_ts', 'make_zero',
+        outputPath
+      ];
+      runFfmpeg(args).then(resolve);
+      return;
+    }
+
+    const reverseArgs = [
+      ...baseArgs,
+      '-vf', 'reverse',
+      '-af', 'areverse',
+      '-c:v', 'libx264',
+      '-c:a', 'aac',
+      '-preset', 'veryfast',
+      '-movflags', '+faststart',
       outputPath
     ];
 
-    console.log('[ffmpeg] Running:', ffmpegBinary, args.join(' '));
-
-    const ffmpegProcess = spawn(ffmpegBinary, args);
-
-    let stderr = '';
-
-    ffmpegProcess.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
-      console.log('[ffmpeg]', data.toString());
-    });
-
-    ffmpegProcess.on('close', (code: number | null) => {
-      if (code === 0) {
-        // Verify output file exists
-        if (fs.existsSync(outputPath)) {
-          const stats = fs.statSync(outputPath);
-          resolve({
-            success: true,
-            outputPath,
-            fileSize: stats.size,
-          });
-        } else {
-          resolve({
-            success: false,
-            error: 'Output file was not created',
-          });
-        }
-      } else {
-        resolve({
-          success: false,
-          error: `ffmpeg exited with code ${code}: ${stderr}`,
-        });
+    runFfmpeg(reverseArgs).then((result) => {
+      if (result.success) {
+        resolve(result);
+        return;
       }
-    });
 
-    ffmpegProcess.on('error', (err: Error) => {
-      resolve({
-        success: false,
-        error: `Failed to start ffmpeg: ${err.message}`,
-      });
+      if (result.error && /matches no streams|Stream specifier/i.test(result.error)) {
+        const noAudioArgs = [
+          ...baseArgs,
+          '-vf', 'reverse',
+          '-an',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-movflags', '+faststart',
+          outputPath
+        ];
+        runFfmpeg(noAudioArgs).then(resolve);
+        return;
+      }
+
+      resolve(result);
     });
   }));
 });

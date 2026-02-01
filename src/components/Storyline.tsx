@@ -28,6 +28,38 @@ function getMediaType(filename: string): 'image' | 'video' | null {
   return null;
 }
 
+function getSupportedMediaFiles(dataTransfer: DataTransfer): File[] {
+  const items = Array.from(dataTransfer.items || []);
+  if (items.length > 0) {
+    return items
+      .filter(item => item.kind === 'file')
+      .map(item => item.getAsFile())
+      .filter((file): file is File => !!file && getMediaType(file.name) !== null);
+  }
+
+  return Array.from(dataTransfer.files || [])
+    .filter(file => getMediaType(file.name) !== null);
+}
+
+function hasSupportedMediaDrag(dataTransfer: DataTransfer): boolean {
+  const items = Array.from(dataTransfer.items || []);
+  if (items.length > 0) {
+    for (const item of items) {
+      if (item.kind !== 'file') continue;
+      if (item.type?.startsWith('image/') || item.type?.startsWith('video/')) {
+        return true;
+      }
+      const file = item.getAsFile();
+      if (file && getMediaType(file.name) !== null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  return Array.from(dataTransfer.files || []).some(file => getMediaType(file.name) !== null);
+}
+
 interface StorylineProps {
   activeId: string | null;
   activeType: 'cut' | 'scene' | null;
@@ -172,13 +204,14 @@ export default function Storyline({ activeId }: StorylineProps) {
     e.preventDefault();
     e.stopPropagation();
 
-    const files = Array.from(e.dataTransfer.items)
-      .filter(item => item.kind === 'file')
-      .map(item => item.getAsFile())
-      .filter((f): f is File => f !== null && getMediaType(f.name) !== null);
-
+    const files = getSupportedMediaFiles(e.dataTransfer);
     if (files.length > 0) {
       setExternalDragFiles(files);
+      return;
+    }
+
+    if (hasSupportedMediaDrag(e.dataTransfer)) {
+      setExternalDragFiles([]);
     }
   }, []);
 
@@ -186,6 +219,13 @@ export default function Storyline({ activeId }: StorylineProps) {
     if (!e.dataTransfer.types.includes('Files')) return;
     e.preventDefault();
     e.stopPropagation();
+
+    const supportedFiles = getSupportedMediaFiles(e.dataTransfer);
+    if (supportedFiles.length === 0 && !hasSupportedMediaDrag(e.dataTransfer) && !externalDragFiles) {
+      setPlaceholder(prev => (prev?.sceneId === sceneId && prev?.type === 'external') ? null : prev);
+      setExternalDragFiles(null);
+      return;
+    }
 
     const insertIndex = calculateInsertIndex(sceneId, e.clientY, cutsContainer);
     setPlaceholder(prev => {
@@ -199,7 +239,7 @@ export default function Storyline({ activeId }: StorylineProps) {
         type: 'external',
       };
     });
-  }, [calculateInsertIndex]);
+  }, [calculateInsertIndex, externalDragFiles]);
 
   const handleExternalDragLeave = useCallback((sceneId: string, e: React.DragEvent) => {
     // Only clear if truly leaving the scene (not entering a child)
@@ -229,6 +269,7 @@ export default function Storyline({ activeId }: StorylineProps) {
             onDrop={(e, insertIndex) => handleDrop(scene.id, e, insertIndex)}
             activeId={activeId}
             placeholder={placeholder?.sceneId === scene.id ? placeholder : null}
+            externalDragFiles={externalDragFiles}
             onExternalDragEnter={(e) => handleExternalDragEnter(scene.id, e)}
             onExternalDragOver={(e, container) => handleExternalDragOver(scene.id, e, container)}
             onExternalDragLeave={(e) => handleExternalDragLeave(scene.id, e)}
@@ -269,6 +310,7 @@ interface SceneColumnProps {
   onDrop: (e: React.DragEvent, insertIndex?: number) => void;
   activeId: string | null;
   placeholder: PlaceholderState | null;
+  externalDragFiles: File[] | null;
   onExternalDragEnter: (e: React.DragEvent) => void;
   onExternalDragOver: (e: React.DragEvent, cutsContainer: HTMLElement) => void;
   onExternalDragLeave: (e: React.DragEvent) => void;
@@ -286,6 +328,7 @@ function SceneColumn({
   onDrop,
   activeId,
   placeholder,
+  externalDragFiles,
   onExternalDragEnter,
   onExternalDragOver,
   onExternalDragLeave,
@@ -317,7 +360,7 @@ function SceneColumn({
 
   // Handle drag over for external files
   const handleDragOver = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('Files')) {
+    if (e.dataTransfer.types.includes('Files') && (getSupportedMediaFiles(e.dataTransfer).length > 0 || hasSupportedMediaDrag(e.dataTransfer) || externalDragFiles)) {
       e.preventDefault();
       e.stopPropagation();
       if (cutsContainerRef.current) {
@@ -429,6 +472,7 @@ function SceneColumn({
               group={group}
               cuts={groupCuts}
               sceneId={sceneId}
+              index={i}
               isDragging={activeId === `group-${group.id}`}
             />
           );
@@ -512,6 +556,35 @@ function SceneColumn({
     (cutsContainerRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
   };
 
+  const buildSortableItems = () => {
+    const items: string[] = [];
+    const renderedGroups = new Set<string>();
+
+    for (let i = 0; i < cuts.length; i++) {
+      const cut = cuts[i];
+      const group = findGroupForCut(cut.id);
+
+      if (group && !renderedGroups.has(group.id)) {
+        renderedGroups.add(group.id);
+
+        if (group.isCollapsed) {
+          items.push(`group-${group.id}`);
+        } else {
+          const groupCuts = group.cutIds
+            .map(id => cuts.find(c => c.id === id))
+            .filter((c): c is Cut => c !== undefined);
+          items.push(...groupCuts.map(c => c.id));
+        }
+      } else if (!group) {
+        items.push(cut.id);
+      }
+    }
+
+    return items;
+  };
+
+  const sortableItems = buildSortableItems();
+
   return (
     <div
       className={`scene-column ${isSelected ? 'selected' : ''}`}
@@ -579,7 +652,7 @@ function SceneColumn({
       </div>
 
       <SortableContext
-        items={cuts.map(c => c.id)}
+        items={sortableItems}
         strategy={verticalListSortingStrategy}
       >
         <div

@@ -11,10 +11,11 @@ interface CutGroupCardProps {
   group: CutGroup;
   cuts: Cut[];
   sceneId: string;
+  index: number;
   isDragging: boolean;
 }
 
-export default function CutGroupCard({ group, cuts, sceneId, isDragging }: CutGroupCardProps) {
+export default function CutGroupCard({ group, cuts, sceneId, index, isDragging }: CutGroupCardProps) {
   const {
     selectedGroupId,
     selectGroup,
@@ -45,6 +46,7 @@ export default function CutGroupCard({ group, cuts, sceneId, isDragging }: CutGr
     data: {
       type: 'group',
       sceneId,
+      index,
       groupId: group.id,
       cutIds: group.cutIds,
     },
@@ -97,7 +99,7 @@ export default function CutGroupCard({ group, cuts, sceneId, isDragging }: CutGr
         style={style}
         {...attributes}
         {...listeners}
-        className={`cut-group-card collapsed ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
+        className={`cut-group-card collapsed cut-card ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''}`}
         onClick={handleClick}
       >
         <div className="group-stack">
