@@ -1,5 +1,12 @@
+/**
+ * LipSyncModal - Side Panel Layout (Based on Preview Mockup v3)
+ *
+ * Left: Video preview with playback controls and capture button
+ * Right: Frame grid, threshold settings, and action buttons
+ */
+
 import { useState, useRef, useEffect } from "react";
-import { X, Camera, Play, Pause, Volume2 } from "lucide-react";
+import { X, Camera, Play, Pause, Mic, Volume2, Film, Check } from "lucide-react";
 import type { Asset } from "../types";
 import "./LipSyncModal.css";
 
@@ -18,9 +25,9 @@ interface FrameData {
 
 const FRAME_PHASES = [
   { id: "closed", label: "Closed", desc: "Silent / RMS < T1" },
-  { id: "half1", label: "Half 1", desc: "Quiet / T1 <= RMS < T2" },
-  { id: "half2", label: "Half 2", desc: "Normal / T2 <= RMS < T3" },
-  { id: "open", label: "Open", desc: "Loud / RMS >= T3" },
+  { id: "half1", label: "Half 1", desc: "Quiet / T1 ≤ RMS < T2" },
+  { id: "half2", label: "Half 2", desc: "Normal / T2 ≤ RMS < T3" },
+  { id: "open", label: "Open", desc: "Loud / RMS ≥ T3" },
 ] as const;
 
 export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalProps) {
@@ -36,7 +43,6 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
   });
   const [activeFrameSlot, setActiveFrameSlot] = useState<keyof FrameData | null>("closed");
 
-  // Thresholds (normalized 0-1)
   const [thresholds, setThresholds] = useState({
     t1: 0.05,
     t2: 0.15,
@@ -45,16 +51,24 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
 
   const isVideo = asset.type === "video";
 
+  // Captured frame count
+  const capturedCount = Object.values(frames).filter(Boolean).length;
+  const allFramesCaptured = capturedCount === 4;
+
   useEffect(() => {
-    // Close on escape
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
       }
+      // Space for capture
+      if (e.key === " " && activeFrameSlot && isVideo) {
+        e.preventDefault();
+        captureFrame(activeFrameSlot);
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [onClose, activeFrameSlot, isVideo]);
 
   const handleVideoTimeUpdate = () => {
     if (videoRef.current) {
@@ -78,12 +92,13 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
     setIsPlaying(!isPlaying);
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const time = parseFloat(e.target.value);
-    if (videoRef.current) {
-      videoRef.current.currentTime = time;
-      setCurrentTime(time);
-    }
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!videoRef.current || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const percent = (e.clientX - rect.left) / rect.width;
+    const newTime = percent * duration;
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
   };
 
   const captureFrame = (phaseId: keyof FrameData) => {
@@ -107,12 +122,21 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
     for (let i = currentIndex + 1; i < slots.length; i++) {
       if (!frames[slots[i]]) {
         setActiveFrameSlot(slots[i]);
-        break;
+        return;
       }
     }
+    // Check earlier slots if later ones are filled
+    for (let i = 0; i < currentIndex; i++) {
+      if (!frames[slots[i]]) {
+        setActiveFrameSlot(slots[i]);
+        return;
+      }
+    }
+    // All filled
+    setActiveFrameSlot(null);
   };
 
-  const handleCaptureForActiveSlot = () => {
+  const handleCaptureClick = () => {
     if (activeFrameSlot) {
       captureFrame(activeFrameSlot);
     }
@@ -123,13 +147,10 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
   };
 
   const handleRegister = () => {
-    // TODO: Implement lip sync cut creation
     console.log("Register lip sync with:", { frames, thresholds, sceneId });
     alert("Lip Sync registration (UI mock only)");
     onClose();
   };
-
-  const allFramesCaptured = frames.closed && frames.half1 && frames.half2 && frames.open;
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -138,94 +159,126 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
     return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
   };
 
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
   return (
     <div className="lipsync-modal-overlay" onClick={onClose}>
       <div className="lipsync-modal" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="lipsync-modal-header">
-          <h2>Lip Sync Setup</h2>
+        {/* Left: Preview Section */}
+        <div className="lipsync-preview-section">
           <button className="lipsync-close-btn" onClick={onClose}>
             <X size={20} />
           </button>
-        </div>
 
-        <div className="lipsync-modal-body">
-          {/* Left: Video Preview & Controls */}
-          <div className="lipsync-preview-section">
-            <div className="lipsync-video-container">
-              {isVideo ? (
-                <video
-                  ref={videoRef}
-                  src={`media://${encodeURIComponent(asset.path)}`}
-                  onTimeUpdate={handleVideoTimeUpdate}
-                  onLoadedMetadata={handleVideoLoadedMetadata}
-                  onPlay={() => setIsPlaying(true)}
-                  onPause={() => setIsPlaying(false)}
-                  className="lipsync-video"
-                />
-              ) : (
-                <img
-                  src={asset.thumbnail || ""}
-                  alt={asset.name}
-                  className="lipsync-image"
-                />
-              )}
-            </div>
-
-            {isVideo && (
-              <div className="lipsync-video-controls">
-                <button className="lipsync-play-btn" onClick={handlePlayPause}>
-                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-                </button>
-                <input
-                  type="range"
-                  min={0}
-                  max={duration}
-                  step={0.01}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="lipsync-seekbar"
-                />
-                <span className="lipsync-time">
-                  {formatTime(currentTime)} / {formatTime(duration)}
-                </span>
+          <div className="lipsync-video-container">
+            {isVideo ? (
+              <video
+                ref={videoRef}
+                src={`media://${encodeURIComponent(asset.path)}`}
+                onTimeUpdate={handleVideoTimeUpdate}
+                onLoadedMetadata={handleVideoLoadedMetadata}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                className="lipsync-video"
+              />
+            ) : asset.thumbnail ? (
+              <img src={asset.thumbnail} alt={asset.name} className="lipsync-image" />
+            ) : (
+              <div className="lipsync-preview-placeholder">
+                <Film size={64} />
+                <span>No preview available</span>
               </div>
-            )}
-
-            {isVideo && (
-              <button
-                className="lipsync-capture-btn"
-                onClick={handleCaptureForActiveSlot}
-                disabled={!activeFrameSlot}
-              >
-                <Camera size={16} />
-                Capture Frame for "{activeFrameSlot ? FRAME_PHASES.find(p => p.id === activeFrameSlot)?.label : "..."}"
-              </button>
             )}
           </div>
 
-          {/* Right: Frame Slots & Thresholds */}
-          <div className="lipsync-settings-section">
+          {isVideo && (
+            <div className="lipsync-controls-bar">
+              <div
+                className="lipsync-progress-bar"
+                onClick={handleProgressClick}
+              >
+                <div
+                  className="lipsync-progress-fill"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+
+              <div className="lipsync-playback-row">
+                <button className="lipsync-play-btn" onClick={handlePlayPause}>
+                  {isPlaying ? <Pause size={20} /> : <Play size={20} />}
+                </button>
+
+                <span className="lipsync-time">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+
+                <button
+                  className="lipsync-capture-btn"
+                  onClick={handleCaptureClick}
+                  disabled={!activeFrameSlot}
+                >
+                  <Camera size={16} />
+                  {activeFrameSlot
+                    ? `Capture "${FRAME_PHASES.find((p) => p.id === activeFrameSlot)?.label}"`
+                    : "All Captured"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Detail Panel */}
+        <div className="lipsync-detail-panel">
+          <div className="lipsync-panel-header">
+            <div className="lipsync-panel-icon">
+              <Mic size={18} />
+            </div>
+            <h3 className="lipsync-panel-title">Lip Sync Setup</h3>
+          </div>
+
+          <div className="lipsync-panel-content">
+            {/* Progress indicator */}
+            <div className="lipsync-progress-indicator">
+              <div className="progress-dots">
+                {FRAME_PHASES.map((phase) => (
+                  <div
+                    key={phase.id}
+                    className={`progress-dot ${
+                      frames[phase.id] ? "filled" : ""
+                    } ${activeFrameSlot === phase.id ? "current" : ""}`}
+                  />
+                ))}
+              </div>
+              <span className="progress-text">
+                <strong>{capturedCount}</strong> / 4 frames
+              </span>
+            </div>
+
             {/* Frame Grid */}
-            <div className="lipsync-frames-section">
-              <h3>Frame Capture (4 Phases)</h3>
+            <div className="lipsync-section">
+              <h4 className="lipsync-section-title">
+                <Camera size={12} />
+                Frame Capture
+              </h4>
               <div className="lipsync-frame-grid">
                 {FRAME_PHASES.map((phase) => (
                   <div
                     key={phase.id}
-                    className={`lipsync-frame-slot ${activeFrameSlot === phase.id ? "active" : ""} ${frames[phase.id] ? "captured" : ""}`}
+                    className={`lipsync-frame-slot ${
+                      activeFrameSlot === phase.id ? "active" : ""
+                    } ${frames[phase.id] ? "captured" : ""}`}
                     onClick={() => setActiveFrameSlot(phase.id as keyof FrameData)}
                   >
-                    <div className="frame-slot-preview">
+                    <div className="frame-preview">
                       {frames[phase.id] ? (
                         <img src={frames[phase.id]!} alt={phase.label} />
                       ) : (
-                        <Camera size={24} className="frame-slot-icon" />
+                        <Camera size={20} className="frame-preview-icon" />
                       )}
                     </div>
-                    <div className="frame-slot-info">
-                      <span className="frame-slot-label">{phase.label}</span>
-                      <span className="frame-slot-desc">{phase.desc}</span>
+                    <div className="frame-info">
+                      <span className="frame-label">{phase.label}</span>
+                      <span className="frame-desc">{phase.desc}</span>
                     </div>
                   </div>
                 ))}
@@ -233,14 +286,14 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
             </div>
 
             {/* Thresholds */}
-            <div className="lipsync-thresholds-section">
-              <h3>
-                <Volume2 size={16} />
+            <div className="lipsync-section">
+              <h4 className="lipsync-section-title">
+                <Volume2 size={12} />
                 RMS Thresholds
-              </h3>
-              <div className="threshold-sliders">
-                <div className="threshold-item">
-                  <label>T1 (Half1)</label>
+              </h4>
+              <div className="lipsync-thresholds">
+                <div className="threshold-row">
+                  <span className="threshold-label">T1 (Half1)</span>
                   <input
                     type="range"
                     min={0}
@@ -248,11 +301,12 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
                     step={0.01}
                     value={thresholds.t1}
                     onChange={(e) => handleThresholdChange("t1", parseFloat(e.target.value))}
+                    className="threshold-slider"
                   />
-                  <span>{thresholds.t1.toFixed(2)}</span>
+                  <span className="threshold-value">{thresholds.t1.toFixed(2)}</span>
                 </div>
-                <div className="threshold-item">
-                  <label>T2 (Half2)</label>
+                <div className="threshold-row">
+                  <span className="threshold-label">T2 (Half2)</span>
                   <input
                     type="range"
                     min={0}
@@ -260,11 +314,12 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
                     step={0.01}
                     value={thresholds.t2}
                     onChange={(e) => handleThresholdChange("t2", parseFloat(e.target.value))}
+                    className="threshold-slider"
                   />
-                  <span>{thresholds.t2.toFixed(2)}</span>
+                  <span className="threshold-value">{thresholds.t2.toFixed(2)}</span>
                 </div>
-                <div className="threshold-item">
-                  <label>T3 (Open)</label>
+                <div className="threshold-row">
+                  <span className="threshold-label">T3 (Open)</span>
                   <input
                     type="range"
                     min={0}
@@ -272,26 +327,27 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
                     step={0.01}
                     value={thresholds.t3}
                     onChange={(e) => handleThresholdChange("t3", parseFloat(e.target.value))}
+                    className="threshold-slider"
                   />
-                  <span>{thresholds.t3.toFixed(2)}</span>
+                  <span className="threshold-value">{thresholds.t3.toFixed(2)}</span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="lipsync-modal-footer">
-          <button className="lipsync-cancel-btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="lipsync-register-btn"
-            onClick={handleRegister}
-            disabled={!allFramesCaptured}
-          >
-            Register Lip Sync Cut
-          </button>
+          <div className="lipsync-panel-footer">
+            <button className="lipsync-cancel-btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              className="lipsync-register-btn"
+              onClick={handleRegister}
+              disabled={!allFramesCaptured}
+            >
+              <Check size={16} />
+              Register
+            </button>
+          </div>
         </div>
       </div>
     </div>
