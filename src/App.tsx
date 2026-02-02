@@ -13,10 +13,11 @@ import PreviewModal from './components/PreviewModal';
 import Header from './components/Header';
 import StartupModal from './components/StartupModal';
 import ExportModal, { type ExportSettings } from './components/ExportModal';
+import EnvironmentSettingsModal from './components/EnvironmentSettingsModal';
 import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
-import { generateVideoThumbnail } from './utils/videoUtils';
+import { getThumbnail } from './utils/thumbnailCache';
 import { importFileToVault } from './utils/assetPath';
 import './styles/App.css';
 
@@ -109,6 +110,7 @@ function App() {
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showEnvironmentSettings, setShowEnvironmentSettings] = useState(false);
   const [exportResolution, setExportResolution] = useState({ name: 'Free', width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
@@ -571,7 +573,7 @@ function App() {
 
     // Regenerate thumbnail at IN point
     if (asset.path) {
-      const newThumbnail = await generateVideoThumbnail(asset.path, inPoint);
+      const newThumbnail = await getThumbnail(asset.path, 'video', { timeOffset: inPoint });
       if (newThumbnail) {
         // Update both the cut's asset and the cache
         updateCutAsset(scene.id, cut.id, { thumbnail: newThumbnail });
@@ -618,7 +620,7 @@ function App() {
         return;
       }
 
-      const thumbnailBase64 = await window.electronAPI.readFileAsBase64(outputPath);
+      const thumbnailBase64 = await getThumbnail(outputPath, 'image');
 
       const newAssetId = uuidv4();
       const baseAsset: Asset = {
@@ -659,7 +661,7 @@ function App() {
       <DndMonitorShim onDragStart={closeDetailsPanel} />
       <div className="app">
         <AssetDrawer />
-        <Header />
+        <Header onOpenSettings={() => setShowEnvironmentSettings(true)} />
         <div className="app-content">
           {sidebarOpen && <Sidebar />}
           <main
@@ -704,6 +706,10 @@ function App() {
           open={showExportModal}
           onClose={() => setShowExportModal(false)}
           onExport={handleExport}
+        />
+        <EnvironmentSettingsModal
+          open={showEnvironmentSettings}
+          onClose={() => setShowEnvironmentSettings(false)}
         />
       </div>
     </DndContext>

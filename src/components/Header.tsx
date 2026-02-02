@@ -6,7 +6,8 @@ import { useHistoryStore } from '../store/historyStore';
 import type { Scene, Asset, SourcePanelState, AssetUsageRef } from '../types';
 import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from './MissingAssetRecoveryModal';
 import { importFileToVault } from '../utils/assetPath';
-import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
+import { extractVideoMetadata } from '../utils/videoUtils';
+import { getThumbnail } from '../utils/thumbnailCache';
 import { v4 as uuidv4 } from 'uuid';
 import './Header.css';
 
@@ -172,7 +173,11 @@ function ensureSceneIds(scenes: Scene[]): { scenes: Scene[]; missingCount: numbe
   return { scenes: updatedScenes, missingCount };
 }
 
-export default function Header() {
+interface HeaderProps {
+  onOpenSettings?: () => void;
+}
+
+export default function Header({ onOpenSettings }: HeaderProps) {
   const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel, loadMetadata, loadProject } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
   const { alert: dialogAlert } = useDialog();
@@ -293,17 +298,15 @@ export default function Header() {
                       duration = videoMeta.duration;
                       metadata = { width: videoMeta.width, height: videoMeta.height };
                     }
-                    const thumb = await generateVideoThumbnail(newPath, 0);
+                    const thumb = await getThumbnail(newPath, 'video', { timeOffset: 0 });
                     if (thumb) {
                       thumbnail = thumb;
                     }
                   } else {
                     // Load image as base64 for thumbnail
-                    if (window.electronAPI) {
-                      const base64 = await window.electronAPI.readFileAsBase64(newPath);
-                      if (base64) {
-                        thumbnail = base64;
-                      }
+                    const base64 = await getThumbnail(newPath, 'image');
+                    if (base64) {
+                      thumbnail = base64;
                     }
                   }
 
@@ -353,7 +356,7 @@ export default function Header() {
       const updatedCuts = await Promise.all(scene.cuts.map(async cut => {
         // Only process video clips with valid IN points
         if (cut.isClip && cut.inPoint !== undefined && cut.asset?.type === 'video' && cut.asset.path) {
-          const newThumbnail = await generateVideoThumbnail(cut.asset.path, cut.inPoint);
+          const newThumbnail = await getThumbnail(cut.asset.path, 'video', { timeOffset: cut.inPoint });
           if (newThumbnail) {
             return {
               ...cut,
@@ -522,7 +525,7 @@ export default function Header() {
           <button className="header-btn" onClick={handleSaveProject} title="Save Project">
             <Save size={18} />
           </button>
-          <button className="header-btn" title="More Options">
+          <button className="header-btn" title="Environment Settings" onClick={onOpenSettings}>
             <MoreVertical size={18} />
           </button>
         </div>
