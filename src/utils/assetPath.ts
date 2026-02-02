@@ -122,14 +122,14 @@ export async function importFileToVault(
   assetId: string,
   existingAsset?: Partial<Asset>
 ): Promise<Asset | null> {
-  if (!window.electronAPI) {
+  if (!window.electronAPI?.vaultGateway) {
     return null;
   }
 
   const inVault = await isPathInVaultAssets(vaultPath, sourcePath);
 
   // Import to vault
-  const result = await window.electronAPI.importAssetToVault(sourcePath, vaultPath, assetId);
+  const result = await window.electronAPI.vaultGateway.importAndRegisterAsset(sourcePath, vaultPath, assetId);
 
   if (!result.success) {
     console.error('Failed to import asset to vault:', result.error);
@@ -137,16 +137,12 @@ export async function importFileToVault(
   }
 
   // If the source was already inside assets/ but got re-hashed, move the original to trash
-  if (inVault && result.vaultPath && result.vaultPath !== sourcePath && window.electronAPI.moveToTrash) {
+  if (inVault && result.vaultPath && result.vaultPath !== sourcePath) {
     const trashPath = `${vaultPath}/.trash`.replace(/\\/g, '/');
-    if (window.electronAPI.moveToTrashWithMeta) {
-      await window.electronAPI.moveToTrashWithMeta(sourcePath, trashPath, {
-        assetId,
-        reason: 'rehash',
-      });
-    } else {
-      await window.electronAPI.moveToTrash(sourcePath, trashPath);
-    }
+    await window.electronAPI.vaultGateway.moveToTrashWithMeta(sourcePath, trashPath, {
+      assetId,
+      reason: 'rehash',
+    });
   }
 
   return {

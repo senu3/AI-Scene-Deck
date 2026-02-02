@@ -1254,49 +1254,16 @@ interface AssetIndex {
   assets: AssetIndexEntry[];
 }
 
-// Calculate SHA256 hash of a file
-ipcMain.handle('calculate-file-hash', async (_, filePath: string) => {
-  try {
-    const buffer = fs.readFileSync(filePath);
-    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
-    return hash;
-  } catch (error) {
-    console.error('Failed to calculate file hash:', error);
-    return null;
-  }
-});
+interface VaultImportResult {
+  success: boolean;
+  vaultPath?: string;
+  relativePath?: string;
+  hash?: string;
+  isDuplicate?: boolean;
+  error?: string;
+}
 
-// Ensure assets folder exists in vault
-ipcMain.handle('ensure-assets-folder', async (_, vaultPath: string) => {
-  try {
-    const assetsPath = path.join(vaultPath, 'assets');
-    if (!fs.existsSync(assetsPath)) {
-      fs.mkdirSync(assetsPath, { recursive: true });
-    }
-    return assetsPath;
-  } catch (error) {
-    console.error('Failed to create assets folder:', error);
-    return null;
-  }
-});
-
-// Load asset index from vault
-ipcMain.handle('load-asset-index', async (_, vaultPath: string) => {
-  try {
-    const indexPath = path.join(vaultPath, 'assets', '.index.json');
-    if (fs.existsSync(indexPath)) {
-      const data = fs.readFileSync(indexPath, 'utf-8');
-      return JSON.parse(data) as AssetIndex;
-    }
-    return { version: 1, assets: [] } as AssetIndex;
-  } catch (error) {
-    console.error('Failed to load asset index:', error);
-    return { version: 1, assets: [] } as AssetIndex;
-  }
-});
-
-// Save asset index to vault
-ipcMain.handle('save-asset-index', async (_, vaultPath: string, index: AssetIndex) => {
+function saveAssetIndexInternal(vaultPath: string, index: AssetIndex): boolean {
   try {
     const assetsPath = path.join(vaultPath, 'assets');
     if (!fs.existsSync(assetsPath)) {
@@ -1313,10 +1280,13 @@ ipcMain.handle('save-asset-index', async (_, vaultPath: string, index: AssetInde
     console.error('Failed to save asset index:', error);
     return false;
   }
-});
+}
 
-// Import asset to vault with hash-based naming
-ipcMain.handle('import-asset-to-vault', async (_, sourcePath: string, vaultPath: string, assetId: string) => {
+async function importAssetToVaultInternal(
+  sourcePath: string,
+  vaultPath: string,
+  assetId: string
+): Promise<VaultImportResult> {
   try {
     const assetsPath = path.join(vaultPath, 'assets');
     const indexPath = path.join(assetsPath, '.index.json');
@@ -1441,6 +1411,70 @@ ipcMain.handle('import-asset-to-vault', async (_, sourcePath: string, vaultPath:
     console.error('Failed to import asset to vault:', error);
     return { success: false, error: String(error) };
   }
+}
+
+// Calculate SHA256 hash of a file
+ipcMain.handle('calculate-file-hash', async (_, filePath: string) => {
+  try {
+    const buffer = fs.readFileSync(filePath);
+    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+    return hash;
+  } catch (error) {
+    console.error('Failed to calculate file hash:', error);
+    return null;
+  }
+});
+
+// Ensure assets folder exists in vault
+ipcMain.handle('ensure-assets-folder', async (_, vaultPath: string) => {
+  try {
+    const assetsPath = path.join(vaultPath, 'assets');
+    if (!fs.existsSync(assetsPath)) {
+      fs.mkdirSync(assetsPath, { recursive: true });
+    }
+    return assetsPath;
+  } catch (error) {
+    console.error('Failed to create assets folder:', error);
+    return null;
+  }
+});
+
+// Load asset index from vault
+ipcMain.handle('load-asset-index', async (_, vaultPath: string) => {
+  try {
+    const indexPath = path.join(vaultPath, 'assets', '.index.json');
+    if (fs.existsSync(indexPath)) {
+      const data = fs.readFileSync(indexPath, 'utf-8');
+      return JSON.parse(data) as AssetIndex;
+    }
+    return { version: 1, assets: [] } as AssetIndex;
+  } catch (error) {
+    console.error('Failed to load asset index:', error);
+    return { version: 1, assets: [] } as AssetIndex;
+  }
+});
+
+// Save asset index to vault
+ipcMain.handle('save-asset-index', async (_, vaultPath: string, index: AssetIndex) => {
+  return saveAssetIndexInternal(vaultPath, index);
+});
+
+// Import asset to vault with hash-based naming
+ipcMain.handle('import-asset-to-vault', async (_, sourcePath: string, vaultPath: string, assetId: string) => {
+  return importAssetToVaultInternal(sourcePath, vaultPath, assetId);
+});
+
+// VaultGateway - single entry point for index/trash updates
+ipcMain.handle('vault-gateway-import-asset', async (_, sourcePath: string, vaultPath: string, assetId: string) => {
+  return importAssetToVaultInternal(sourcePath, vaultPath, assetId);
+});
+
+ipcMain.handle('vault-gateway-save-asset-index', async (_, vaultPath: string, index: AssetIndex) => {
+  return saveAssetIndexInternal(vaultPath, index);
+});
+
+ipcMain.handle('vault-gateway-move-to-trash', async (_, filePath: string, trashPath: string, meta: TrashMeta) => {
+  return moveToTrashInternal(filePath, trashPath, meta || null);
 });
 
 // Verify vault assets - check for missing files

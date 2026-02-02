@@ -83,6 +83,12 @@ export interface VaultVerifyResult {
   error?: string;
 }
 
+export interface VaultGatewayAPI {
+  importAndRegisterAsset: (sourcePath: string, vaultPath: string, assetId: string) => Promise<VaultImportResult>;
+  saveAssetIndex: (vaultPath: string, index: AssetIndex) => Promise<boolean>;
+  moveToTrashWithMeta: (filePath: string, trashPath: string, meta: TrashMeta) => Promise<string | null>;
+}
+
 export interface PathResolveResult {
   absolutePath: string | null;
   exists: boolean;
@@ -274,6 +280,16 @@ const electronAPI = {
 
   isPathInVault: (vaultPath: string, checkPath: string): Promise<boolean> =>
     ipcRenderer.invoke('is-path-in-vault', vaultPath, checkPath),
+
+  // Vault gateway (single write entry)
+  vaultGateway: {
+    importAndRegisterAsset: (sourcePath: string, vaultPath: string, assetId: string): Promise<VaultImportResult> =>
+      ipcRenderer.invoke('vault-gateway-import-asset', sourcePath, vaultPath, assetId),
+    saveAssetIndex: (vaultPath: string, index: AssetIndex): Promise<boolean> =>
+      ipcRenderer.invoke('vault-gateway-save-asset-index', vaultPath, index),
+    moveToTrashWithMeta: (filePath: string, trashPath: string, meta: TrashMeta): Promise<string | null> =>
+      ipcRenderer.invoke('vault-gateway-move-to-trash', filePath, trashPath, meta),
+  },
 
   // Video clip finalization
   showSaveClipDialog: (defaultName: string): Promise<string | null> =>

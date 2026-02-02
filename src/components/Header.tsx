@@ -205,7 +205,7 @@ export default function Header() {
     const sourcePanelState = getSourcePanelState();
 
     // Reorder asset index by Storyline order (scene/cut order)
-    if (vaultPath && window.electronAPI.loadAssetIndex && window.electronAPI.saveAssetIndex) {
+    if (vaultPath && window.electronAPI.loadAssetIndex && window.electronAPI.vaultGateway?.saveAssetIndex) {
       try {
         const orderedIds = getOrderedAssetIdsFromScenes(normalizedScenes);
         const usageRefs = buildAssetUsageRefs(normalizedScenes);
@@ -222,7 +222,7 @@ export default function Header() {
           ...index,
           assets: [...ordered, ...remaining],
         };
-        await window.electronAPI.saveAssetIndex(vaultPath, newIndex);
+        await window.electronAPI.vaultGateway.saveAssetIndex(vaultPath, newIndex);
       } catch (error) {
         console.error('Failed to reorder asset index:', error);
       }

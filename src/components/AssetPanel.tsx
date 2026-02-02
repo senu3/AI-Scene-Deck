@@ -562,7 +562,7 @@ export default function AssetPanel({
 
   const handleDeleteUnusedAsset = async () => {
     if (!unusedContextMenu) return;
-    if (!window.electronAPI) {
+    if (!window.electronAPI?.vaultGateway) {
       alert('electronAPI not available. Please restart the app.');
       setUnusedContextMenu(null);
       return;
@@ -577,15 +577,10 @@ export default function AssetPanel({
     }
 
     try {
-      let moved: string | null = null;
-      if (window.electronAPI.moveToTrashWithMeta) {
-        moved = await window.electronAPI.moveToTrashWithMeta(asset.path, targetTrashPath, {
-          assetId: asset.id,
-          reason: 'asset-panel-delete',
-        });
-      } else {
-        moved = await window.electronAPI.moveToTrash(asset.path, targetTrashPath);
-      }
+      const moved = await window.electronAPI.vaultGateway.moveToTrashWithMeta(asset.path, targetTrashPath, {
+        assetId: asset.id,
+        reason: 'asset-panel-delete',
+      });
       if (!moved) {
         alert('Failed to move asset to trash.');
       }

@@ -105,6 +105,12 @@ interface VaultVerifyResult {
   error?: string;
 }
 
+interface VaultGatewayAPI {
+  importAndRegisterAsset: (sourcePath: string, vaultPath: string, assetId: string) => Promise<VaultImportResult>;
+  saveAssetIndex: (vaultPath: string, index: AssetIndex) => Promise<boolean>;
+  moveToTrashWithMeta: (filePath: string, trashPath: string, meta: TrashMeta) => Promise<string | null>;
+}
+
 interface PathResolveResult {
   absolutePath: string | null;
   exists: boolean;
@@ -217,6 +223,7 @@ interface ElectronAPI {
   resolveVaultPath: (vaultPath: string, relativePath: string) => Promise<PathResolveResult>;
   getRelativePath: (vaultPath: string, absolutePath: string) => Promise<string | null>;
   isPathInVault: (vaultPath: string, checkPath: string) => Promise<boolean>;
+  vaultGateway: VaultGatewayAPI;
 
   // Video clip finalization
   showSaveClipDialog: (defaultName: string) => Promise<string | null>;

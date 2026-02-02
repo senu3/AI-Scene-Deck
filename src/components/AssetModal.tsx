@@ -63,7 +63,7 @@ export default function AssetModal({
 
   // Handle import from external file
   const handleImportExternal = useCallback(async () => {
-    if (!window.electronAPI || !vaultPath) return;
+    if (!window.electronAPI?.vaultGateway || !vaultPath) return;
 
     // Determine file extensions based on filter type
     let extensions: string[] = [];
@@ -93,7 +93,7 @@ export default function AssetModal({
       const assetId = uuidv4();
 
       // Import to vault
-      const importResult = await window.electronAPI.importAssetToVault(
+      const importResult = await window.electronAPI.vaultGateway.importAndRegisterAsset(
         filePath,
         vaultPath,
         assetId

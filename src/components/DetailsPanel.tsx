@@ -311,7 +311,7 @@ export default function DetailsPanel() {
 
   // Relink file handler
   const handleRelinkFile = async () => {
-    if (!cutScene || !cut || !vaultPath || !window.electronAPI) return;
+    if (!cutScene || !cut || !vaultPath || !window.electronAPI?.vaultGateway) return;
 
     const filePath = await window.electronAPI.showOpenFileDialog({
       title: 'Select New File',
@@ -324,7 +324,7 @@ export default function DetailsPanel() {
       const newAssetId = uuidv4();
 
       // Import to vault
-      const importResult = await window.electronAPI.importAssetToVault(
+      const importResult = await window.electronAPI.vaultGateway.importAndRegisterAsset(
         filePath,
         vaultPath,
         newAssetId

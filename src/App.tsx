@@ -300,17 +300,13 @@ function App() {
       const removedCut = removeCut(activeData.sceneId, cutId);
 
       // Move file to trash if we have the API and no other cuts use this asset
-      if (shouldDeleteFile && removedCut?.asset?.path && trashPath && window.electronAPI) {
+      if (shouldDeleteFile && removedCut?.asset?.path && trashPath && window.electronAPI?.vaultGateway) {
         const assetId = removedCut.asset.id || removedCut.assetId;
-        if (window.electronAPI.moveToTrashWithMeta) {
-          await window.electronAPI.moveToTrashWithMeta(removedCut.asset.path, trashPath, {
-            assetId,
-            originRefs: [{ sceneId: activeData.sceneId, cutId }],
-            reason: 'trash-drop',
-          });
-        } else {
-          await window.electronAPI.moveToTrash(removedCut.asset.path, trashPath);
-        }
+        await window.electronAPI.vaultGateway.moveToTrashWithMeta(removedCut.asset.path, trashPath, {
+          assetId,
+          originRefs: [{ sceneId: activeData.sceneId, cutId }],
+          reason: 'trash-drop',
+        });
         // Refresh sidebar after moving to trash
         refreshAllSourceFolders();
       }
