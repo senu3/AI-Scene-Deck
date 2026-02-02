@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore';
 import type { CutGroup, Cut } from '../types';
 import CutCard from './CutCard';
 import './CutGroupCard.css';
+import { getThumbnail } from '../utils/thumbnailCache';
 
 interface CutGroupCardProps {
   group: CutGroup;
@@ -66,11 +67,11 @@ export default function CutGroupCard({ group, cuts, sceneId, index, isDragging }
         return;
       }
 
-      if (firstAsset?.path && window.electronAPI) {
+      if (firstAsset?.path && firstAsset.type) {
         try {
-          const base64 = await window.electronAPI.readFileAsBase64(firstAsset.path);
-          if (base64) {
-            setThumbnail(base64);
+          const thumbnail = await getThumbnail(firstAsset.path, firstAsset.type);
+          if (thumbnail) {
+            setThumbnail(thumbnail);
           }
         } catch {
           // Failed to load thumbnail

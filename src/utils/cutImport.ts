@@ -1,6 +1,7 @@
 import type { Asset } from '../types';
 import { importFileToVault } from './assetPath';
-import { extractVideoMetadata, generateVideoThumbnail } from './videoUtils';
+import { extractVideoMetadata } from './videoUtils';
+import { getThumbnail } from './thumbnailCache';
 
 export interface CutImportSource {
   assetId: string;
@@ -42,7 +43,7 @@ export async function buildAssetForCut(
     }
 
     if (!thumbnail) {
-      const thumb = await generateVideoThumbnail(source.sourcePath, source.thumbnailTimeOffset ?? 0);
+      const thumb = await getThumbnail(source.sourcePath, 'video', { timeOffset: source.thumbnailTimeOffset ?? 0 });
       if (thumb) {
         thumbnail = thumb;
       }

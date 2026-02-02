@@ -16,7 +16,7 @@ import {
 import { useStore } from '../store/useStore';
 import type { Asset, Scene, MetadataStore, AssetIndexEntry } from '../types';
 import { v4 as uuidv4 } from 'uuid';
-import { generateVideoThumbnail } from '../utils/videoUtils';
+import { getCachedThumbnail, getThumbnail, removeThumbnailCache } from '../utils/thumbnailCache';
 import { CutContextMenu } from './CutCard';
 import './AssetPanel.css';
 
@@ -122,18 +122,6 @@ export function AudioPlaceholder() {
   );
 }
 
-// Module-level thumbnail cache (persists across component mounts)
-const globalThumbnailCache = new Map<string, string>();
-
-// Clear cache for a specific path (call when asset is deleted)
-export function clearThumbnailCache(path?: string) {
-  if (path) {
-    globalThumbnailCache.delete(path);
-  } else {
-    globalThumbnailCache.clear();
-  }
-}
-
 export default function AssetPanel({
   mode,
   selectionMode,
@@ -183,7 +171,7 @@ export default function AssetPanel({
   const [sortMode, setSortMode] = useState<SortMode>('name');
   const [filterType, setFilterType] = useState<FilterType>(initialFilterType);
   const [assets, setAssets] = useState<AssetInfo[]>([]);
-  // Version counter to trigger re-render when global cache updates
+  // Version counter to trigger re-render when thumbnail cache updates
   const [, setThumbnailCacheVersion] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -302,9 +290,9 @@ export default function AssetPanel({
     loadAssets();
   }, [loadAssets]);
 
-  // Load thumbnail for an asset (uses global cache)
+  // Load thumbnail for an asset (uses shared cache)
   const loadThumbnail = useCallback(async (asset: AssetInfo) => {
-    if (globalThumbnailCache.has(asset.path)) return;
+    if (getCachedThumbnail(asset.path)) return;
     if (asset.type === 'audio') return; // Audio has placeholder
 
     try {
@@ -313,18 +301,8 @@ export default function AssetPanel({
         if (!exists) return;
       }
 
-      let thumbnail: string | null = null;
-      if (asset.type === 'video') {
-        thumbnail = await generateVideoThumbnail(asset.path);
-      } else if (window.electronAPI) {
-        thumbnail = await window.electronAPI.readFileAsBase64(asset.path);
-      }
-
-      if (thumbnail) {
-        globalThumbnailCache.set(asset.path, thumbnail);
-        // Trigger re-render
-        setThumbnailCacheVersion((v) => v + 1);
-      }
+      const thumbnail = await getThumbnail(asset.path, asset.type);
+      if (thumbnail) setThumbnailCacheVersion((v) => v + 1);
     } catch (error) {
       console.error('Failed to load thumbnail:', error);
     }
@@ -589,7 +567,7 @@ export default function AssetPanel({
     }
 
     setAssets((prev) => prev.filter((a) => a.path !== asset.path));
-    clearThumbnailCache(asset.path);
+    removeThumbnailCache(asset.path);
     setUnusedContextMenu(null);
   };
 
@@ -604,7 +582,7 @@ export default function AssetPanel({
       name: asset.sourceName, // Use source name
       path: asset.path,
       type: asset.type,
-      thumbnail: globalThumbnailCache.get(asset.path) || asset.thumbnail,
+      thumbnail: getCachedThumbnail(asset.path) || asset.thumbnail,
       originalPath: asset.path,
     };
     e.dataTransfer.setData('application/json', JSON.stringify(dragAsset));
@@ -637,7 +615,7 @@ export default function AssetPanel({
         name: asset.sourceName, // Use source name
         sourcePath: asset.path,
         type: asset.type,
-        preferredThumbnail: globalThumbnailCache.get(asset.path) || asset.thumbnail,
+        preferredThumbnail: getCachedThumbnail(asset.path) || asset.thumbnail,
       });
     } catch (error) {
       console.error('Failed to add asset to timeline:', error);
@@ -765,7 +743,7 @@ export default function AssetPanel({
               <AssetCard
                 key={asset.path}
                 asset={asset}
-                thumbnail={globalThumbnailCache.get(asset.path) || asset.thumbnail}
+                thumbnail={getCachedThumbnail(asset.path) || asset.thumbnail}
                 isSelected={selectedAsset?.id === asset.id}
                 onLoadThumbnail={() => loadThumbnail(asset)}
                 onDragStart={effectiveEnableDragDrop ? (e) => handleDragStart(e, asset) : undefined}

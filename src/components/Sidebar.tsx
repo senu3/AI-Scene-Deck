@@ -17,7 +17,7 @@ import {
 import { useStore } from '../store/useStore';
 import type { FileItem, Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
-import { generateVideoThumbnail } from '../utils/videoUtils';
+import { getCachedThumbnail, getThumbnail } from '../utils/thumbnailCache';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -36,7 +36,7 @@ export default function Sidebar() {
   } = useStore();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [thumbnailCache, setThumbnailCache] = useState<Map<string, string>>(new Map());
+  const [thumbnailVersion, setThumbnailVersion] = useState(0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; folderPath?: string } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -147,33 +147,20 @@ export default function Sidebar() {
   };
 
   const loadThumbnail = useCallback(async (filePath: string, mediaType: 'image' | 'video' | null) => {
-    if (thumbnailCache.has(filePath)) {
-      return thumbnailCache.get(filePath);
-    }
-
-    if (!window.electronAPI) return null;
-
+    const cached = getCachedThumbnail(filePath);
+    if (cached) return cached;
+    if (!mediaType) return null;
     try {
-      if (mediaType === 'video') {
-        // Generate video thumbnail
-        const thumbnail = await generateVideoThumbnail(filePath);
-        if (thumbnail) {
-          setThumbnailCache(prev => new Map(prev).set(filePath, thumbnail));
-          return thumbnail;
-        }
-      } else {
-        // Load image as base64
-        const base64 = await window.electronAPI.readFileAsBase64(filePath);
-        if (base64) {
-          setThumbnailCache(prev => new Map(prev).set(filePath, base64));
-          return base64;
-        }
+      const thumbnail = await getThumbnail(filePath, mediaType);
+      if (thumbnail) {
+        setThumbnailVersion((v) => v + 1);
+        return thumbnail;
       }
     } catch (error) {
       console.error('Failed to load thumbnail:', error);
     }
     return null;
-  }, [thumbnailCache]);
+  }, []);
 
   const getMediaType = (filename: string): 'image' | 'video' | null => {
     const ext = filename.toLowerCase().split('.').pop() || '';
@@ -258,7 +245,7 @@ export default function Sidebar() {
         depth={depth}
         mediaType={mediaType}
         loadThumbnail={loadThumbnail}
-        thumbnailCache={thumbnailCache}
+        thumbnailVersion={thumbnailVersion}
         viewMode={sourceViewMode}
       />
     );
@@ -419,20 +406,25 @@ interface FileItemComponentProps {
   depth: number;
   mediaType: 'image' | 'video' | null;
   loadThumbnail: (path: string, mediaType: 'image' | 'video' | null) => Promise<string | null | undefined>;
-  thumbnailCache: Map<string, string>;
+  thumbnailVersion: number;
   viewMode: 'list' | 'grid';
 }
 
-function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCache, viewMode }: FileItemComponentProps) {
+function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailVersion, viewMode }: FileItemComponentProps) {
   const { scenes, selectedSceneId, createCutFromImport } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(
-    thumbnailCache.get(item.path) || null
+    getCachedThumbnail(item.path) || null
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
   // Auto-load thumbnail when component mounts (if not already cached)
   useEffect(() => {
+    const cached = getCachedThumbnail(item.path);
+    if (cached) {
+      setThumbnail(cached);
+      return;
+    }
     if (!thumbnail && !isLoading && mediaType) {
       const loadThumbnailAsync = async () => {
         setIsLoading(true);
@@ -444,7 +436,7 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailCac
       };
       loadThumbnailAsync();
     }
-  }, [item.path, mediaType, thumbnail, isLoading, loadThumbnail]);
+  }, [item.path, mediaType, thumbnail, isLoading, loadThumbnail, thumbnailVersion]);
 
   const handleLoadThumbnail = async () => {
     if (thumbnail || isLoading) return;

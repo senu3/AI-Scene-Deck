@@ -33,7 +33,7 @@ import {
   DeleteGroupCommand,
   RenameGroupCommand,
 } from "../store/commands";
-import { generateVideoThumbnail } from "../utils/videoUtils";
+import { getThumbnail } from "../utils/thumbnailCache";
 import { importFileToVault } from "../utils/assetPath";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
@@ -162,11 +162,11 @@ export default function DetailsPanel() {
       // Load thumbnail
       if (asset.thumbnail) {
         setThumbnail(asset.thumbnail);
-      } else if (window.electronAPI) {
+      } else if (asset.type) {
         try {
-          const base64 = await window.electronAPI.readFileAsBase64(asset.path);
-          if (base64) {
-            setThumbnail(base64);
+          const cached = await getThumbnail(asset.path, asset.type);
+          if (cached) {
+            setThumbnail(cached);
           }
         } catch {
           // Failed to load
@@ -262,7 +262,7 @@ export default function DetailsPanel() {
 
       // Regenerate thumbnail at IN point
       if (asset.path && asset.type === "video") {
-        const newThumbnail = await generateVideoThumbnail(asset.path, inPoint);
+        const newThumbnail = await getThumbnail(asset.path, 'video', { timeOffset: inPoint });
         if (newThumbnail) {
           // Update both the cut's asset and the cache
           updateCutAsset(cutScene.id, cut.id, { thumbnail: newThumbnail });
@@ -279,7 +279,7 @@ export default function DetailsPanel() {
 
       // Regenerate thumbnail at time 0
       if (asset.path && asset.type === "video") {
-        const newThumbnail = await generateVideoThumbnail(asset.path, 0);
+        const newThumbnail = await getThumbnail(asset.path, 'video', { timeOffset: 0 });
         if (newThumbnail) {
           // Update both the cut's asset and the cache
           updateCutAsset(cutScene.id, cut.id, { thumbnail: newThumbnail });
@@ -352,16 +352,9 @@ export default function DetailsPanel() {
       };
 
       // Load thumbnail for images or generate for videos
-      if (isVideo) {
-        const thumbnail = await generateVideoThumbnail(importResult.vaultPath!);
-        if (thumbnail) {
-          newAsset.thumbnail = thumbnail;
-        }
-      } else if (window.electronAPI) {
-        const thumbnail = await window.electronAPI.readFileAsBase64(importResult.vaultPath!);
-        if (thumbnail) {
-          newAsset.thumbnail = thumbnail;
-        }
+      const thumbnail = await getThumbnail(importResult.vaultPath!, isVideo ? 'video' : 'image');
+      if (thumbnail) {
+        newAsset.thumbnail = thumbnail;
       }
 
       // Relink cut to new asset
@@ -430,8 +423,7 @@ export default function DetailsPanel() {
       }
 
       // Read the captured image as base64 for thumbnail
-      const thumbnailBase64 =
-        await window.electronAPI.readFileAsBase64(outputPath);
+      const thumbnailBase64 = await getThumbnail(outputPath, 'image');
 
       // Load image metadata if available
       let imageMetadata: ImageMetadata | undefined;

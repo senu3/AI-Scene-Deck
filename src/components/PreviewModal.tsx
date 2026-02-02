@@ -2,11 +2,12 @@ import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } fr
 import { X, Play, Pause, SkipBack, SkipForward, Download, Loader2, Repeat, Maximize, Scissors, Camera } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Cut } from '../types';
-import { generateVideoThumbnail, createVideoObjectUrl } from '../utils/videoUtils';
+import { createVideoObjectUrl } from '../utils/videoUtils';
 import { formatTime, cyclePlaybackSpeed } from '../utils/timeUtils';
 import { AudioManager } from '../utils/audioUtils';
 import { createImageMediaSource, createVideoMediaSource } from '../utils/previewMedia';
 import { useSequencePlaybackController } from '../utils/previewPlaybackController';
+import { getThumbnail } from '../utils/thumbnailCache';
 import {
   TimelineMarkers,
   VolumeControl,
@@ -246,11 +247,11 @@ export default function PreviewModal({
         // Load image as base64
         if (asset.thumbnail) {
           setSingleModeImageData(asset.thumbnail);
-        } else if (window.electronAPI) {
+        } else if (asset.path) {
           try {
-            const base64 = await window.electronAPI.readFileAsBase64(asset.path);
-            if (isMounted && base64) {
-              setSingleModeImageData(base64);
+            const thumbnail = await getThumbnail(asset.path, 'image');
+            if (isMounted && thumbnail) {
+              setSingleModeImageData(thumbnail);
             }
           } catch {
             // Failed to load image
@@ -884,12 +885,12 @@ export default function PreviewModal({
 
           let thumbnail: string | null = cutAsset?.thumbnail || null;
 
-          if (!thumbnail && cutAsset?.path && window.electronAPI) {
+          if (!thumbnail && cutAsset?.path) {
             try {
               if (cutAsset.type === 'video') {
-                thumbnail = await generateVideoThumbnail(cutAsset.path);
+                thumbnail = await getThumbnail(cutAsset.path, 'video');
               } else {
-                thumbnail = await window.electronAPI.readFileAsBase64(cutAsset.path);
+                thumbnail = await getThumbnail(cutAsset.path, 'image');
               }
             } catch {
               // Failed to load

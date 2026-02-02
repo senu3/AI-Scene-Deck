@@ -4,7 +4,8 @@ import { useStore } from '../store/useStore';
 import type { Scene, Asset, SourcePanelState } from '../types';
 import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from './MissingAssetRecoveryModal';
 import { importFileToVault } from '../utils/assetPath';
-import { extractVideoMetadata, generateVideoThumbnail } from '../utils/videoUtils';
+import { extractVideoMetadata } from '../utils/videoUtils';
+import { getThumbnail } from '../utils/thumbnailCache';
 import './StartupModal.css';
 
 // Helper to detect media type from filename
@@ -323,17 +324,15 @@ export default function StartupModal() {
                       duration = videoMeta.duration;
                       metadata = { width: videoMeta.width, height: videoMeta.height };
                     }
-                    const thumb = await generateVideoThumbnail(newPath, 0);
+                    const thumb = await getThumbnail(newPath, 'video', { timeOffset: 0 });
                     if (thumb) {
                       thumbnail = thumb;
                     }
                   } else {
                     // Load image as base64 for thumbnail
-                    if (window.electronAPI) {
-                      const base64 = await window.electronAPI.readFileAsBase64(newPath);
-                      if (base64) {
-                        thumbnail = base64;
-                      }
+                    const base64 = await getThumbnail(newPath, 'image');
+                    if (base64) {
+                      thumbnail = base64;
                     }
                   }
 
@@ -383,7 +382,7 @@ export default function StartupModal() {
       const updatedCuts = await Promise.all(scene.cuts.map(async cut => {
         // Only process video clips with valid IN points
         if (cut.isClip && cut.inPoint !== undefined && cut.asset?.type === 'video' && cut.asset.path) {
-          const newThumbnail = await generateVideoThumbnail(cut.asset.path, cut.inPoint);
+          const newThumbnail = await getThumbnail(cut.asset.path, 'video', { timeOffset: cut.inPoint });
           if (newThumbnail) {
             return {
               ...cut,

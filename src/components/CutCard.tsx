@@ -6,6 +6,7 @@ import { useStore } from '../store/useStore';
 import type { Asset, Scene } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import './CutCard.css';
+import { getThumbnail } from '../utils/thumbnailCache';
 
 interface CutCardProps {
   cut: {
@@ -275,11 +276,11 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
         return;
       }
 
-      if (asset?.path && window.electronAPI) {
+      if (asset?.path && asset.type) {
         try {
-          const base64 = await window.electronAPI.readFileAsBase64(asset.path);
-          if (base64) {
-            setThumbnail(base64);
+          const thumbnail = await getThumbnail(asset.path, asset.type);
+          if (thumbnail) {
+            setThumbnail(thumbnail);
           }
         } catch {
           // Failed to load thumbnail
