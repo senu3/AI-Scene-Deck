@@ -146,6 +146,14 @@ export interface ExportSequenceResult {
   error?: string;
 }
 
+export interface FfmpegLimits {
+  stderrMaxBytes: number;
+  maxClipSeconds: number;
+  maxTotalSeconds: number;
+  maxClipBytes: number;
+  maxTotalBytes: number;
+}
+
 export interface RecentProject {
   name: string;
   path: string;
@@ -190,6 +198,12 @@ const electronAPI = {
 
   readAudioPcm: (filePath: string): Promise<{ success: boolean; pcm?: Uint8Array; sampleRate?: number; channels?: number; error?: string } | null> =>
     ipcRenderer.invoke('read-audio-pcm', filePath),
+
+  getFfmpegLimits: (): Promise<FfmpegLimits> =>
+    ipcRenderer.invoke('get-ffmpeg-limits'),
+
+  setFfmpegLimits: (limits: Partial<FfmpegLimits>): Promise<FfmpegLimits> =>
+    ipcRenderer.invoke('set-ffmpeg-limits', limits),
 
   // Image metadata
   readImageMetadata: (filePath: string): Promise<ImageMetadata | null> =>

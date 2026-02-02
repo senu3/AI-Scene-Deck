@@ -4,6 +4,13 @@
   gap: 16px;
 }
 
+.sectionTitle {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .row {
   display: grid;
   grid-template-columns: 140px 1fr;

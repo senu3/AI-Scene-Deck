@@ -52,6 +52,58 @@ const mimeTypes: Record<string, string> = {
 
 type FfmpegTask<T> = () => Promise<T>;
 
+interface FfmpegLimits {
+  stderrMaxBytes: number;
+  maxClipSeconds: number;
+  maxTotalSeconds: number;
+  maxClipBytes: number;
+  maxTotalBytes: number;
+}
+
+const DEFAULT_FFMPEG_LIMITS: FfmpegLimits = {
+  stderrMaxBytes: 128 * 1024,
+  maxClipSeconds: 60,
+  maxTotalSeconds: 15 * 60,
+  maxClipBytes: 32 * 1024 * 1024,
+  maxTotalBytes: 256 * 1024 * 1024,
+};
+
+let ffmpegLimits: FfmpegLimits = { ...DEFAULT_FFMPEG_LIMITS };
+
+interface StderrRing {
+  buffer: Buffer;
+}
+
+function createStderrRing(): StderrRing {
+  return { buffer: Buffer.alloc(0) };
+}
+
+function appendStderr(ring: StderrRing, chunk: Buffer, maxBytes: number) {
+  if (maxBytes <= 0) return;
+  if (ring.buffer.length === 0) {
+    ring.buffer = chunk.length > maxBytes ? chunk.slice(chunk.length - maxBytes) : Buffer.from(chunk);
+    return;
+  }
+  const combined = Buffer.concat([ring.buffer, chunk], ring.buffer.length + chunk.length);
+  ring.buffer = combined.length > maxBytes ? combined.slice(combined.length - maxBytes) : combined;
+}
+
+function getStderrText(ring: StderrRing) {
+  return ring.buffer.toString();
+}
+
+function sanitizeFfmpegLimits(next: Partial<FfmpegLimits>): FfmpegLimits {
+  const toInt = (value: number | undefined, fallback: number, min: number) =>
+    Number.isFinite(value) ? Math.max(min, Math.floor(value as number)) : fallback;
+  return {
+    stderrMaxBytes: toInt(next.stderrMaxBytes, ffmpegLimits.stderrMaxBytes, 1024),
+    maxClipSeconds: toInt(next.maxClipSeconds, ffmpegLimits.maxClipSeconds, 1),
+    maxTotalSeconds: toInt(next.maxTotalSeconds, ffmpegLimits.maxTotalSeconds, 1),
+    maxClipBytes: toInt(next.maxClipBytes, ffmpegLimits.maxClipBytes, 1024),
+    maxTotalBytes: toInt(next.maxTotalBytes, ffmpegLimits.maxTotalBytes, 1024),
+  };
+}
+
 function createFfmpegQueue(name: string, concurrency: number) {
   let running = 0;
   const queue: Array<() => void> = [];
@@ -205,14 +257,14 @@ function probeVideoWithFfmpeg(ffmpegBinary: string, filePath: string): Promise<{
   return enqueueFfmpegLight(() => new Promise((resolve) => {
     const args = ['-hide_banner', '-i', filePath];
     const proc = spawn(ffmpegBinary, args);
-    let stderr = '';
+    const stderrRing = createStderrRing();
 
     proc.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
+      appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
     });
 
     proc.on('close', () => {
-      resolve(parseFfmpegMetadata(stderr));
+      resolve(parseFfmpegMetadata(getStderrText(stderrRing)));
     });
 
     proc.on('error', () => resolve({}));
@@ -233,16 +285,17 @@ function runFfmpegThumbnail(ffmpegBinary: string, filePath: string, timeOffset: 
     ];
 
     const proc = spawn(ffmpegBinary, args);
-    let stderr = '';
+    const stderrRing = createStderrRing();
 
     proc.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
+      appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
     });
 
     proc.on('close', (code: number | null) => {
       if (code === 0 && fs.existsSync(outputPath)) {
         resolve({ success: true });
       } else {
+        const stderr = getStderrText(stderrRing);
         resolve({ success: false, error: stderr || `ffmpeg exited with code ${code}` });
       }
     });
@@ -293,39 +346,42 @@ function createWindow() {
 }
 
 function createAppMenu() {
+  const menuRole = (role: Electron.MenuItemConstructorOptions['role']) => ({ role });
+  const separator: Electron.MenuItemConstructorOptions = { type: 'separator' };
+
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin'
       ? [{
           label: app.name,
           submenu: [
-            { role: 'about' },
-            { type: 'separator' },
-            { role: 'services' },
-            { type: 'separator' },
-            { role: 'hide' },
-            { role: 'hideOthers' },
-            { role: 'unhide' },
-            { type: 'separator' },
-            { role: 'quit' },
+            menuRole('about'),
+            separator,
+            menuRole('services'),
+            separator,
+            menuRole('hide'),
+            menuRole('hideOthers'),
+            menuRole('unhide'),
+            separator,
+            menuRole('quit'),
           ],
         } as Electron.MenuItemConstructorOptions]
       : []),
     {
       label: 'File',
       submenu: [
-        { role: 'close' },
+        menuRole('close'),
       ],
     },
     {
       label: 'Edit',
       submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
+        menuRole('undo'),
+        menuRole('redo'),
+        separator,
+        menuRole('cut'),
+        menuRole('copy'),
+        menuRole('paste'),
+        menuRole('selectAll'),
       ],
     },
     {
@@ -338,26 +394,26 @@ function createAppMenu() {
             mainWindow?.webContents.send('toggle-sidebar');
           },
         },
-        { type: 'separator' },
-        { role: 'resetZoom' },
-        { role: 'zoomIn' },
-        { role: 'zoomOut' },
-        { type: 'separator' },
-        { role: 'togglefullscreen' },
+        separator,
+        menuRole('resetZoom'),
+        menuRole('zoomIn'),
+        menuRole('zoomOut'),
+        separator,
+        menuRole('togglefullscreen'),
       ],
     },
     {
       label: 'Window',
       submenu: [
-        { role: 'minimize' },
-        { role: 'zoom' },
-        ...(process.platform === 'darwin' ? [{ role: 'front' }] : [{ role: 'close' }]),
+        menuRole('minimize'),
+        menuRole('zoom'),
+        ...(process.platform === 'darwin' ? [menuRole('front')] : [menuRole('close')]),
       ],
     },
     {
       label: 'Help',
       submenu: [
-        { role: 'toggleDevTools' },
+        menuRole('toggleDevTools'),
       ],
     },
   ];
@@ -654,6 +710,13 @@ ipcMain.handle('read-audio-file', async (_, filePath: string) => {
   }
 });
 
+ipcMain.handle('get-ffmpeg-limits', () => ({ ...ffmpegLimits }));
+
+ipcMain.handle('set-ffmpeg-limits', async (_, next: Partial<FfmpegLimits>) => {
+  ffmpegLimits = sanitizeFfmpegLimits(next);
+  return { ...ffmpegLimits };
+});
+
 // Decode audio to PCM (s16le) via ffmpeg and return buffer + format
 ipcMain.handle('read-audio-pcm', async (_, filePath: string) => {
   const ffmpegBinary = ffmpegPath as string | null;
@@ -679,32 +742,70 @@ ipcMain.handle('read-audio-pcm', async (_, filePath: string) => {
     return await enqueueFfmpegLight(() => new Promise((resolve) => {
       const proc = spawn(ffmpegBinary, args);
       const chunks: Buffer[] = [];
-      let stderr = '';
+      const stderrRing = createStderrRing();
+      const bytesPerSecond = 44100 * 2 * 2;
+      const maxClipBytes = Math.min(
+        ffmpegLimits.maxClipBytes,
+        ffmpegLimits.maxClipSeconds * bytesPerSecond,
+      );
+      const maxTotalBytes = Math.min(
+        ffmpegLimits.maxTotalBytes,
+        ffmpegLimits.maxTotalSeconds * bytesPerSecond,
+      );
+      let totalBytes = 0;
+      let resolved = false;
+
+      const finish = (result: { success: boolean; pcm?: Buffer; sampleRate?: number; channels?: number; error?: string }) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(result);
+      };
 
       proc.stdout.on('data', (chunk: Buffer) => {
+        if (resolved) return;
+        totalBytes += chunk.length;
+        if (totalBytes > maxClipBytes) {
+          proc.kill();
+          chunks.length = 0;
+          finish({
+            success: false,
+            error: `PCM exceeds clip limit (${ffmpegLimits.maxClipSeconds}s / ${Math.floor(maxClipBytes / (1024 * 1024))}MB)`,
+          });
+          return;
+        }
+        if (totalBytes > maxTotalBytes) {
+          proc.kill();
+          chunks.length = 0;
+          finish({
+            success: false,
+            error: `PCM exceeds total limit (${ffmpegLimits.maxTotalSeconds}s / ${Math.floor(maxTotalBytes / (1024 * 1024))}MB)`,
+          });
+          return;
+        }
         chunks.push(chunk);
       });
 
       proc.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString();
+        appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
       });
 
       proc.on('close', (code: number | null) => {
+        if (resolved) return;
         if (code !== 0) {
-          const message = stderr || `ffmpeg exited with code ${code}`;
+          const message = getStderrText(stderrRing) || `ffmpeg exited with code ${code}`;
           console.error('[Audio] ffmpeg decode failed:', message);
-          resolve({ success: false, error: message });
+          finish({ success: false, error: message });
           return;
         }
 
         const pcm = Buffer.concat(chunks);
-        resolve({ success: true, pcm, sampleRate: 44100, channels: 2 });
+        finish({ success: true, pcm, sampleRate: 44100, channels: 2 });
       });
 
       proc.on('error', (err: Error) => {
         const message = `Failed to start ffmpeg: ${err.message}`;
         console.error('[Audio] ffmpeg spawn error:', message);
-        resolve({ success: false, error: message });
+        finish({ success: false, error: message });
       });
     }));
   } catch (error) {
@@ -1223,10 +1324,10 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
     const runFfmpeg = (args: string[]) => new Promise<{ success: boolean; outputPath?: string; fileSize?: number; error?: string }>((innerResolve) => {
       console.log('[ffmpeg] Running:', ffmpegBinary, args.join(' '));
       const ffmpegProcess = spawn(ffmpegBinary, args);
-      let stderr = '';
+      const stderrRing = createStderrRing();
 
       ffmpegProcess.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString();
+        appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
         console.log('[ffmpeg]', data.toString());
       });
 
@@ -1246,6 +1347,7 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
             });
           }
         } else {
+          const stderr = getStderrText(stderrRing);
           innerResolve({
             success: false,
             error: `ffmpeg exited with code ${code}: ${stderr}`,
@@ -1376,13 +1478,13 @@ function runFfmpeg(ffmpegBinary: string, args: string[]): Promise<void> {
   return enqueueFfmpegHeavy(() => new Promise((resolve, reject) => {
     console.log('[ffmpeg] Running:', args.join(' '));
     const proc = spawn(ffmpegBinary, args);
-    let stderr = '';
+    const stderrRing = createStderrRing();
     proc.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
+      appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
     });
     proc.on('close', (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`ffmpeg exited with code ${code}: ${stderr}`));
+      else reject(new Error(`ffmpeg exited with code ${code}: ${getStderrText(stderrRing)}`));
     });
     proc.on('error', reject);
   }));
@@ -1479,10 +1581,10 @@ ipcMain.handle('export-sequence', async (_, options: ExportSequenceOptions): Pro
     return enqueueFfmpegHeavy(() => new Promise<ExportSequenceResult>((resolve) => {
       const ffmpegProcess = spawn(ffmpegBinary, concatArgs);
 
-      let stderr = '';
+      const stderrRing = createStderrRing();
 
       ffmpegProcess.stderr.on('data', (data: Buffer) => {
-        stderr += data.toString();
+        appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
         console.log('[ffmpeg]', data.toString());
       });
 
@@ -1513,6 +1615,7 @@ ipcMain.handle('export-sequence', async (_, options: ExportSequenceOptions): Pro
             });
           }
         } else {
+          const stderr = getStderrText(stderrRing);
           resolve({
             success: false,
             error: `ffmpeg exited with code ${code}: ${stderr}`,
@@ -1584,10 +1687,10 @@ ipcMain.handle('extract-video-frame', async (_, options: ExtractFrameOptions): P
 
     const ffmpegProcess = spawn(ffmpegBinary, args);
 
-    let stderr = '';
+    const stderrRing = createStderrRing();
 
     ffmpegProcess.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
+      appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
     });
 
     ffmpegProcess.on('close', (code: number | null) => {
@@ -1606,6 +1709,7 @@ ipcMain.handle('extract-video-frame', async (_, options: ExtractFrameOptions): P
           });
         }
       } else {
+        const stderr = getStderrText(stderrRing);
         resolve({
           success: false,
           error: `ffmpeg exited with code ${code}: ${stderr}`,

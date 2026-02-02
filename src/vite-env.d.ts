@@ -168,6 +168,14 @@ interface ExportSequenceResult {
   error?: string;
 }
 
+interface FfmpegLimits {
+  stderrMaxBytes: number;
+  maxClipSeconds: number;
+  maxTotalSeconds: number;
+  maxClipBytes: number;
+  maxTotalBytes: number;
+}
+
 interface ElectronAPI {
   // Folder operations
   selectFolder: () => Promise<FolderSelection | null>;
@@ -176,8 +184,10 @@ interface ElectronAPI {
   readFileAsBase64: (filePath: string) => Promise<string | null>;
 
   // Audio file (returns raw ArrayBuffer for Web Audio API)
-    readAudioFile: (filePath: string) => Promise<ArrayBuffer | Uint8Array | null>;
-    readAudioPcm: (filePath: string) => Promise<{ success: boolean; pcm?: Uint8Array; sampleRate?: number; channels?: number; error?: string } | null>;
+  readAudioFile: (filePath: string) => Promise<ArrayBuffer | Uint8Array | null>;
+  readAudioPcm: (filePath: string) => Promise<{ success: boolean; pcm?: Uint8Array; sampleRate?: number; channels?: number; error?: string } | null>;
+  getFfmpegLimits: () => Promise<FfmpegLimits>;
+  setFfmpegLimits: (limits: Partial<FfmpegLimits>) => Promise<FfmpegLimits>;
 
   // Image metadata
   readImageMetadata: (filePath: string) => Promise<ImageMetadata | null>;

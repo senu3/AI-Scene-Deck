@@ -118,9 +118,16 @@
 - **該当あり**：
   - `read-audio-pcm`（stdout → Buffer[] 全量保持）
   - `finalize-clip` / `export-sequence` / `extract-video-frame`（stderr を文字列で全量保持）
-- **対策案**：
-  - `stderr` は **末尾 N KB だけ保持**（ログ用途に限定）。
-  - `read-audio-pcm` は **必要長に上限**を設けるか、**チャンク処理**で転送して renderer 側で逐次処理。
+- **対策（実装済み）**：
+  - `stderr` は **末尾 128KB のリングバッファ**で保持（ログ用途に限定）。
+    - UI には「最後のエラー周辺」だけ表示で十分。
+    - `EnvironmentSettingsModal` からサイズ変更可能。
+  - `read-audio-pcm`（PCM）は **上限（最大秒数 or 最大バイト）**で超過時は拒否。
+    - `maxClipSeconds = 60`, `maxTotalSeconds = 15 * 60`
+    - `maxClipBytes = 32 MiB`, `maxTotalBytes = 256 MiB`
+    - 秒数上限とバイト上限の **より厳しい方**で判定。
+    - `EnvironmentSettingsModal` から変更可能。
+    - チャンク処理は将来対応（現状は全量連結のため、まずは上限で抑止）。
 
 ---
 
