@@ -354,14 +354,14 @@ export default function Storyline({ activeId }: StorylineProps) {
 
   return (
     <div
-      className="timeline storyline"
+      className="storyline"
       onClick={handleBackgroundClick}
       onDragEnter={handleStorylineDragEnter}
       onDragOver={handleStorylineDragOver}
       onDragLeave={handleStorylineDragLeave}
       onDrop={handleInboundDrop}
     >
-      <div className="timeline-content storyline-content">
+      <div className="storyline-content">
         {scenes.map((scene) => (
           <SceneColumn
             key={scene.id}
