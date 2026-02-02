@@ -5,7 +5,6 @@ node_modules/
 dist/
 build/
 out/
-.note/
 
 # Logs
 *.log
@@ -14,6 +13,7 @@ yarn-debug.log*
 yarn-error.log*
 claude.md
 .claude/
+.notes/
 
 # OS files
 .DS_Store

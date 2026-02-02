@@ -22,7 +22,8 @@ This note summarizes how video and audio are handled in the app (current impleme
 ## Preview Playback (Single vs Sequence)
 - **Single Mode**
   - Uses the `<video>`/`<img>` elements directly with per-mode handlers.
-  - IN/OUT is stored in local component state.
+  - Images still run through the Sequence playback engine for timing consistency.
+  - IN/OUT is stored in local component state (video) or controller range (image).
 - **Sequence Mode**
   - Uses `useSequencePlaybackController` (reducer-driven) to unify play/pause/seek/loop/range.
   - Media sources are created per cut (`createVideoMediaSource` / `createImageMediaSource`).
@@ -36,6 +37,8 @@ This note summarizes how video and audio are handled in the app (current impleme
   - Single and Sequence preview use **separate AudioManager instances**.
 - **Offsets**
   - Per-asset offset is stored in metadata and applied during playback.
+- **Attached Audio**
+  - Asset attachments are resolved via `.metadata.json` and loaded on asset/cut change.
 - **RMS Analysis**
   - RMS is computed from PCM at **60 fps** and stored in metadata (JSON array).
   - Stored under the **audio asset's** metadata entry for reuse.
@@ -43,6 +46,7 @@ This note summarizes how video and audio are handled in the app (current impleme
 ## Metadata Store
 - Stored in `.metadata.json` at vault root.
 - Keyed by **assetId** (audio analysis is attached to the audio asset).
+- Scene notes and labels are also persisted under `sceneMetadata`.
 
 ## Vault Gateway (Index/Trash Writes)
 - Asset import/registration and trash moves update `.index.json` / `.trash.json` via **VaultGateway**.

@@ -7,8 +7,11 @@ This note captures how preview playback is structured and what must not be chang
 - Activated when `PreviewModal` receives a single `asset` prop.
 - Video: uses direct `<video>` rendering with per-element handlers.
 - Image: uses the Sequence playback engine (`useSequencePlaybackController` + `createImageMediaSource`) even in Single Mode.
+- Image display time resolves from metadata (`displayTime`) and falls back to `1.0s` (clamped to `>= 0.1s`).
 - IN/OUT is stored in local component state (video) or controller range (image/sequence).
-- Audio sync uses a dedicated `AudioManager` tied to the video element.
+- Audio sync uses a dedicated `AudioManager`.
+  - Video: starts from `video.currentTime` on play/pause changes.
+  - Image: follows the sequence controller’s absolute time.
 
 ### Sequence Mode
 - Activated when no single `asset` is provided.
@@ -42,6 +45,8 @@ Video sources queue play/seek until the element is mounted, avoiding the "cut bo
 
 ## Buffering / Preload
 - Sequence preloads URLs in a time window (`PLAY_SAFE_AHEAD`, `PRELOAD_AHEAD`).
+- Initial preload warms the first `INITIAL_PRELOAD_ITEMS`.
+- Video URL cache is pruned as the playhead moves (keeps a small rewind window).
 - Video URL cache is keyed by **assetId** to prevent mismatched URLs.
 
 ## Must NOT Do
