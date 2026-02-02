@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { DialogProvider } from './ui';
+import { DialogProvider, ToastProvider } from './ui';
 import './styles/globals.css';
 
 window.addEventListener('error', (event) => {
@@ -14,8 +14,10 @@ window.addEventListener('unhandledrejection', (event) => {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <DialogProvider>
-      <App />
-    </DialogProvider>
+    <ToastProvider>
+      <DialogProvider>
+        <App />
+      </DialogProvider>
+    </ToastProvider>
   </React.StrictMode>
 );

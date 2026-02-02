@@ -12,12 +12,17 @@ import {
   Trash2,
   Download,
   Check,
+  FolderOpen,
+  Loader2,
+  MoreVertical,
+  RefreshCw,
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Asset, Scene, MetadataStore, AssetIndexEntry } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { getCachedThumbnail, getThumbnail, removeThumbnailCache } from '../utils/thumbnailCache';
 import { CutContextMenu } from './CutCard';
+import { useToast } from '../ui';
 import './AssetPanel.css';
 
 export type SortMode = 'name' | 'type' | 'used' | 'unused';
@@ -189,8 +194,16 @@ export default function AssetPanel({
     y: number;
     asset: AssetInfo;
   } | null>(null);
+  const [bulkImportProgress, setBulkImportProgress] = useState<{
+    isActive: boolean;
+    current: number;
+    total: number;
+  }>({ isActive: false, current: 0, total: 0 });
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const unusedMenuRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
   // Build usage map
   const usedAssetsMap = useMemo(
@@ -290,6 +303,100 @@ export default function AssetPanel({
     loadAssets();
   }, [loadAssets]);
 
+  // Bulk import handler - import all media files from a folder
+  const handleBulkImport = useCallback(async () => {
+    if (!vaultPath || !window.electronAPI?.vaultGateway) {
+      toast.error('Vault not available', 'Please set up a vault first.');
+      return;
+    }
+
+    // Select folder
+    const folder = await window.electronAPI.selectFolder();
+    if (!folder) return;
+
+    // Collect all media files recursively
+    const mediaFiles: { name: string; path: string; type: 'image' | 'video' | 'audio' }[] = [];
+    const collectMediaFiles = (items: Array<{ name: string; path: string; isDirectory: boolean; children?: unknown[] }>) => {
+      for (const item of items) {
+        if (item.isDirectory) {
+          if (item.children) {
+            collectMediaFiles(item.children as Array<{ name: string; path: string; isDirectory: boolean; children?: unknown[] }>);
+          }
+        } else {
+          const mediaType = getMediaType(item.name);
+          if (mediaType) {
+            mediaFiles.push({ name: item.name, path: item.path, type: mediaType });
+          }
+        }
+      }
+    };
+
+    collectMediaFiles(folder.structure);
+
+    if (mediaFiles.length === 0) {
+      toast.info('No media files found', 'The selected folder contains no images, videos, or audio files.');
+      return;
+    }
+
+    // Start import
+    setBulkImportProgress({ isActive: true, current: 0, total: mediaFiles.length });
+    const toastId = toast.info(`Importing 0/${mediaFiles.length}...`, undefined, { duration: 0 });
+
+    let imported = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (let i = 0; i < mediaFiles.length; i++) {
+      const file = mediaFiles[i];
+      const assetId = uuidv4();
+
+      try {
+        const result = await window.electronAPI.vaultGateway.importAndRegisterAsset(
+          file.path,
+          vaultPath,
+          assetId
+        );
+
+        if (result.success) {
+          if (result.isDuplicate) {
+            skipped++;
+          } else {
+            imported++;
+          }
+        } else {
+          failed++;
+          console.error(`Failed to import ${file.name}:`, result.error);
+        }
+      } catch (error) {
+        failed++;
+        console.error(`Error importing ${file.name}:`, error);
+      }
+
+      setBulkImportProgress({ isActive: true, current: i + 1, total: mediaFiles.length });
+      toast.dismiss(toastId);
+      toast.info(`Importing ${i + 1}/${mediaFiles.length}...`, undefined, { duration: 0, id: toastId });
+    }
+
+    // Complete
+    setBulkImportProgress({ isActive: false, current: 0, total: 0 });
+    toast.dismiss(toastId);
+
+    // Show result
+    const messages: string[] = [];
+    if (imported > 0) messages.push(`${imported} imported`);
+    if (skipped > 0) messages.push(`${skipped} duplicates`);
+    if (failed > 0) messages.push(`${failed} failed`);
+
+    if (failed > 0) {
+      toast.warning('Import completed with errors', messages.join(', '));
+    } else {
+      toast.success('Import completed', messages.join(', '));
+    }
+
+    // Reload asset list
+    loadAssets();
+  }, [vaultPath, toast, loadAssets]);
+
   // Load thumbnail for an asset (uses shared cache)
   const loadThumbnail = useCallback(async (asset: AssetInfo) => {
     if (getCachedThumbnail(asset.path)) return;
@@ -318,6 +425,18 @@ export default function AssetPanel({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [unusedContextMenu]);
+
+  // Close more menu when clicking outside
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMoreMenu]);
 
   // Filter and sort assets
   const filteredAssets = useMemo(() => {
@@ -659,8 +778,8 @@ export default function AssetPanel({
 
         {/* Toolbar */}
         <div className="asset-panel-toolbar">
-          {/* Search box */}
-          <div className="asset-panel-search">
+          {/* Search box with integrated menu */}
+          <div className="asset-panel-search" ref={moreMenuRef}>
             <Search size={16} className="search-icon" />
             <input
               type="text"
@@ -668,6 +787,47 @@ export default function AssetPanel({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
+            {/* More actions menu (drawer mode only) */}
+            {mode === 'drawer' && (
+              <div className="more-menu-container">
+                <button
+                  className="more-menu-btn"
+                  onClick={() => setShowMoreMenu(!showMoreMenu)}
+                  title="More actions"
+                >
+                  {bulkImportProgress.isActive ? (
+                    <Loader2 size={16} className="spin" />
+                  ) : (
+                    <MoreVertical size={16} />
+                  )}
+                </button>
+                {showMoreMenu && (
+                  <div className="more-menu-dropdown">
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        handleBulkImport();
+                      }}
+                      disabled={bulkImportProgress.isActive}
+                    >
+                      <FolderOpen size={14} />
+                      {bulkImportProgress.isActive
+                        ? `Importing ${bulkImportProgress.current}/${bulkImportProgress.total}...`
+                        : 'Import Folder...'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false);
+                        loadAssets();
+                      }}
+                    >
+                      <RefreshCw size={14} />
+                      Refresh
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Sort and filter row */}
