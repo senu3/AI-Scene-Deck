@@ -1,11 +1,13 @@
-.timeline {
+.timeline,
+.storyline {
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 16px;
 }
 
-.timeline-content {
+.timeline-content,
+.storyline-content {
   display: flex;
   gap: 16px;
   height: 100%;
