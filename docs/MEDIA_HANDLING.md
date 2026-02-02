@@ -44,6 +44,10 @@ This note summarizes how video and audio are handled in the app (current impleme
 - Stored in `.metadata.json` at vault root.
 - Keyed by **assetId** (audio analysis is attached to the audio asset).
 
+## Vault Gateway (Index/Trash Writes)
+- Asset import/registration and trash moves update `.index.json` / `.trash.json` via **VaultGateway**.
+- Renderer-side media flows should call `window.electronAPI.vaultGateway.*` for write operations.
+
 ## ffmpeg Work Queue
 - **Light queue** (concurrency 2): metadata, thumbnail, PCM decode.
 - **Heavy queue** (concurrency 1): export/clip/frame operations.

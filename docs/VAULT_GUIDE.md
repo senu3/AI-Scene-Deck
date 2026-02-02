@@ -41,28 +41,35 @@ When assets are deleted or rehashed:
 - **Retention**: items older than the retention period are purged.
 
 ## Asset Creation / Registration Paths
-All paths must end with `.index.json` being updated.
+All paths must end with `.index.json` being updated **via VaultGateway**.
 
 ### 1) Cut Creation (Timeline / Drag & Drop)
 - External file drop or sidebar asset add:
   - Import file into `vault/assets/` (hash name)
   - Read metadata + thumbnail
   - Create Cut with `assetId`
-  - Update `.index.json`
+  - Update `.index.json` via VaultGateway
 
 ### 2) Attach Audio
 - Attaching audio creates or registers an audio asset:
   - Audio file is imported into `vault/assets/`
   - `.metadata.json` stores attachment links and offset
-  - `.index.json` stores the audio asset entry
+  - `.index.json` stores the audio asset entry via VaultGateway
 
 ### 3) Video Capture (Frame Capture)
 - Captured frames are saved into `vault/assets/`, then re-imported for hash naming.
-- The resulting asset is indexed and a Cut is created below the source cut.
+ - The resulting asset is indexed via VaultGateway and a Cut is created below the source cut.
 
 ### 4) Clip Export (Finalize Clip)
 - Exported clip is saved to `vault/assets/`, then re-imported for hash naming.
-- The resulting asset is indexed and a Cut is created.
+ - The resulting asset is indexed via VaultGateway and a Cut is created.
+
+## VaultGateway (Single Write Entry)
+**VaultGateway is the only writer for `.index.json` and `.trash/.trash.json`.**
+Renderer code must call `window.electronAPI.vaultGateway.*` for:
+- Import + register (hash naming + index update)
+- Index save (ordering + usageRefs update)
+- Trash move (trash file + trash index + index removal)
 
 ## Recovery Priority
 1. `project.sdp` for story order and cuts
