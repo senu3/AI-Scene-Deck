@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore, CutGroup } from '../types';
 import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis, upsertSceneMetadata, removeSceneMetadata, syncSceneMetadata } from '../utils/metadataStore';
 import { analyzeAudioRms } from '../utils/audioUtils';
+import { clearThumbnailCache } from '../utils/thumbnailCache';
 import type { CutImportSource } from '../utils/cutImport';
 import { buildAssetForCut } from '../utils/cutImport';
 
@@ -257,6 +258,7 @@ export const useStore = create<AppState>((set, get) => ({
   setProjectName: (name) => set({ projectName: name }),
 
   initializeProject: (project) => {
+    clearThumbnailCache();
     const defaultScenes: Scene[] = [
       { id: uuidv4(), name: 'Scene 1', cuts: [], order: 0, notes: [] },
       { id: uuidv4(), name: 'Scene 2', cuts: [], order: 1, notes: [] },
@@ -279,11 +281,13 @@ export const useStore = create<AppState>((set, get) => ({
     });
   },
 
-  clearProject: () => set({
-    projectLoaded: false,
-    projectPath: null,
-    vaultPath: null,
-    trashPath: null,
+  clearProject: () => {
+    clearThumbnailCache();
+    return set({
+      projectLoaded: false,
+      projectPath: null,
+      vaultPath: null,
+      trashPath: null,
     projectName: 'Untitled Project',
     metadataStore: null,
     scenes: [],
@@ -297,7 +301,8 @@ export const useStore = create<AppState>((set, get) => ({
     assetCache: new Map(),
     selectedGroupId: null,
     detailsPanelOpen: false,
-  }),
+    });
+  },
 
   loadProject: (scenes) => set({ scenes }),
 
