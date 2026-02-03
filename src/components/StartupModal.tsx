@@ -6,6 +6,7 @@ import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from '.
 import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata } from '../utils/videoUtils';
 import { getThumbnail } from '../utils/thumbnailCache';
+import { useSnapshotStore } from '../store/snapshotStore';
 import './StartupModal.css';
 
 // Helper to detect media type from filename
@@ -99,6 +100,7 @@ interface PendingProject {
 
 export default function StartupModal() {
   const { initializeProject, setRootFolder, initializeSourcePanel, loadMetadata } = useStore();
+  const { setSnapshot } = useSnapshotStore();
   const [step, setStep] = useState<'choice' | 'new-project'>('choice');
   const [projectName, setProjectName] = useState('');
   const [vaultPath, setVaultPath] = useState('');
@@ -200,6 +202,12 @@ export default function StartupModal() {
         initializeProject({
           name: projectName,
           vaultPath: vault.path,
+          scenes: defaultScenes as any,
+        });
+        setSnapshot('initial-load', {
+          createdAt: new Date().toISOString(),
+          label: 'Initial Load',
+          reason: 'project-create',
           scenes: defaultScenes as any,
         });
 
@@ -398,6 +406,12 @@ export default function StartupModal() {
     initializeProject({
       name: project.name,
       vaultPath: project.vaultPath,
+      scenes: finalScenes as ReturnType<typeof useStore.getState>['scenes'],
+    });
+    setSnapshot('initial-load', {
+      createdAt: new Date().toISOString(),
+      label: 'Initial Load',
+      reason: 'load-project',
       scenes: finalScenes as ReturnType<typeof useStore.getState>['scenes'],
     });
 

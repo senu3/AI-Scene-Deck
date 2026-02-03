@@ -248,6 +248,8 @@ interface ElectronAPI {
 
   // App menu events
   onToggleSidebar: (callback: () => void) => () => void;
+  onAutosaveFlushRequest: (callback: () => void | Promise<void>) => () => void;
+  notifyAutosaveFlushed: () => void;
 }
 
 declare global {

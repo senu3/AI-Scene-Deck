@@ -9,8 +9,13 @@ import { Readable } from 'stream';
 import * as os from 'os';
 import { getMediaType, importAssetToVaultInternal, moveToTrashInternal, registerVaultGatewayHandlers, saveAssetIndexInternal, type AssetIndex, type TrashMeta } from './vaultGateway';
 const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
+const IPC_AUTOSAVE_FLUSH_REQUEST = 'autosave-flush-request';
+const IPC_AUTOSAVE_FLUSH_COMPLETE = 'autosave-flush-complete';
 
 let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
+let autosaveFlushInProgress = false;
+let autosaveFlushTimer: NodeJS.Timeout | null = null;
 
 const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
 
@@ -341,6 +346,36 @@ function createWindow() {
     console.error('[Crash] WebContents unresponsive');
   });
 
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    if (autosaveFlushInProgress) return;
+
+    event.preventDefault();
+    autosaveFlushInProgress = true;
+    mainWindow?.webContents.send(IPC_AUTOSAVE_FLUSH_REQUEST);
+
+    const finalizeClose = () => {
+      if (!autosaveFlushInProgress) return;
+      autosaveFlushInProgress = false;
+      if (autosaveFlushTimer) {
+        clearTimeout(autosaveFlushTimer);
+        autosaveFlushTimer = null;
+      }
+      if (!mainWindow) return;
+      isQuitting = true;
+      mainWindow.close();
+    };
+
+    ipcMain.once(IPC_AUTOSAVE_FLUSH_COMPLETE, () => {
+      finalizeClose();
+    });
+
+    autosaveFlushTimer = setTimeout(() => {
+      console.warn('[Autosave] Flush timed out, closing anyway.');
+      finalizeClose();
+    }, 5000);
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -436,6 +471,10 @@ app.on('render-process-gone', (_event, details) => {
 
 app.on('child-process-gone', (_event, details) => {
   console.error('[Crash] Child process gone:', details);
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('window-all-closed', () => {

@@ -6,6 +6,7 @@ import { analyzeAudioRms } from '../utils/audioUtils';
 import { clearThumbnailCache } from '../utils/thumbnailCache';
 import type { CutImportSource } from '../utils/cutImport';
 import { buildAssetForCut } from '../utils/cutImport';
+import { requestAutosave } from '../utils/autosaveBus';
 
 export interface SourceFolder {
   path: string;
@@ -88,6 +89,7 @@ interface AppState {
   initializeProject: (project: Partial<Project>) => void;
   clearProject: () => void;
   loadProject: (scenes: Scene[]) => void;
+  applySceneSnapshot: (scenes: Scene[]) => void;
 
   // Actions - Folder browser
   setRootFolder: (folder: { path: string; name: string; structure: FileItem[] } | null) => void;
@@ -255,7 +257,10 @@ export const useStore = create<AppState>((set, get) => ({
   setProjectPath: (path) => set({ projectPath: path }),
   setVaultPath: (path) => set({ vaultPath: path }),
   setTrashPath: (path) => set({ trashPath: path }),
-  setProjectName: (name) => set({ projectName: name }),
+  setProjectName: (name) => {
+    set({ projectName: name });
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'project-rename' });
+  },
 
   initializeProject: (project) => {
     clearThumbnailCache();
@@ -305,6 +310,16 @@ export const useStore = create<AppState>((set, get) => ({
   },
 
   loadProject: (scenes) => set({ scenes }),
+  applySceneSnapshot: (scenes) => set({
+    scenes,
+    selectedSceneId: null,
+    selectedCutId: null,
+    selectedCutIds: new Set(),
+    lastSelectedCutId: null,
+    selectionType: null,
+    selectedGroupId: null,
+    detailsPanelOpen: false,
+  }),
 
   // Folder browser actions
   setRootFolder: (folder) => set((state) => {
@@ -318,25 +333,33 @@ export const useStore = create<AppState>((set, get) => ({
     return { rootFolder: folder };
   }),
 
-  addSourceFolder: (folder) => set((state) => {
-    // Don't add if already exists
-    if (state.sourceFolders.some(f => f.path === folder.path)) {
-      return state;
-    }
-    return { sourceFolders: [...state.sourceFolders, folder] };
-  }),
+  addSourceFolder: (folder) => {
+    set((state) => {
+      // Don't add if already exists
+      if (state.sourceFolders.some(f => f.path === folder.path)) {
+        return state;
+      }
+      return { sourceFolders: [...state.sourceFolders, folder] };
+    });
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'source-folder-add' });
+  },
 
-  removeSourceFolder: (path) => set((state) => ({
-    sourceFolders: state.sourceFolders.filter(f => f.path !== path),
-    // Also clear rootFolder if it matches
-    rootFolder: state.rootFolder?.path === path ? null : state.rootFolder,
-  })),
+  removeSourceFolder: (path) => {
+    set((state) => ({
+      sourceFolders: state.sourceFolders.filter(f => f.path !== path),
+      // Also clear rootFolder if it matches
+      rootFolder: state.rootFolder?.path === path ? null : state.rootFolder,
+    }));
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'source-folder-remove' });
+  },
 
-  updateSourceFolder: (path, structure) => set((state) => ({
-    sourceFolders: state.sourceFolders.map(f =>
-      f.path === path ? { ...f, structure } : f
-    ),
-  })),
+  updateSourceFolder: (path, structure) => {
+    set((state) => ({
+      sourceFolders: state.sourceFolders.map(f =>
+        f.path === path ? { ...f, structure } : f
+      ),
+    }));
+  },
 
   refreshAllSourceFolders: async () => {
     const state = get();
@@ -356,17 +379,23 @@ export const useStore = create<AppState>((set, get) => ({
     }
   },
 
-  toggleFolderExpanded: (path) => set((state) => {
-    const newExpanded = new Set(state.expandedFolders);
-    if (newExpanded.has(path)) {
-      newExpanded.delete(path);
-    } else {
-      newExpanded.add(path);
-    }
-    return { expandedFolders: newExpanded };
-  }),
+  toggleFolderExpanded: (path) => {
+    set((state) => {
+      const newExpanded = new Set(state.expandedFolders);
+      if (newExpanded.has(path)) {
+        newExpanded.delete(path);
+      } else {
+        newExpanded.add(path);
+      }
+      return { expandedFolders: newExpanded };
+    });
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'source-folder-toggle' });
+  },
 
-  setExpandedFolders: (paths) => set({ expandedFolders: new Set(paths) }),
+  setExpandedFolders: (paths) => {
+    set({ expandedFolders: new Set(paths) });
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'source-folder-expanded' });
+  },
 
   addFavorite: (folder) => set((state) => ({
     favorites: [...state.favorites, folder],
@@ -376,7 +405,10 @@ export const useStore = create<AppState>((set, get) => ({
     favorites: state.favorites.filter((f) => f.path !== path),
   })),
 
-  setSourceViewMode: (mode) => set({ sourceViewMode: mode }),
+  setSourceViewMode: (mode) => {
+    set({ sourceViewMode: mode });
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'source-view-mode' });
+  },
 
   initializeSourcePanel: async (state, vaultPath) => {
     // Build path for vault assets folder to exclude
@@ -461,6 +493,8 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
     get().saveMetadata();
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'scene-add' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'scene-add' });
     return id;
   },
 
@@ -480,6 +514,8 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
     get().saveMetadata();
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'scene-remove' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'scene-remove' });
   },
 
   renameScene: (sceneId, name) => {
@@ -495,22 +531,31 @@ export const useStore = create<AppState>((set, get) => ({
       return { scenes, metadataStore: updatedStore };
     });
     get().saveMetadata();
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'scene-rename' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'scene-rename' });
   },
 
-  reorderScenes: (fromIndex, toIndex) => set((state) => {
-    const newScenes = [...state.scenes];
-    const [removed] = newScenes.splice(fromIndex, 1);
-    newScenes.splice(toIndex, 0, removed);
-    return {
-      scenes: newScenes.map((s, idx) => ({ ...s, order: idx })),
-    };
-  }),
+  reorderScenes: (fromIndex, toIndex) => {
+    set((state) => {
+      const newScenes = [...state.scenes];
+      const [removed] = newScenes.splice(fromIndex, 1);
+      newScenes.splice(toIndex, 0, removed);
+      return {
+        scenes: newScenes.map((s, idx) => ({ ...s, order: idx })),
+      };
+    });
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'scene-reorder' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'scene-reorder' });
+  },
 
-  updateSceneFolderPath: (sceneId, folderPath) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId ? { ...s, folderPath } : s
-    ),
-  })),
+  updateSceneFolderPath: (sceneId, folderPath) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId ? { ...s, folderPath } : s
+      ),
+    }));
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'scene-folder-path' });
+  },
 
   // Scene notes actions
   addSceneNote: (sceneId, note) => {
@@ -536,6 +581,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { scenes, metadataStore: updatedStore };
     });
     get().saveMetadata();
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'scene-note-add' });
   },
 
   updateSceneNote: (sceneId, noteId, content) => {
@@ -556,6 +602,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { scenes, metadataStore: updatedStore };
     });
     get().saveMetadata();
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'scene-note-update' });
   },
 
   removeSceneNote: (sceneId, noteId) => {
@@ -574,6 +621,7 @@ export const useStore = create<AppState>((set, get) => ({
       return { scenes, metadataStore: updatedStore };
     });
     get().saveMetadata();
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'scene-note-remove' });
   },
 
   // Cut actions
@@ -612,6 +660,8 @@ export const useStore = create<AppState>((set, get) => ({
       };
     });
 
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-add' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-add' });
     return cutId;
   },
 
@@ -679,6 +729,8 @@ export const useStore = create<AppState>((set, get) => ({
         assetCache: newCache,
       };
     });
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-import-complete' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-import-complete' });
   },
 
   createCutFromImport: async (sceneId, source, insertIndex, vaultPathOverride) => {
@@ -724,144 +776,169 @@ export const useStore = create<AppState>((set, get) => ({
       detailsPanelOpen: state.selectedCutId === cutId ? false : state.detailsPanelOpen,
     }));
 
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-remove' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-remove' });
     return cutToRemove;
   },
 
-  updateCutDisplayTime: (sceneId, cutId, time) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId
-        ? {
-            ...s,
-            cuts: s.cuts.map((c) =>
-              c.id === cutId ? { ...c, displayTime: time } : c
-            ),
-          }
-        : s
-    ),
-  })),
-
-  // Video clip actions
-  updateCutClipPoints: (sceneId, cutId, inPoint, outPoint) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId
-        ? {
-            ...s,
-            cuts: s.cuts.map((c) =>
-              c.id === cutId
-                ? {
-                    ...c,
-                    inPoint,
-                    outPoint,
-                    isClip: true,
-                    // Update displayTime to match clip duration
-                    displayTime: Math.abs(outPoint - inPoint),
-                  }
-                : c
-            ),
-          }
-        : s
-    ),
-  })),
-
-  clearCutClipPoints: (sceneId, cutId) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId
-        ? {
-            ...s,
-            cuts: s.cuts.map((c) =>
-              c.id === cutId
-                ? {
-                    ...c,
-                    inPoint: undefined,
-                    outPoint: undefined,
-                    isClip: false,
-                    // Restore displayTime to original video duration
-                    displayTime: c.asset?.duration ?? c.displayTime,
-                  }
-                : c
-            ),
-          }
-        : s
-    ),
-  })),
-
-  updateCutAsset: (sceneId, cutId, assetUpdates) => set((state) => ({
-    scenes: state.scenes.map((s) =>
-      s.id === sceneId
-        ? {
-            ...s,
-            cuts: s.cuts.map((c) =>
-              c.id === cutId && c.asset
-                ? {
-                    ...c,
-                    asset: { ...c.asset, ...assetUpdates },
-                  }
-                : c
-            ),
-          }
-        : s
-    ),
-  })),
-
-  reorderCuts: (sceneId, _cutId, newIndex, _fromSceneId, oldIndex) => set((state) => {
-    const scene = state.scenes.find((s) => s.id === sceneId);
-    if (!scene) return state;
-
-    const newCuts = [...scene.cuts];
-    const [removed] = newCuts.splice(oldIndex, 1);
-    newCuts.splice(newIndex, 0, removed);
-
-    return {
+  updateCutDisplayTime: (sceneId, cutId, time) => {
+    set((state) => ({
       scenes: state.scenes.map((s) =>
         s.id === sceneId
-          ? { ...s, cuts: newCuts.map((c, idx) => ({ ...c, order: idx })) }
+          ? {
+              ...s,
+              cuts: s.cuts.map((c) =>
+                c.id === cutId ? { ...c, displayTime: time } : c
+              ),
+            }
           : s
       ),
-    };
-  }),
+    }));
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'cut-display-time' });
+  },
 
-  moveCutToScene: (fromSceneId, toSceneId, cutId, toIndex) => set((state) => {
-    const fromScene = state.scenes.find((s) => s.id === fromSceneId);
-    if (!fromScene) return state;
+  // Video clip actions
+  updateCutClipPoints: (sceneId, cutId, inPoint, outPoint) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              cuts: s.cuts.map((c) =>
+                c.id === cutId
+                  ? {
+                      ...c,
+                      inPoint,
+                      outPoint,
+                      isClip: true,
+                      // Update displayTime to match clip duration
+                      displayTime: Math.abs(outPoint - inPoint),
+                    }
+                  : c
+              ),
+            }
+          : s
+      ),
+    }));
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-clip-update' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-clip-update' });
+  },
 
-    const cutToMove = fromScene.cuts.find((c) => c.id === cutId);
-    if (!cutToMove) return state;
+  clearCutClipPoints: (sceneId, cutId) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              cuts: s.cuts.map((c) =>
+                c.id === cutId
+                  ? {
+                      ...c,
+                      inPoint: undefined,
+                      outPoint: undefined,
+                      isClip: false,
+                      // Restore displayTime to original video duration
+                      displayTime: c.asset?.duration ?? c.displayTime,
+                    }
+                  : c
+              ),
+            }
+          : s
+      ),
+    }));
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-clip-clear' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-clip-clear' });
+  },
 
-    return {
-      scenes: state.scenes.map((s) => {
-        if (s.id === fromSceneId) {
-          return {
-            ...s,
-            cuts: s.cuts
-              .filter((c) => c.id !== cutId)
-              .map((c, idx) => ({ ...c, order: idx })),
-            // Remove cut from any groups when moving to another scene
-            groups: (s.groups || [])
-              .map((g) => ({
-                ...g,
-                cutIds: g.cutIds.filter((id) => id !== cutId),
-              }))
-              .filter((g) => g.cutIds.length > 0),
-          };
-        }
-        if (s.id === toSceneId) {
-          const newCuts = [...s.cuts];
-          newCuts.splice(toIndex, 0, cutToMove);
-          return {
-            ...s,
-            cuts: newCuts.map((c, idx) => ({ ...c, order: idx })),
-          };
-        }
-        return s;
-      }),
-    };
-  }),
+  updateCutAsset: (sceneId, cutId, assetUpdates) => {
+    set((state) => ({
+      scenes: state.scenes.map((s) =>
+        s.id === sceneId
+          ? {
+              ...s,
+              cuts: s.cuts.map((c) =>
+                c.id === cutId && c.asset
+                  ? {
+                      ...c,
+                      asset: { ...c.asset, ...assetUpdates },
+                    }
+                  : c
+              ),
+            }
+          : s
+      ),
+    }));
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'cut-asset-update' });
+  },
+
+  reorderCuts: (sceneId, _cutId, newIndex, _fromSceneId, oldIndex) => {
+    set((state) => {
+      const scene = state.scenes.find((s) => s.id === sceneId);
+      if (!scene) return state;
+
+      const newCuts = [...scene.cuts];
+      const [removed] = newCuts.splice(oldIndex, 1);
+      newCuts.splice(newIndex, 0, removed);
+
+      return {
+        scenes: state.scenes.map((s) =>
+          s.id === sceneId
+            ? { ...s, cuts: newCuts.map((c, idx) => ({ ...c, order: idx })) }
+            : s
+        ),
+      };
+    });
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-reorder' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-reorder' });
+  },
+
+  moveCutToScene: (fromSceneId, toSceneId, cutId, toIndex) => {
+    set((state) => {
+      const fromScene = state.scenes.find((s) => s.id === fromSceneId);
+      if (!fromScene) return state;
+
+      const cutToMove = fromScene.cuts.find((c) => c.id === cutId);
+      if (!cutToMove) return state;
+
+      return {
+        scenes: state.scenes.map((s) => {
+          if (s.id === fromSceneId) {
+            return {
+              ...s,
+              cuts: s.cuts
+                .filter((c) => c.id !== cutId)
+                .map((c, idx) => ({ ...c, order: idx })),
+              // Remove cut from any groups when moving to another scene
+              groups: (s.groups || [])
+                .map((g) => ({
+                  ...g,
+                  cutIds: g.cutIds.filter((id) => id !== cutId),
+                }))
+                .filter((g) => g.cutIds.length > 0),
+            };
+          }
+          if (s.id === toSceneId) {
+            const newCuts = [...s.cuts];
+            newCuts.splice(toIndex, 0, cutToMove);
+            return {
+              ...s,
+              cuts: newCuts.map((c, idx) => ({ ...c, order: idx })),
+            };
+          }
+          return s;
+        }),
+      };
+    });
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-move' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-move' });
+  },
 
   // Move multiple cuts to a scene (preserves relative order)
-  moveCutsToScene: (cutIds, toSceneId, toIndex) => set((state) => {
-    // Collect cuts to move with their current data (preserving order in cutIds)
-    const cutsToMove: Cut[] = [];
-    const cutIdSet = new Set(cutIds);
+  moveCutsToScene: (cutIds, toSceneId, toIndex) => {
+    set((state) => {
+      // Collect cuts to move with their current data (preserving order in cutIds)
+      const cutsToMove: Cut[] = [];
+      const cutIdSet = new Set(cutIds);
 
     // Get cuts in the order specified by cutIds
     for (const cutId of cutIds) {
@@ -877,8 +954,8 @@ export const useStore = create<AppState>((set, get) => ({
     if (cutsToMove.length === 0) return state;
 
     // Remove cuts from all scenes and add to target scene
-    return {
-      scenes: state.scenes.map((s) => {
+      return {
+        scenes: state.scenes.map((s) => {
         // Remove any selected cuts from this scene
         const remainingCuts = s.cuts.filter((c) => !cutIdSet.has(c.id));
 
@@ -906,8 +983,11 @@ export const useStore = create<AppState>((set, get) => ({
       selectedCutIds: new Set<string>(),
       selectedCutId: null,
       lastSelectedCutId: null,
-    };
-  }),
+      };
+    });
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-multi-move' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-multi-move' });
+  },
 
   // Selection actions
   selectScene: (sceneId) => set({
@@ -1308,6 +1388,8 @@ export const useStore = create<AppState>((set, get) => ({
         assetCache: newCache,
       };
     });
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'cut-relink' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'cut-relink' });
   },
 
   // Helpers
@@ -1376,6 +1458,8 @@ export const useStore = create<AppState>((set, get) => ({
       ),
     }));
 
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'group-create' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'group-create' });
     return groupId;
   },
 
@@ -1396,6 +1480,8 @@ export const useStore = create<AppState>((set, get) => ({
       selectedGroupId: state.selectedGroupId === groupId ? null : state.selectedGroupId,
     }));
 
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'group-delete' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'group-delete' });
     return groupToDelete;
   },
 
@@ -1412,6 +1498,7 @@ export const useStore = create<AppState>((set, get) => ({
           : s
       ),
     }));
+    requestAutosave({ type: 'fast', urgency: 'debounced', reason: 'group-toggle' });
   },
 
   getCutGroup: (sceneId, cutId) => {
@@ -1444,6 +1531,8 @@ export const useStore = create<AppState>((set, get) => ({
           : s
       ),
     }));
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'group-rename' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'group-rename' });
   },
 
   addCutsToGroup: (sceneId, groupId, cutIds) => {
@@ -1461,6 +1550,8 @@ export const useStore = create<AppState>((set, get) => ({
           : s
       ),
     }));
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'group-add-cuts' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'group-add-cuts' });
   },
 
   removeCutFromGroup: (sceneId, groupId, cutId) => {
@@ -1478,6 +1569,8 @@ export const useStore = create<AppState>((set, get) => ({
           : s
       ),
     }));
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'group-remove-cut' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'group-remove-cut' });
   },
 
   updateGroupCutOrder: (sceneId, groupId, cutIds) => {
@@ -1493,6 +1586,8 @@ export const useStore = create<AppState>((set, get) => ({
           : s
       ),
     }));
+    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'group-reorder' });
+    requestAutosave({ type: 'slow', urgency: 'debounced', reason: 'group-reorder' });
   },
 
   getSelectedGroup: () => {
