@@ -8,7 +8,7 @@ import ffmpegPath from 'ffmpeg-static';
 import { Readable } from 'stream';
 import * as os from 'os';
 import { getMediaType, importAssetToVaultInternal, moveToTrashInternal, registerVaultGatewayHandlers, saveAssetIndexInternal, type AssetIndex, type TrashMeta } from './vaultGateway';
-import { IPC_TOGGLE_SIDEBAR } from './ipcChannels';
+const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
 
 let mainWindow: BrowserWindow | null = null;
 

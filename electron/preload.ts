@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { IPC_TOGGLE_SIDEBAR } from './ipcChannels';
+const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
 
 export interface FileItem {
   name: string;

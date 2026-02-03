@@ -15,4 +15,4 @@
 | プレビュー制御 | `PlaybackState`。 | `useSequencePlaybackController`。 | `PreviewModal` |
 | メディアソース | `MediaSource`。 | `createVideoMediaSource` / `createImageMediaSource`。 | `PreviewModal` |
 | ソースパネル状態 | `SourcePanelState` / `SourceViewMode`。 | `initializeSourcePanel` / `getSourcePanelState`（`Project.sourcePanel` に保存）。 | `Sidebar` |
-| アプリメニュー（ネイティブ） | （専用TS型なし） | `electron/ipcChannels.ts` / `electron/preload.ts`（IPC橋渡し） | `electron/main.ts`（Menu定義＋set）/ `App.tsx`（`onToggleSidebar` 購読） |
+| アプリメニュー（ネイティブ） | （専用TS型なし） | `electron/preload.ts`（IPC橋渡し） | `electron/main.ts`（Menu定義＋set）/ `App.tsx`（`onToggleSidebar` 購読） |
