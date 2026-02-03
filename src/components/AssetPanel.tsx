@@ -37,6 +37,7 @@ export interface AssetInfo {
   thumbnail?: string;
   usageCount: number;
   usageType: 'cut' | 'audio' | 'both' | null;
+  linkedAssetIds: string[]; // All assetIds that map to this file (duplicates)
 }
 
 export interface AssetPanelProps {
@@ -212,16 +213,21 @@ export default function AssetPanel({
   );
 
   // Load asset index from .index.json
-  const loadAssetIndex = useCallback(async (): Promise<Map<string, AssetIndexEntry>> => {
-    const indexMap = new Map<string, AssetIndexEntry>();
+  const loadAssetIndex = useCallback(async (): Promise<Map<string, AssetIndexEntry[]>> => {
+    const indexMap = new Map<string, AssetIndexEntry[]>();
     if (!vaultPath || !window.electronAPI) return indexMap;
 
     try {
       const index = await window.electronAPI.loadAssetIndex(vaultPath);
       if (index && index.assets) {
         for (const entry of index.assets) {
-          // Map by filename for lookup
-          indexMap.set(entry.filename, entry);
+          // Group by filename for duplicate support
+          const existing = indexMap.get(entry.filename);
+          if (existing) {
+            existing.push(entry);
+          } else {
+            indexMap.set(entry.filename, [entry]);
+          }
         }
       }
     } catch (error) {
@@ -250,6 +256,40 @@ export default function AssetPanel({
       const structure = await window.electronAPI.getFolderContents(assetsPath);
       const assetList: AssetInfo[] = [];
 
+      const pickDisplayName = (entries: AssetIndexEntry[] | undefined, fallback: string) => {
+        if (!entries || entries.length === 0) return fallback;
+        const sorted = [...entries].sort((a, b) => {
+          const aTime = Date.parse(a.importedAt || '');
+          const bTime = Date.parse(b.importedAt || '');
+          if (Number.isNaN(aTime) && Number.isNaN(bTime)) return 0;
+          if (Number.isNaN(aTime)) return 1;
+          if (Number.isNaN(bTime)) return -1;
+          return bTime - aTime;
+        });
+        return sorted[0]?.originalName || fallback;
+      };
+
+      const aggregateUsage = (assetIds: string[]) => {
+        let totalCount = 0;
+        let hasCut = false;
+        let hasAudio = false;
+        for (const id of assetIds) {
+          const usage = usedAssetsMap.get(id);
+          if (!usage) continue;
+          totalCount += usage.count;
+          if (usage.type === 'both') {
+            hasCut = true;
+            hasAudio = true;
+          } else if (usage.type === 'cut') {
+            hasCut = true;
+          } else if (usage.type === 'audio') {
+            hasAudio = true;
+          }
+        }
+        const usageType = hasCut && hasAudio ? 'both' : hasCut ? 'cut' : hasAudio ? 'audio' : null;
+        return { count: totalCount, type: usageType };
+      };
+
       // Flatten folder structure and get all files
       const processItems = (items: Array<{ name: string; path: string; isDirectory: boolean; children?: unknown[] }>) => {
         for (const item of items) {
@@ -263,26 +303,31 @@ export default function AssetPanel({
 
             const mediaType = getMediaType(item.name);
             if (mediaType) {
-              // Look up source name from index
-              const indexEntry = assetIndex.get(item.name);
-              const sourceName = indexEntry?.originalName || item.name;
+              // Look up source name(s) from index (handle duplicates)
+              const indexEntries = assetIndex.get(item.name);
+              const sourceName = pickDisplayName(indexEntries, item.name);
 
-              // Use asset ID from index if available
-              const assetId = indexEntry?.id || `asset-${item.path.replace(/[^a-zA-Z0-9]/g, '-')}`;
+              // Use asset IDs from index if available
+              const fallbackAssetId = `asset-${item.path.replace(/[^a-zA-Z0-9]/g, '-')}`;
+              const linkedAssetIds = indexEntries?.length ? indexEntries.map((entry) => entry.id) : [fallbackAssetId];
+              const primaryAssetId = linkedAssetIds[0] || fallbackAssetId;
 
               // Check if asset is cached
-              const cachedAsset = assetCache.get(assetId);
-              const usage = usedAssetsMap.get(assetId) || usedAssetsMap.get(cachedAsset?.id || '');
+              const cachedAsset = linkedAssetIds
+                .map((id) => assetCache.get(id))
+                .find((asset) => !!asset);
+              const usage = aggregateUsage(linkedAssetIds);
 
               assetList.push({
-                id: cachedAsset?.id || assetId,
+                id: cachedAsset?.id || primaryAssetId,
                 name: item.name,
                 sourceName,
                 path: item.path,
                 type: mediaType,
                 thumbnail: cachedAsset?.thumbnail,
-                usageCount: usage?.count || 0,
-                usageType: usage?.type || null,
+                usageCount: usage.count,
+                usageType: usage.type,
+                linkedAssetIds,
               });
             }
           }
@@ -477,14 +522,15 @@ export default function AssetPanel({
     return result;
   }, [assets, searchQuery, filterType, sortMode]);
 
-  const findCutForAsset = useCallback((assetId: string) => {
+  const findCutForAsset = useCallback((assetIds: string[]) => {
+    const idSet = new Set(assetIds);
     if (selectedCutId) {
       for (const scene of scenes) {
         const idx = scene.cuts.findIndex((c) => c.id === selectedCutId);
         if (idx >= 0) {
           const cut = scene.cuts[idx];
           const cutAssetId = cut.asset?.id || cut.assetId;
-          if (cutAssetId === assetId) {
+          if (cutAssetId && idSet.has(cutAssetId)) {
             return { scene, cut, index: idx };
           }
         }
@@ -492,7 +538,10 @@ export default function AssetPanel({
     }
 
     for (const scene of scenes) {
-      const idx = scene.cuts.findIndex((c) => (c.asset?.id || c.assetId) === assetId);
+      const idx = scene.cuts.findIndex((c) => {
+        const cutAssetId = c.asset?.id || c.assetId;
+        return cutAssetId ? idSet.has(cutAssetId) : false;
+      });
       if (idx >= 0) {
         return { scene, cut: scene.cuts[idx], index: idx };
       }
@@ -507,7 +556,7 @@ export default function AssetPanel({
     e.preventDefault();
     e.stopPropagation();
 
-    const match = findCutForAsset(asset.id);
+    const match = findCutForAsset(asset.linkedAssetIds.length ? asset.linkedAssetIds : [asset.id]);
     if (!match) {
       if (asset.usageCount === 0) {
         setUnusedContextMenu({ x: e.clientX, y: e.clientY, asset });
@@ -673,13 +722,27 @@ export default function AssetPanel({
       return;
     }
 
+    const assetIds = asset.linkedAssetIds.length ? asset.linkedAssetIds : [asset.id];
     try {
       const moved = await window.electronAPI.vaultGateway.moveToTrashWithMeta(asset.path, targetTrashPath, {
-        assetId: asset.id,
+        assetId: assetIds[0],
         reason: 'asset-panel-delete',
       });
       if (!moved) {
         alert('Failed to move asset to trash.');
+        setUnusedContextMenu(null);
+        return;
+      }
+
+      if (vaultPath) {
+        const index = await window.electronAPI.loadAssetIndex(vaultPath);
+        const updatedAssets = index.assets.filter((entry) => entry.filename !== asset.name);
+        if (updatedAssets.length !== index.assets.length) {
+          await window.electronAPI.vaultGateway.saveAssetIndex(vaultPath, {
+            ...index,
+            assets: updatedAssets,
+          });
+        }
       }
     } catch (error) {
       alert(`Failed to move asset to trash: ${error}`);

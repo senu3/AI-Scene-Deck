@@ -34,6 +34,7 @@ import {
   RenameGroupCommand,
 } from "../store/commands";
 import { getThumbnail } from "../utils/thumbnailCache";
+import { extractVideoMetadata } from "../utils/videoUtils";
 import { importFileToVault } from "../utils/assetPath";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
@@ -339,16 +340,27 @@ export default function DetailsPanel() {
       const fileInfo = await window.electronAPI.getFileInfo(importResult.vaultPath!);
       const ext = fileInfo?.extension?.toLowerCase() || '';
       const isVideo = ['.mp4', '.webm', '.mov', '.avi', '.mkv'].includes(ext);
+      const type: Asset['type'] = isVideo ? 'video' : 'image';
+
+      let duration: number | undefined;
+      if (isVideo) {
+        const videoMeta = await extractVideoMetadata(importResult.vaultPath!);
+        if (videoMeta) {
+          duration = videoMeta.duration;
+        }
+      }
 
       // Create new asset
       const newAsset: Asset = {
         id: newAssetId,
         name: fileInfo?.name || 'asset',
         path: importResult.vaultPath!,
-        type: isVideo ? 'video' : 'image',
+        type,
         vaultRelativePath: importResult.relativePath,
+        originalPath: filePath,
         hash: importResult.hash,
         fileSize: fileInfo?.size,
+        duration,
       };
 
       // Load thumbnail for images or generate for videos

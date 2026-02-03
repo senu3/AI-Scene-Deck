@@ -55,6 +55,7 @@ All paths must end with `.index.json` being updated **via VaultGateway**.
   - Audio file is imported into `vault/assets/`
   - `.metadata.json` stores attachment links and offset
   - `.index.json` stores the audio asset entry via VaultGateway
+- **Audio assets are attachment-only** and do **not** become cuts on the timeline.
 
 ### 3) Video Capture (Frame Capture)
 - Captured frames are saved into `vault/assets/`, then re-imported for hash naming.
