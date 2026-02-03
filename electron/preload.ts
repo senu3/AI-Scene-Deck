@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { IPC_TOGGLE_SIDEBAR } from './ipcChannels';
 
 export interface FileItem {
   name: string;
@@ -326,8 +327,8 @@ const electronAPI = {
   // App menu events
   onToggleSidebar: (callback: () => void): (() => void) => {
     const handler = () => callback();
-    ipcRenderer.on('toggle-sidebar', handler);
-    return () => ipcRenderer.removeListener('toggle-sidebar', handler);
+    ipcRenderer.on(IPC_TOGGLE_SIDEBAR, handler);
+    return () => ipcRenderer.removeListener(IPC_TOGGLE_SIDEBAR, handler);
   },
 };
 

@@ -237,12 +237,6 @@ function App() {
         return;
       }
 
-      // Ctrl+B or Cmd+B to toggle sidebar
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        toggleSidebar();
-        return;
-      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
