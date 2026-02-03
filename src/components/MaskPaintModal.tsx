@@ -10,6 +10,7 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   Brush,
@@ -514,7 +515,9 @@ export default function MaskPaintModal({
     }
   }, [onClose]);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="mask-modal-overlay" onClick={handleOverlayClick}>
       <div className="mask-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -662,5 +665,5 @@ export default function MaskPaintModal({
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }

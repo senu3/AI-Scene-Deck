@@ -6,6 +6,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X, Camera, Play, Pause, Mic, Volume2, Film, Check, Brush } from "lucide-react";
 import type { Asset } from "../types";
 import MaskPaintModal from "./MaskPaintModal";
@@ -195,7 +196,9 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="lipsync-modal-overlay" onClick={onClose}>
       <div className="lipsync-modal" onClick={(e) => e.stopPropagation()}>
         {/* Left: Preview Section */}
@@ -437,5 +440,5 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
         />
       )}
     </div>
-  );
+  , document.body);
 }

@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useStore } from '../store/useStore';
 import AssetPanel, { type FilterType, type AssetInfo } from './AssetPanel';
 import type { Asset } from '../types';
@@ -135,8 +136,9 @@ export default function AssetModal({
   }, [vaultPath, initialFilterType, onConfirm]);
 
   if (!open) return null;
+  if (typeof document === 'undefined') return null;
 
-  return (
+  return createPortal(
     <div className="asset-modal-overlay" onClick={handleBackdropClick}>
       <div className="asset-modal">
         <AssetPanel
@@ -154,5 +156,5 @@ export default function AssetModal({
         />
       </div>
     </div>
-  );
+  , document.body);
 }
