@@ -1,7 +1,7 @@
 import { useCallback, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../store/useStore';
-import { useDialog } from '../ui';
+import { useDialog, useToast } from '../ui';
 import type { Scene, Asset, SourcePanelState, AssetUsageRef } from '../types';
 import type { MissingAssetInfo, RecoveryDecision } from '../components/MissingAssetRecoveryModal';
 import { importFileToVault } from '../utils/assetPath';
@@ -187,6 +187,7 @@ export function useHeaderProjectController() {
     loadProject,
   } = useStore();
   const { alert: dialogAlert } = useDialog();
+  const { toast } = useToast();
 
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [missingAssets, setMissingAssets] = useState<MissingAssetInfo[]>([]);
@@ -494,6 +495,9 @@ export function useHeaderProjectController() {
       save: handleAutosaveProject,
       onError: (error) => {
         console.error('Autosave failed:', error);
+        // TODO(autosave-toast): Update message/UX once autosave toast design is finalized.
+        // See `src/ui/feedback/autosave-toast-notes.md` for required fields/behavior.
+        toast.error('Autosave failed', 'Please save manually.', { id: 'autosave-failed' });
       },
     });
     const unsubscribe = subscribeProjectChanges(useStore, () => controller.schedule());
