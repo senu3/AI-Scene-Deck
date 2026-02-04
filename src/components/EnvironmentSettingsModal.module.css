@@ -33,6 +33,12 @@
   font-size: 14px;
 }
 
+.checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: #6cc0ff;
+}
+
 .help {
   grid-column: 2 / 3;
   font-size: 12px;

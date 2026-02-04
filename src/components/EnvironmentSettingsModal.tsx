@@ -10,6 +10,7 @@ import {
   useModalKeyboard,
 } from '../ui/primitives/Modal';
 import { getThumbnailCacheStats, setThumbnailCacheLimits } from '../utils/thumbnailCache';
+import { getAutoSaveEnabled, setAutoSaveEnabled } from '../utils/autosaveSettings';
 import styles from './EnvironmentSettingsModal.module.css';
 
 export interface EnvironmentSettingsModalProps {
@@ -31,11 +32,13 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
   const [maxTotalSeconds, setMaxTotalSeconds] = useState(15 * 60);
   const [maxClipMb, setMaxClipMb] = useState(32);
   const [maxTotalMb, setMaxTotalMb] = useState(256);
+  const [autosaveEnabled, setAutosaveEnabledState] = useState(getAutoSaveEnabled());
 
   useEffect(() => {
     if (!open) return;
     setMaxMb(Math.round(stats.limits.maxBytes / MB));
     setMaxItems(stats.limits.maxItems);
+    setAutosaveEnabledState(getAutoSaveEnabled());
 
     let active = true;
     const loadFfmpegLimits = async () => {
@@ -81,6 +84,7 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
       maxClipBytes: safeClipMb * MB,
       maxTotalBytes: safeTotalMb * MB,
     });
+    setAutoSaveEnabled(autosaveEnabled);
     onClose();
   };
 
@@ -199,6 +203,20 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                 onChange={(e) => setMaxTotalMb(Number(e.target.value))}
               />
               <div className={styles.help}>Absolute bytes cap</div>
+            </div>
+            <div className={styles.sectionTitle}>Auto-save</div>
+            <div className={styles.row}>
+              <label className={styles.label} htmlFor="autosave-enabled">
+                Enable auto-save
+              </label>
+              <input
+                id="autosave-enabled"
+                className={styles.checkbox}
+                type="checkbox"
+                checked={autosaveEnabled}
+                onChange={(e) => setAutosaveEnabledState(e.target.checked)}
+              />
+              <div className={styles.help}>Default is off. Saves project.sdp only.</div>
             </div>
           </div>
         </Body>
