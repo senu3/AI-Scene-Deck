@@ -89,7 +89,7 @@
 
 /* Lip Sync badge - gradient pink/purple */
 .cut-badge.lipsync {
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
 }
 
 .cut-duration {
@@ -226,7 +226,7 @@
 }
 
 .cut-context-menu button.finalize {
-  color: #8b5cf6;
+  color: var(--accent-purple);
 }
 
 .cut-context-menu button.finalize:hover {
@@ -341,7 +341,7 @@
   justify-content: center;
   width: 22px;
   height: 22px;
-  background: linear-gradient(135deg, #ec4899, #8b5cf6);
+  background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
   border-radius: var(--radius-sm);
   color: white;
   z-index: 5;
@@ -367,3 +367,4 @@
   width: 10px;
   height: 10px;
 }
+

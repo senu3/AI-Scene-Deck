@@ -60,13 +60,13 @@
 .missing-asset-modal .header-text p {
   margin: 4px 0 0;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .missing-asset-modal .close-btn {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
@@ -159,7 +159,7 @@
   border-radius: 50%;
   font-size: 12px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
@@ -194,7 +194,7 @@
 
 .missing-asset-modal .asset-decision.skip {
   background: rgba(148, 163, 184, 0.2);
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .missing-asset-modal .current-asset-panel {
@@ -223,7 +223,7 @@
 }
 
 .missing-asset-modal .detail-row .label {
-  color: #94a3b8;
+  color: var(--text-secondary);
   min-width: 100px;
   flex-shrink: 0;
 }
@@ -272,7 +272,7 @@
 
 .missing-asset-modal .action-btn .hint {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-weight: 400;
 }
 
@@ -291,7 +291,7 @@
 }
 
 .missing-asset-modal .action-btn.skip:hover {
-  border-color: #94a3b8;
+  border-color: var(--border-muted);
 }
 
 .missing-asset-modal .modal-footer {
@@ -337,7 +337,7 @@
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -371,3 +371,4 @@
   opacity: 0.6;
   cursor: not-allowed;
 }
+

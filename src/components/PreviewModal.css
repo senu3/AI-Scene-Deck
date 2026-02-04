@@ -86,7 +86,7 @@
 .preview-badge {
   padding: 4px 10px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, var(--accent-secondary), var(--accent-purple));
   font-size: 12px;
   font-weight: 600;
   color: #fff;
@@ -108,7 +108,7 @@
 
 .preview-close-btn:hover {
   background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  color: var(--accent-danger);
 }
 
 .preview-resolution-select {
@@ -283,7 +283,7 @@
   background: rgba(0, 0, 0, 0.6);
   border-radius: 4px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .preview-progress {
@@ -310,7 +310,7 @@
 
 .preview-progress-fill {
   height: 100%;
-  background: #3b82f6;
+  background: var(--accent-secondary);
   border-radius: 3px;
 }
 
@@ -319,7 +319,7 @@
   top: 50%;
   width: 14px;
   height: 14px;
-  background: #3b82f6;
+  background: var(--accent-secondary);
   border: 2px solid #fff;
   border-radius: 50%;
   transform: translate(-50%, -50%);
@@ -412,7 +412,7 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--accent-secondary);
 }
 
 .preview-ctrl-btn--primary:hover {
@@ -429,7 +429,7 @@
 
 .preview-ctrl-btn.is-active {
   background: rgba(59, 130, 246, 0.3);
-  color: #3b82f6;
+  color: var(--accent-secondary);
 }
 
 .preview-ctrl-divider {
@@ -477,7 +477,7 @@
   appearance: none;
   width: 12px;
   height: 12px;
-  background: #3b82f6;
+  background: var(--accent-secondary);
   border-radius: 50%;
   cursor: pointer;
 }
@@ -485,7 +485,7 @@
 .preview-volume-slider::-moz-range-thumb {
   width: 12px;
   height: 12px;
-  background: #3b82f6;
+  background: var(--accent-secondary);
   border-radius: 50%;
   cursor: pointer;
   border: none;
@@ -590,3 +590,4 @@
 .preview-display video {
   cursor: pointer;
 }
+

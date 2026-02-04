@@ -91,7 +91,7 @@
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: #10b981;
+  background: var(--accent-success);
   color: white;
   font-size: 12px;
   font-weight: 600;
@@ -118,7 +118,7 @@
 }
 
 .control-btn.clear-btn:hover {
-  color: var(--accent-danger, #ef4444);
+  color: var(--accent-danger, var(--accent-danger));
   background: rgba(239, 68, 68, 0.1);
 }
 
@@ -248,3 +248,4 @@
     gap: 6px;
   }
 }
+

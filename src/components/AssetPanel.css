@@ -494,7 +494,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #7c3aed 0%, #ec4899 100%);
+  background: linear-gradient(135deg, #7c3aed 0%, var(--accent-pink) 100%);
   color: white;
 }
 
@@ -546,3 +546,4 @@
     transform: scaleY(0.5);
   }
 }
+

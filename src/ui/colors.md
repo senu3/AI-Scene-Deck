@@ -28,6 +28,7 @@ AI-Scene-Deck uses a slate-tinted dark color scheme with cool cyan accents.
 |----------|-----|-------|
 | `--border-color` | #334155 | Default borders |
 | `--border-light` | #475569 | Lighter borders |
+| `--border-muted` | #94a3b8 | Muted borders (text-secondary aligned) |
 
 ### Accent Colors (globals.css)
 
@@ -45,6 +46,7 @@ AI-Scene-Deck uses a slate-tinted dark color scheme with cool cyan accents.
 
 | Variable | HEX | RGB Variable | Usage |
 |----------|-----|--------------|-------|
+| `--accent-primary` | #00b4d8 | `--accent-primary-rgb` | Selection, focus ring |
 | `--accent-secondary` | #3b82f6 | `--accent-secondary-rgb` | Cut usage in AssetDrawer |
 | `--accent-video` | #6366f1 | `--accent-video-rgb` | Video files, clip trimming |
 | `--accent-audio` | #a855f7 | `--accent-audio-rgb` | Audio files, attached audio |
@@ -107,6 +109,31 @@ Notes
 | ATTACH AUDIO | Neutral | `.action-btn.secondary` |
 | Primary actions | Blue→Purple | `.action-btn.primary` |
 | Lip Sync actions | Pink→Purple | `.action-btn.lip-sync` |
+
+### Accent Progression
+
+| Usage | Rule |
+|-------|------|
+| Selection → action emphasis | `--accent-primary` → `--accent-secondary` |
+| Primary action → highlight | `--accent-secondary` → `--accent-purple` |
+
+### Borders
+
+| State | Rule |
+|-------|------|
+| Default | `--border-color` |
+| Hover/active | `--border-light` |
+| Muted/secondary outlines | `--border-muted` |
+| Selected | `rgba(var(--accent-primary-rgb), 0.3)` |
+
+### Derived Surface Tokens
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--panel-bg` | rgba(255,255,255,0.04) | Glassy panel surface |
+| `--panel-bg-strong` | rgba(255,255,255,0.06) | Header/footer panels |
+| `--shadow-elev` | 0 20px 50px rgba(0,0,0,0.45) | Elevated hover shadow |
+| `--focus-ring` | 0 0 0 2px rgba(var(--accent-primary-rgb), 0.35) | Focus outline ring |
 
 ## Transparency Guidelines
 

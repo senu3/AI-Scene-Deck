@@ -71,14 +71,14 @@
   background: rgba(255, 255, 255, 0.08);
   border: none;
   border-radius: 8px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .lipsync-close-btn:hover {
   background: rgba(239, 68, 68, 0.2);
-  color: #ef4444;
+  color: var(--accent-danger);
 }
 
 /* Video container */
@@ -105,7 +105,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #475569;
+  color: var(--text-muted);
 }
 
 .lipsync-preview-placeholder span {
@@ -169,7 +169,7 @@
   margin-left: auto;
   font-size: 12px;
   font-family: var(--font-mono);
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 /* Capture button */
@@ -256,7 +256,7 @@
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #64748b;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -317,7 +317,7 @@
 }
 
 .frame-preview-icon {
-  color: #475569;
+  color: var(--text-muted);
 }
 
 .frame-info {
@@ -334,7 +334,7 @@
 
 .frame-desc {
   font-size: 10px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 /* Captured indicator */
@@ -371,7 +371,7 @@
   width: 65px;
   font-size: 12px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-secondary);
   flex-shrink: 0;
 }
 
@@ -411,7 +411,7 @@
   width: 38px;
   font-size: 12px;
   font-family: var(--font-mono);
-  color: #64748b;
+  color: var(--text-muted);
   text-align: right;
   flex-shrink: 0;
 }
@@ -433,7 +433,7 @@
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -505,7 +505,7 @@
 
 .progress-text {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-left: auto;
 }
 
@@ -585,7 +585,7 @@
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
   width: fit-content;
@@ -604,6 +604,7 @@
 .mask-hint {
   margin: 8px 0 0;
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   font-style: italic;
 }
+

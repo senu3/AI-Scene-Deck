@@ -78,6 +78,7 @@ export default function MaskPaintModal({
 
   // Pan drag state
   const isPanningRef = useRef(false);
+
   const panStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   // Fit canvas to container
@@ -223,7 +224,7 @@ export default function MaskPaintModal({
       ctx.clearRect(0, 0, imageWidth, imageHeight);
 
       // Draw brush cursor
-      ctx.strokeStyle = tool === "brush" ? "#ec4899" : "#ef4444";
+      ctx.strokeStyle = "#ffffff";
       ctx.lineWidth = 2 / zoom;
       ctx.setLineDash([4 / zoom, 4 / zoom]);
       ctx.beginPath();
@@ -667,3 +668,4 @@ export default function MaskPaintModal({
     </div>
   , document.body);
 }
+
