@@ -5,11 +5,11 @@ import styles from './TimelineBar.module.css';
 
 // Scene color palette - cycles through for each scene
 const SCENE_COLORS = [
-  'var(--accent-secondary)',  // blue
-  'var(--accent-purple)',     // purple
-  'var(--accent-pink)',       // pink
-  'var(--accent-success)',    // green
-  'var(--accent-audio)',      // audio purple
+  'var(--timeline-scene-1)',  // blue
+  'var(--timeline-scene-2)',  // purple
+  'var(--timeline-scene-3)',  // pink
+  'var(--timeline-scene-4)',  // green
+  'var(--timeline-scene-5)',  // audio purple
 ];
 
 const getSceneColor = (index: number) => SCENE_COLORS[index % SCENE_COLORS.length];

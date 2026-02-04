@@ -38,6 +38,13 @@
   --accent-group-rgb: 20, 184, 166;
   --accent-group: rgb(var(--accent-group-rgb)); /* Teal - Group/Multi-select */
 
+  /* Timeline bar scene colors */
+  --timeline-scene-1: var(--accent-secondary);
+  --timeline-scene-2: var(--accent-purple);
+  --timeline-scene-3: var(--accent-pink);
+  --timeline-scene-4: var(--accent-success);
+  --timeline-scene-5: var(--accent-audio);
+
   --border-color: #334155;
   --border-light: #475569;
   --border-muted: #94a3b8;
