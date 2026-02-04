@@ -18,3 +18,8 @@
 ## 追加候補
 - 保存成功時の軽いtoast (autosave success) を出すかは要検討
 - 連続失敗時の間隔制御 (クールダウン)
+
+## Feature Flag
+- 環境変数: `VITE_DISABLE_AUTOSAVE=1`
+- 参照箇所: `src/hooks/useHeaderProjectController.ts`
+- 目的: CI/緊急時に autosave を止める kill switch

@@ -488,8 +488,10 @@ export function useHeaderProjectController() {
     }
   }, [clearProject, setProjectLoaded]);
 
+  const disableAutosave = import.meta.env.VITE_DISABLE_AUTOSAVE === '1';
+
   useEffect(() => {
-    if (!projectLoaded || !vaultPath) return;
+    if (!projectLoaded || !vaultPath || disableAutosave) return;
     const controller = createAutosaveController({
       debounceMs: 1000,
       save: handleAutosaveProject,
@@ -502,7 +504,7 @@ export function useHeaderProjectController() {
     });
     const unsubscribe = subscribeProjectChanges(useStore, () => controller.schedule());
     return () => unsubscribe();
-  }, [projectLoaded, handleAutosaveProject]);
+  }, [projectLoaded, vaultPath, disableAutosave, handleAutosaveProject]);
 
   return {
     handleSaveProject,
