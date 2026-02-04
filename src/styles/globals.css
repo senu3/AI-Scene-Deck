@@ -42,8 +42,8 @@
   --border-light: #475569;
   --border-muted: #94a3b8;
 
-  --panel-bg: rgba(255, 255, 255, 0.04);
-  --panel-bg-strong: rgba(255, 255, 255, 0.06);
+  --panel-bg: rgba(255, 255, 255, 0.05);
+  --panel-bg-strong: rgba(255, 255, 255, 0.07);
   --shadow-elev: 0 20px 50px rgba(0, 0, 0, 0.45);
   --focus-ring: 0 0 0 2px rgba(var(--accent-primary-rgb), 0.35);
 
@@ -54,6 +54,15 @@
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
+  --radius-xl: 18px;
+  --radius-2xl: 22px;
+  --radius-pill: 999px;
+
+  /* Glassy UI */
+  --glass-bg: rgba(0, 0, 0, 0.22);
+  --glass-blur: blur(14px);
+  --border-glass: rgba(255, 255, 255, 0.10);
+  --border-glass-hover: rgba(255, 255, 255, 0.16);
 
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;

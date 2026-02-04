@@ -1,16 +1,21 @@
-import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X } from 'lucide-react';
+import { useMemo, useState, useRef, useEffect } from 'react';
+import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X, Play, Download, Clock, Settings } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import MissingAssetRecoveryModal from './MissingAssetRecoveryModal';
 import { useHeaderProjectController } from '../hooks/useHeaderProjectController';
+import { formatTimeCode } from '../hooks/useTimelinePosition';
 import TimelineBar from './TimelineBar';
 import './Header.css';
 
 interface HeaderProps {
   onOpenSettings?: () => void;
+  onPreview?: () => void;
+  onExport?: () => void;
+  isExporting?: boolean;
 }
 
-export default function Header({ onOpenSettings }: HeaderProps) {
+export default function Header({ onOpenSettings, onPreview, onExport, isExporting }: HeaderProps) {
   const { projectName, scenes, selectedSceneId, selectScene } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
   const {
@@ -24,12 +29,36 @@ export default function Header({ onOpenSettings }: HeaderProps) {
     handleRecoveryCancel,
   } = useHeaderProjectController();
 
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // Calculate total duration
+  const totalDuration = useMemo(() => {
+    return scenes.reduce((total, scene) => {
+      return total + scene.cuts.reduce((acc, cut) => acc + (isFinite(cut.displayTime) ? cut.displayTime : 0), 0);
+    }, 0);
+  }, [scenes]);
+
+  // Close menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    if (showMoreMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMoreMenu]);
+
   const handleUndo = async () => {
     try {
       await undo();
     } catch (error) {
       console.error('Undo failed:', error);
     }
+    setShowMoreMenu(false);
   };
 
   const handleRedo = async () => {
@@ -38,6 +67,7 @@ export default function Header({ onOpenSettings }: HeaderProps) {
     } catch (error) {
       console.error('Redo failed:', error);
     }
+    setShowMoreMenu(false);
   };
 
   return (
@@ -46,47 +76,102 @@ export default function Header({ onOpenSettings }: HeaderProps) {
         <div className="header-main">
           <div className="header-left">
             <div className="header-logo">
-              <Clapperboard size={24} className="logo-icon" />
-              <span className="logo-text">AI Scene Manager</span>
-            </div>
-          </div>
-
-          <div className="header-center">
-            <div className="header-title">
-              <Clapperboard size={16} />
-              <span>{projectName}</span>
+              <Clapperboard size={22} className="logo-icon" />
+              <div className="header-title-group">
+                <span className="logo-text">AI Scene Manager</span>
+                <span className="project-subtitle">{projectName}</span>
+              </div>
             </div>
           </div>
 
           <div className="header-right">
+            {/* Total Duration Pill */}
+            <div className="header-pill" title="Total Duration">
+              <Clock size={14} />
+              <span>{formatTimeCode(totalDuration)}</span>
+            </div>
+
+            {/* Preview Button */}
             <button
-              className="header-btn"
-              onClick={handleUndo}
-              disabled={!canUndo()}
-              title="Undo (Ctrl+Z)"
+              className="header-btn header-btn-pill"
+              onClick={onPreview}
+              title="Preview (Space)"
             >
-              <Undo size={18} />
+              <Play size={16} />
+              <span>Preview</span>
             </button>
+
+            {/* Export Button (Primary) */}
             <button
-              className="header-btn"
-              onClick={handleRedo}
-              disabled={!canRedo()}
-              title="Redo (Ctrl+Shift+Z)"
+              className="header-btn header-btn-primary"
+              onClick={onExport}
+              disabled={isExporting}
+              title="Export"
             >
-              <Redo size={18} />
+              <Download size={16} />
+              <span>{isExporting ? 'Exporting...' : 'Export'}</span>
             </button>
-            <button className="header-btn" onClick={handleCloseProject} title="Close Project">
-              <X size={18} />
-            </button>
-            <button className="header-btn" onClick={handleLoadProject} title="Open Project">
-              <FolderOpen size={18} />
-            </button>
-            <button className="header-btn" onClick={handleSaveProject} title="Save Project">
-              <Save size={18} />
-            </button>
-            <button className="header-btn" title="Environment Settings" onClick={onOpenSettings}>
-              <MoreVertical size={18} />
-            </button>
+
+            {/* More Menu */}
+            <div className="header-more-container" ref={moreMenuRef}>
+              <button
+                className="header-btn"
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                title="More options"
+              >
+                <MoreVertical size={18} />
+              </button>
+
+              {showMoreMenu && (
+                <div className="header-more-menu">
+                  <button
+                    onClick={handleUndo}
+                    disabled={!canUndo()}
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo size={16} />
+                    <span>Undo</span>
+                    <span className="menu-shortcut">Ctrl+Z</span>
+                  </button>
+                  <button
+                    onClick={handleRedo}
+                    disabled={!canRedo()}
+                    title="Redo (Ctrl+Shift+Z)"
+                  >
+                    <Redo size={16} />
+                    <span>Redo</span>
+                    <span className="menu-shortcut">Ctrl+Shift+Z</span>
+                  </button>
+
+                  <div className="menu-divider" />
+
+                  <button onClick={() => { handleSaveProject(); setShowMoreMenu(false); }} title="Save Project">
+                    <Save size={16} />
+                    <span>Save Project</span>
+                    <span className="menu-shortcut">Ctrl+S</span>
+                  </button>
+                  <button onClick={() => { handleLoadProject(); setShowMoreMenu(false); }} title="Open Project">
+                    <FolderOpen size={16} />
+                    <span>Open Project</span>
+                    <span className="menu-shortcut">Ctrl+O</span>
+                  </button>
+
+                  <div className="menu-divider" />
+
+                  <button onClick={() => { onOpenSettings?.(); setShowMoreMenu(false); }} title="Settings">
+                    <Settings size={16} />
+                    <span>Environment Settings</span>
+                  </button>
+
+                  <div className="menu-divider" />
+
+                  <button onClick={() => { handleCloseProject(); setShowMoreMenu(false); }} className="danger" title="Close Project">
+                    <X size={16} />
+                    <span>Close Project</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

@@ -1,76 +1,56 @@
 .timelineBar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 4px;
+  padding: 6px;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   background: var(--panel-bg);
-  box-shadow: var(--shadow-sm);
 }
 
 .segment {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 18px;
-  min-width: 24px;
+  height: 10px;
+  min-width: 20px;
   flex-basis: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-  transition: all 0.15s ease;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--scene-color, var(--accent-secondary));
+  opacity: 0.7;
+  transition: all 0.2s ease;
   cursor: pointer;
+  transform-origin: center;
 }
 
 .segment:hover:not(:disabled) {
-  border-color: var(--border-light);
-  color: var(--text-primary);
-  background: var(--panel-bg-strong);
+  opacity: 0.85;
+  transform: scaleY(1.15);
 }
 
 .segment:focus-visible:not(:disabled) {
   box-shadow: var(--focus-ring);
-  color: var(--text-primary);
+  opacity: 0.9;
 }
 
 .segmentSelected {
-  border-color: rgba(var(--accent-primary-rgb), 0.6);
-  background: rgba(var(--accent-primary-rgb), 0.6);
-  color: var(--text-primary);
+  opacity: 1;
+  transform: scaleY(1.25);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--scene-color, var(--accent-secondary)) 50%, transparent);
+}
+
+.segmentSelected:hover {
+  transform: scaleY(1.25);
 }
 
 .segmentLabel {
-  display: block;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 0 6px;
-}
-
-.total {
-  flex-shrink: 0;
-  height: 18px;
-  padding: 0 8px;
-  border-radius: 6px;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Hidden - tooltip only via title attribute */
+  display: none;
 }
 
 .empty {
   color: var(--text-muted);
   font-size: 11px;
-  padding: 2px 6px;
+  padding: 2px 8px;
 }

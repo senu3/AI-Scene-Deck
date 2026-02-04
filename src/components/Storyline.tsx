@@ -1,6 +1,6 @@
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { Plus, MoreHorizontal, Circle, Edit2, Trash2 } from 'lucide-react';
+import { Plus, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
@@ -10,6 +10,17 @@ import CutGroupCard, { ExpandedGroupContainer } from './CutGroupCard';
 import type { Asset, CutGroup, Cut } from '../types';
 import { useStorylineDragController, type PlaceholderState } from '../hooks/useStorylineDragController';
 import './Storyline.css';
+
+// Scene color palette - cycles through for each scene
+const SCENE_COLORS = [
+  'var(--accent-secondary)',  // blue
+  'var(--accent-purple)',     // purple
+  'var(--accent-pink)',       // pink
+  'var(--accent-success)',    // green
+  'var(--accent-audio)',      // audio purple
+];
+
+const getSceneColor = (index: number) => SCENE_COLORS[index % SCENE_COLORS.length];
 
 interface StorylineProps {
   activeId: string | null;
@@ -73,11 +84,12 @@ export default function Storyline({ activeId }: StorylineProps) {
       onDrop={handleInboundDrop}
     >
       <div className="storyline-content">
-        {scenes.map((scene) => (
+        {scenes.map((scene, index) => (
           <SceneColumn
             key={scene.id}
             sceneId={scene.id}
             sceneName={scene.name}
+            sceneIndex={index}
             cuts={scene.cuts}
             groups={scene.groups || []}
             isSelected={selectedSceneId === scene.id}
@@ -106,6 +118,7 @@ export default function Storyline({ activeId }: StorylineProps) {
 interface SceneColumnProps {
   sceneId: string;
   sceneName: string;
+  sceneIndex: number;
   cuts: Array<{
     id: string;
     assetId: string;
@@ -127,6 +140,7 @@ interface SceneColumnProps {
 function SceneColumn({
   sceneId,
   sceneName,
+  sceneIndex,
   cuts,
   groups,
   isSelected,
@@ -136,6 +150,7 @@ function SceneColumn({
   sourceSceneId,
   isOverDifferentScene,
 }: SceneColumnProps) {
+  const sceneColor = getSceneColor(sceneIndex);
   const { scenes, selectedGroupId, selectGroup, toggleGroupCollapsed } = useStore();
   const { executeCommand } = useHistoryStore();
   const [showMenu, setShowMenu] = useState(false);
@@ -371,6 +386,7 @@ function SceneColumn({
     <div
       className={`scene-column ${isSelected ? 'selected' : ''}`}
       data-scene-id={sceneId}
+      style={{ '--scene-color': sceneColor } as React.CSSProperties}
     >
       <div
         className="scene-header"
@@ -379,9 +395,7 @@ function SceneColumn({
           onSelect();
         }}
       >
-        <div className="scene-indicator">
-          <Circle size={16} />
-        </div>
+        <div className="scene-indicator" />
 
         {isEditing ? (
           <input

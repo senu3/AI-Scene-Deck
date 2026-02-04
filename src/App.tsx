@@ -7,7 +7,6 @@ import AssetDrawer from './components/AssetDrawer';
 import Sidebar from './components/Sidebar';
 import Storyline from './components/Storyline';
 import DetailsPanel from './components/DetailsPanel';
-import PlaybackControls from './components/PlaybackControls';
 import PreviewModal from './components/PreviewModal';
 import Header from './components/Header';
 import StartupModal from './components/StartupModal';
@@ -654,7 +653,12 @@ function App() {
       <DndMonitorShim onDragStart={closeDetailsPanel} />
       <div className="app">
         <AssetDrawer />
-        <Header onOpenSettings={() => setShowEnvironmentSettings(true)} />
+        <Header
+          onOpenSettings={() => setShowEnvironmentSettings(true)}
+          onPreview={() => setShowPreview(true)}
+          onExport={handleExportFromControls}
+          isExporting={isExporting}
+        />
         <div className="app-content">
           {sidebarOpen && <Sidebar />}
           <main
@@ -664,11 +668,6 @@ function App() {
             onDrop={handleWorkspaceDrop}
           >
             <Storyline activeId={activeId} activeType={activeType} />
-            <PlaybackControls
-              onPreview={() => setShowPreview(true)}
-              onExport={handleExportFromControls}
-              isExporting={isExporting}
-            />
           </main>
           <div className={`details-panel-wrapper ${detailsPanelOpen && selectionType ? 'open' : ''}`}>
             <DetailsPanel />
