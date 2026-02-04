@@ -10,8 +10,15 @@ import * as os from 'os';
 import { getMediaType, importAssetToVaultInternal, moveToTrashInternal, registerVaultGatewayHandlers, saveAssetIndexInternal, type AssetIndex, type TrashMeta } from './vaultGateway';
 import { createSaveProjectHandler } from './handlers/saveProject';
 const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
+const IPC_AUTOSAVE_FLUSH_REQUEST = 'autosave-flush-request';
+const IPC_AUTOSAVE_FLUSH_COMPLETE = 'autosave-flush-complete';
+const IPC_AUTOSAVE_ENABLED = 'autosave-enabled';
 
 let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
+let autosaveEnabled = false;
+let autosaveFlushInProgress = false;
+let autosaveFlushTimer: NodeJS.Timeout | null = null;
 
 const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
 
@@ -342,6 +349,37 @@ function createWindow() {
     console.error('[Crash] WebContents unresponsive');
   });
 
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+    if (!autosaveEnabled) return;
+    if (autosaveFlushInProgress) return;
+
+    event.preventDefault();
+    autosaveFlushInProgress = true;
+    mainWindow?.webContents.send(IPC_AUTOSAVE_FLUSH_REQUEST);
+
+    const finalizeClose = () => {
+      if (!autosaveFlushInProgress) return;
+      autosaveFlushInProgress = false;
+      if (autosaveFlushTimer) {
+        clearTimeout(autosaveFlushTimer);
+        autosaveFlushTimer = null;
+      }
+      if (!mainWindow) return;
+      isQuitting = true;
+      mainWindow.close();
+    };
+
+    ipcMain.once(IPC_AUTOSAVE_FLUSH_COMPLETE, () => {
+      finalizeClose();
+    });
+
+    autosaveFlushTimer = setTimeout(() => {
+      console.warn('[Autosave] Flush timed out, closing anyway.');
+      finalizeClose();
+    }, 5000);
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -439,6 +477,10 @@ app.on('child-process-gone', (_event, details) => {
   console.error('[Crash] Child process gone:', details);
 });
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
@@ -449,6 +491,11 @@ app.on('activate', () => {
   if (mainWindow === null) {
     createWindow();
   }
+});
+
+ipcMain.handle(IPC_AUTOSAVE_ENABLED, async (_, enabled: boolean) => {
+  autosaveEnabled = Boolean(enabled);
+  return autosaveEnabled;
 });
 
 // IPC Handlers for file system operations

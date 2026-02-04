@@ -36,7 +36,6 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
     if (!open) return;
     setMaxMb(Math.round(stats.limits.maxBytes / MB));
     setMaxItems(stats.limits.maxItems);
-
     let active = true;
     const loadFfmpegLimits = async () => {
       const api = window.electronAPI;

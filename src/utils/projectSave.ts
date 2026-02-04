@@ -1,4 +1,5 @@
-import type { Scene, SourcePanelState } from '../types';
+import { v4 as uuidv4 } from 'uuid';
+import type { Asset, AssetUsageRef, Scene, SourcePanelState } from '../types';
 
 export interface ProjectSavePayload {
   version: number;
@@ -29,4 +30,83 @@ export function buildProjectSavePayload(input: {
 
 export function serializeProjectSavePayload(payload: ProjectSavePayload): string {
   return JSON.stringify(payload);
+}
+
+// Convert assets to use relative paths for saving
+export function prepareAssetForSave(asset: Asset): Asset {
+  if (asset.vaultRelativePath) {
+    return {
+      ...asset,
+      // Store relative path as the main path for portability
+      path: asset.vaultRelativePath,
+    };
+  }
+  return asset;
+}
+
+// Prepare scenes for saving (convert to relative paths)
+export function prepareScenesForSave(scenes: Scene[]): Scene[] {
+  return scenes.map((scene) => ({
+    ...scene,
+    cuts: scene.cuts.map((cut) => ({
+      ...cut,
+      asset: cut.asset ? prepareAssetForSave(cut.asset) : undefined,
+    })),
+  }));
+}
+
+export function getOrderedAssetIdsFromScenes(scenes: Scene[]): string[] {
+  const orderedIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const scene of scenes) {
+    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    for (const cut of cuts) {
+      const assetId = cut.asset?.id || cut.assetId;
+      if (assetId && !seen.has(assetId)) {
+        seen.add(assetId);
+        orderedIds.push(assetId);
+      }
+    }
+  }
+
+  return orderedIds;
+}
+
+export function buildAssetUsageRefs(scenes: Scene[]): Map<string, AssetUsageRef[]> {
+  const usageMap = new Map<string, AssetUsageRef[]>();
+  const orderedScenes = [...scenes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  for (const scene of orderedScenes) {
+    const sceneOrder = scene.order ?? 0;
+    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    cuts.forEach((cut, index) => {
+      const assetId = cut.asset?.id || cut.assetId;
+      if (!assetId) return;
+      const ref: AssetUsageRef = {
+        sceneId: scene.id,
+        sceneName: scene.name,
+        sceneOrder,
+        cutId: cut.id,
+        cutOrder: cut.order ?? index,
+        cutIndex: index + 1,
+      };
+      const existing = usageMap.get(assetId) || [];
+      existing.push(ref);
+      usageMap.set(assetId, existing);
+    });
+  }
+
+  return usageMap;
+}
+
+export function ensureSceneIds(scenes: Scene[]): { scenes: Scene[]; missingCount: number } {
+  let missingCount = 0;
+  const updatedScenes = scenes.map((scene) => {
+    if (typeof scene.id === 'string' && scene.id.trim().length > 0) return scene;
+    missingCount += 1;
+    return { ...scene, id: uuidv4() };
+  });
+
+  return { scenes: updatedScenes, missingCount };
 }

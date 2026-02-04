@@ -1,14 +1,20 @@
 import { useCallback, useState, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../store/useStore';
 import { useDialog, useToast } from '../ui';
-import type { Scene, Asset, SourcePanelState, AssetUsageRef } from '../types';
+import type { Scene, Asset, SourcePanelState } from '../types';
 import type { MissingAssetInfo, RecoveryDecision } from '../components/MissingAssetRecoveryModal';
 import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata } from '../utils/videoUtils';
 import { getThumbnail } from '../utils/thumbnailCache';
 import { createAutosaveController, subscribeProjectChanges } from '../utils/autosave';
-import { buildProjectSavePayload, serializeProjectSavePayload } from '../utils/projectSave';
+import {
+  buildProjectSavePayload,
+  serializeProjectSavePayload,
+  prepareScenesForSave,
+  getOrderedAssetIdsFromScenes,
+  buildAssetUsageRefs,
+  ensureSceneIds,
+} from '../utils/projectSave';
 
 // Helper to detect media type from filename
 function getMediaType(filename: string): 'image' | 'video' {
@@ -91,85 +97,6 @@ interface PendingProject {
   scenes: Scene[];
   sourcePanelState?: SourcePanelState;
   projectPath: string;
-}
-
-// Convert assets to use relative paths for saving
-function prepareAssetForSave(asset: Asset): Asset {
-  if (asset.vaultRelativePath) {
-    return {
-      ...asset,
-      // Store relative path as the main path for portability
-      path: asset.vaultRelativePath,
-    };
-  }
-  return asset;
-}
-
-// Prepare scenes for saving (convert to relative paths)
-function prepareScenesForSave(scenes: Scene[]): Scene[] {
-  return scenes.map(scene => ({
-    ...scene,
-    cuts: scene.cuts.map(cut => ({
-      ...cut,
-      asset: cut.asset ? prepareAssetForSave(cut.asset) : undefined,
-    })),
-  }));
-}
-
-function getOrderedAssetIdsFromScenes(scenes: Scene[]): string[] {
-  const orderedIds: string[] = [];
-  const seen = new Set<string>();
-
-  for (const scene of scenes) {
-    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    for (const cut of cuts) {
-      const assetId = cut.asset?.id || cut.assetId;
-      if (assetId && !seen.has(assetId)) {
-        seen.add(assetId);
-        orderedIds.push(assetId);
-      }
-    }
-  }
-
-  return orderedIds;
-}
-
-function buildAssetUsageRefs(scenes: Scene[]): Map<string, AssetUsageRef[]> {
-  const usageMap = new Map<string, AssetUsageRef[]>();
-  const orderedScenes = [...scenes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-
-  for (const scene of orderedScenes) {
-    const sceneOrder = scene.order ?? 0;
-    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    cuts.forEach((cut, index) => {
-      const assetId = cut.asset?.id || cut.assetId;
-      if (!assetId) return;
-      const ref: AssetUsageRef = {
-        sceneId: scene.id,
-        sceneName: scene.name,
-        sceneOrder,
-        cutId: cut.id,
-        cutOrder: cut.order ?? index,
-        cutIndex: index + 1,
-      };
-      const existing = usageMap.get(assetId) || [];
-      existing.push(ref);
-      usageMap.set(assetId, existing);
-    });
-  }
-
-  return usageMap;
-}
-
-function ensureSceneIds(scenes: Scene[]): { scenes: Scene[]; missingCount: number } {
-  let missingCount = 0;
-  const updatedScenes = scenes.map((scene) => {
-    if (typeof scene.id === 'string' && scene.id.trim().length > 0) return scene;
-    missingCount += 1;
-    return { ...scene, id: uuidv4() };
-  });
-
-  return { scenes: updatedScenes, missingCount };
 }
 
 export function useHeaderProjectController() {
@@ -489,9 +416,10 @@ export function useHeaderProjectController() {
   }, [clearProject, setProjectLoaded]);
 
   const disableAutosave = import.meta.env.VITE_DISABLE_AUTOSAVE === '1';
+  const autosaveActive = projectLoaded && !!vaultPath && !disableAutosave;
 
   useEffect(() => {
-    if (!projectLoaded || !vaultPath || disableAutosave) return;
+    if (!autosaveActive) return;
     const controller = createAutosaveController({
       debounceMs: 1000,
       save: handleAutosaveProject,
@@ -504,7 +432,22 @@ export function useHeaderProjectController() {
     });
     const unsubscribe = subscribeProjectChanges(useStore, () => controller.schedule());
     return () => unsubscribe();
-  }, [projectLoaded, vaultPath, disableAutosave, handleAutosaveProject]);
+  }, [autosaveActive, handleAutosaveProject, toast]);
+
+  useEffect(() => {
+    if (!window.electronAPI?.setAutosaveEnabled) return;
+    window.electronAPI.setAutosaveEnabled(autosaveActive).catch(() => {});
+  }, [autosaveActive]);
+
+  useEffect(() => {
+    if (!autosaveActive) return;
+    if (!window.electronAPI?.onAutosaveFlushRequest || !window.electronAPI?.notifyAutosaveFlushed) return;
+    const unsubscribe = window.electronAPI.onAutosaveFlushRequest(async () => {
+      await handleAutosaveProject();
+      window.electronAPI?.notifyAutosaveFlushed();
+    });
+    return () => unsubscribe();
+  }, [autosaveActive, handleAutosaveProject]);
 
   return {
     handleSaveProject,
