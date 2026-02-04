@@ -5,7 +5,6 @@ import { useHistoryStore } from './store/historyStore';
 import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand, UpdateClipPointsCommand } from './store/commands';
 import AssetDrawer from './components/AssetDrawer';
 import Sidebar from './components/Sidebar';
-import SceneChipBar from './components/SceneChipBar';
 import Storyline from './components/Storyline';
 import DetailsPanel from './components/DetailsPanel';
 import PlaybackControls from './components/PlaybackControls';
@@ -664,7 +663,6 @@ function App() {
             onDragLeave={handleWorkspaceDragLeave}
             onDrop={handleWorkspaceDrop}
           >
-            <SceneChipBar />
             <Storyline activeId={activeId} activeType={activeType} />
             <PlaybackControls
               onPreview={() => setShowPreview(true)}

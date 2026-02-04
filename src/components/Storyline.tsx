@@ -19,6 +19,7 @@ interface StorylineProps {
 export default function Storyline({ activeId }: StorylineProps) {
   const { scenes, selectedSceneId, selectScene, vaultPath, createCutFromImport, closeDetailsPanel } = useStore();
   const { executeCommand } = useHistoryStore();
+  const storylineRef = useRef<HTMLDivElement>(null);
   // --- DND: dnd-kit (reorder) ---
   const { active, over } = useDndContext();
 
@@ -51,8 +52,19 @@ export default function Storyline({ activeId }: StorylineProps) {
     executeCommand,
   });
 
+  useEffect(() => {
+    if (!selectedSceneId || !storylineRef.current) return;
+    const sceneElement = storylineRef.current.querySelector(
+      `[data-scene-id="${selectedSceneId}"]`
+    );
+    if (sceneElement) {
+      sceneElement.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [selectedSceneId]);
+
   return (
     <div
+      ref={storylineRef}
       className="storyline"
       onClick={handleBackgroundClick}
       onDragEnter={handleStorylineDragEnter}
