@@ -1,6 +1,9 @@
 # UI Components
 
-Reusable UI primitives and feedback components for SceneDeck.
+**目的**: UIプリミティブとフィードバック系コンポーネントの参照。
+**適用範囲**: `src/ui/*`。
+**関連ファイル**: `src/ui/primitives/Modal.tsx`, `src/ui/feedback/Toast.tsx`, `src/ui/feedback/Dialog.tsx`。
+**更新頻度**: 中。
 
 ## Structure
 
@@ -155,3 +158,6 @@ For danger dialogs:
 - Cancel button is visually emphasized
 - Target name is displayed if provided
 - Use for irreversible actions like delete
+
+## Related Docs
+- `docs/ui/color-system.md`

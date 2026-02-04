@@ -1,3 +1,12 @@
+# Mapping (Concept → Types/Store/UI)
+
+**目的**: 概念と実装の対応表を示す正本。
+**適用範囲**: TypeScript型・ストア・主要UI。
+**関連ファイル**: `src/types/index.ts`, `src/store/useStore.ts`, `src/components/*`。
+**更新頻度**: 中。
+
+> 注意: 用語定義は `docs/references/DOMAIN.md` を参照。
+
 | 概念 | データモデル（TS型） | ストア/ユーティリティ | 主要UI/コンポーネント |
 | --- | --- | --- | --- |
 | プロジェクト | `Project`（vaultPath, scenes, sourcePanel）。 | `initializeProject` / `loadProject` / `window.electronAPI.saveProject`。 | `StartupModal`、`Header` |

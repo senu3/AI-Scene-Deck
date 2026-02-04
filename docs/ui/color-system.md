@@ -1,5 +1,12 @@
 # Color System
 
+**目的**: UI配色の参照と変数の正本。
+**適用範囲**: `src/styles/globals.css`, UI CSS Modules。
+**関連ファイル**: `src/styles/globals.css`, `src/components/*.css`。
+**更新頻度**: 低。
+
+> 注意: 色の意味づけはここを正とする。
+
 AI-Scene-Deck uses a slate-tinted dark color scheme with cool cyan accents.
 
 ## Color Variables

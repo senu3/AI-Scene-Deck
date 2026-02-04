@@ -1,8 +1,14 @@
 # Preview Guide (Single vs Sequence)
 
-This note captures how preview playback is structured and what must not be changed lightly.
+**目的**: Preview 再生の構造と変更禁止点を明文化する。
+**適用範囲**: `PreviewModal` / 再生コントローラ / MediaSource。
+**関連ファイル**: `src/components/PreviewModal.tsx`, `src/utils/previewPlaybackController.ts`, `src/utils/previewMedia.tsx`。
+**更新頻度**: 中。
+
+> TODO: UI変更に合わせた文言の更新は必要になりうる。
 
 ## Modes
+
 ### Single Mode
 - Activated when `PreviewModal` receives a single `asset` prop.
 - Video: uses direct `<video>` rendering with per-element handlers.
@@ -10,21 +16,16 @@ This note captures how preview playback is structured and what must not be chang
 - Image display time resolves from metadata (`displayTime`) and falls back to `1.0s` (clamped to `>= 0.1s`).
 - IN/OUT is stored in local component state (video) or controller range (image/sequence).
 - Audio sync uses a dedicated `AudioManager`.
-  - Video: starts from `video.currentTime` on play/pause changes.
-  - Image: follows the sequence controller’s absolute time.
+- Video: starts from `video.currentTime` on play/pause changes.
+- Image: follows the sequence controller’s absolute time.
 
 ### Sequence Mode
 - Activated when no single `asset` is provided.
 - Builds `PreviewItem[]` from cuts, then drives playback through a controller.
-- Uses `useSequencePlaybackController` to unify:
-  - play/pause
-  - seek (absolute/percent)
-  - loop
-  - range (IN/OUT)
-  - buffering state
-- Each cut creates a `MediaSource`:
-  - Video: `createVideoMediaSource` (HTMLVideoElement wrapper).
-  - Image: `createImageMediaSource` (synthetic clock).
+- Uses `useSequencePlaybackController` to unify play/pause/seek/loop/range/buffering state.
+- Each cut creates a `MediaSource`.
+- Video: `createVideoMediaSource`.
+- Image: `createImageMediaSource`.
 - Cut changes are triggered by `onEnded` from the current `MediaSource`.
 
 ## Media Source Abstraction
@@ -36,7 +37,7 @@ This note captures how preview playback is structured and what must not be chang
 - `dispose()`
 - `element` (JSX to render)
 
-Video sources queue play/seek until the element is mounted, avoiding the "cut boundary stop" issue.
+Video sources queue play/seek until the element is mounted, avoiding the cut boundary stop issue.
 
 ## Audio Sync (Sequence Mode)
 - Audio uses `AudioManager.play(absoluteTimeSec)`.
@@ -51,22 +52,13 @@ Video sources queue play/seek until the element is mounted, avoiding the "cut bo
 
 ## Must NOT Do
 - Do not control Sequence Mode playback by directly calling `<video>` methods.
-  - Always route through `useSequencePlaybackController` + `MediaSource`.
 - Do not special-case Single Mode images back to plain `<img>` timers.
-  - Single image playback intentionally uses the Sequence engine.
 - Do not remove the pending play/seek logic in `createVideoMediaSource`.
-  - It prevents the "needs two clicks to play" regression.
 - Do not reuse or keep old `MediaSource` instances.
-  - Always dispose the previous source when switching cuts.
 - Do not attach Sequence Mode audio to the video element's currentTime events.
-  - Use absolute sequence time instead.
 - Do not bypass the assetId check when binding video URLs.
-  - A mismatched URL causes Range errors and skipped cuts.
 - Do not switch Sequence Mode back to blob/base64 video URLs.
-  - `media://` is required for streaming and memory safety.
 
-## Related Files
-- `src/components/PreviewModal.tsx`
-- `src/utils/previewPlaybackController.ts`
-- `src/utils/previewMedia.tsx`
-- `MEDIA_HANDLING.md`
+## Related Docs
+- `docs/guides/media-handling.md`
+- `docs/references/DOMAIN.md`

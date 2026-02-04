@@ -1,6 +1,11 @@
 # Domain Glossary
 
-This document summarizes core concepts, their boundaries, and where they are implemented.
+**目的**: コア用語と境界を定義する正本。
+**適用範囲**: データモデル/主要UI/保存対象。
+**関連ファイル**: `src/types/index.ts`, `src/components/*`, `src/store/useStore.ts`。
+**更新頻度**: 中。
+
+> 注意: 本書は用語の正本です。重複説明は最小にし、他ドキュメントは本書を参照します。
 
 ## Core Data Model
 

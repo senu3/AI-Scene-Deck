@@ -1,6 +1,11 @@
 # Storyline Controller & TimelineBar
 
-This document summarizes the current responsibilities and integration points for the Storyline controller logic and the TimelineBar UI introduced in Phase 3.
+**目的**: StorylineのD&D制御とTimelineBarの役割を整理する。
+**適用範囲**: `Storyline` / `useStorylineDragController` / `TimelineBar`。
+**関連ファイル**: `src/components/Storyline.tsx`, `src/hooks/useStorylineDragController.ts`, `src/components/TimelineBar.tsx`。
+**更新頻度**: 中。
+
+> TODO: UI設計が固まったら表現の調整が必要。
 
 ## Storyline Controller
 
@@ -10,7 +15,7 @@ This document summarizes the current responsibilities and integration points for
 
 **Responsibilities**
 - Handles drag-and-drop interactions for cuts and external file drops.
-- Manages placeholder state for cross‑scene moves and external drops.
+- Manages placeholder state for cross-scene moves and external drops.
 - Creates new cuts for external assets using `createCutFromImport`.
 - Ensures selection changes are reflected in the Storyline view.
 
@@ -30,7 +35,7 @@ This document summarizes the current responsibilities and integration points for
 
 **Purpose**
 - Replaces `SceneChipBar` as the primary scene navigation in the Header.
-- Shows per‑scene segments sized by scene duration.
+- Shows per-scene segments sized by scene duration.
 - Clicking a segment selects the scene; Storyline handles scrolling.
 
 **Props / API**
@@ -44,17 +49,12 @@ This document summarizes the current responsibilities and integration points for
 
 **Styling Rules**
 - Base surface uses tokens: `--panel-bg`, `--border-color`.
-- Selected segment uses `rgba(var(--accent-primary-rgb), 0.6)`.
-- Hover uses `--border-light` / `--panel-bg-strong`.
+- Segment colors use `--timeline-scene-*` tokens.
 
 ## Integration Points
-
 - `Header` renders `TimelineBar` under the main header row.
-  - `src/components/Header.tsx`
-  - `src/components/Header.css`
-- `SceneChipBar` was removed (`SceneChipBar.tsx`, `SceneChipBar.css`).
+- `SceneChipBar` was removed.
 
 ## Known Constraints
-
 - Header must not use `document.querySelector` to scroll Storyline.
 - TimelineBar does not own scroll behavior; it only emits selection events.

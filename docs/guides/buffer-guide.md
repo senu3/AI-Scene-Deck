@@ -1,5 +1,12 @@
 # Buffer / Memory Guide (可視化→分類→対策)
 
+**目的**: Buffer/ArrayBuffer まわりの生成・保持・解放点を棚卸しする。
+**適用範囲**: main/renderer のバッファ・キャッシュ。
+**関連ファイル**: `electron/main.ts`, `electron/vaultGateway.ts`, `src/utils/thumbnailCache.ts`, `src/utils/audioUtils.ts`, `src/components/PreviewModal.tsx`。
+**更新頻度**: 低。
+
+> TODO: 実装変更が入った場合は最新の検索結果で更新する。
+
 このドキュメントは、バッファ（Buffer/ArrayBuffer/Uint8Array/ImageData/Blob/Canvas backing store）の生成・保持・解放点を棚卸しし、リーク/膨張パターンを点検したものです。
 検索キー: `Buffer` / `ArrayBuffer` / `Uint8Array` / `ImageData` / `createImageBitmap` / `URL.createObjectURL` / `stream`
 
@@ -39,11 +46,11 @@
 ## 分類（バッファ種別ごとの現状）
 
 ### 1) Buffer / ArrayBuffer / Uint8Array
-- **Node Buffer（mainプロセス）**
-  - `read-file-as-base64`, `read-audio-file`, `read-audio-pcm`, `read-image-metadata`, `generate-video-thumbnail`, `vaultGateway` のハッシュ計算などで **ファイル全体読み込み** が発生。
-- **Renderer Uint8Array**
-  - `readAudioPcm` の戻りを `Uint8Array` 化し `AudioBuffer` を生成。
-  - `analyzeAudioRms` でも PCM を `Uint8Array` として保持し、RMS配列を生成。
+- Node Buffer（mainプロセス）
+- `read-file-as-base64`, `read-audio-file`, `read-audio-pcm`, `read-image-metadata`, `generate-video-thumbnail`, `vaultGateway` のハッシュ計算などで **ファイル全体読み込み** が発生。
+- Renderer Uint8Array
+- `readAudioPcm` の戻りを `Uint8Array` 化し `AudioBuffer` を生成。
+- `analyzeAudioRms` でも PCM を `Uint8Array` として保持し、RMS配列を生成。
 
 ### 2) ImageData / Canvas backing store
 - `MaskPaintModal` で **3枚キャンバス**を常時保持。
@@ -52,10 +59,10 @@
 
 ### 3) Base64 / data URL
 - `readFileAsBase64` と `generateVideoThumbnail` の結果が多数のコンポーネントに保持される。
-- **Asset cache / thumbnail cache** と **UI state** の両方に入るため、重複保持が起きやすい。
+- Asset cache / thumbnail cache と UI state の両方に入るため、重複保持が起きやすい。
 
 ### 4) Stream
-- `media://` は **fs.createReadStream → ReadableStream** で Range 対応。
+- `media://` は fs.createReadStream → ReadableStream で Range 対応。
 - 大きなファイルでも **全量読み込みせずストリーミング**できる設計。
 
 ### 5) createImageBitmap / URL.createObjectURL / Blob
@@ -69,19 +76,19 @@
 
 ### Map / useRef / useState での保持
 - `src/components/PreviewModal.tsx`
-  - `videoUrlCacheRef: Map<assetId, url>`
-  - `readyItemsRef: Set<assetId>`
-  - `preloadingRef: Set<assetId>`
-  - `singleModeImageData` / `videoObjectUrl`
+- `videoUrlCacheRef: Map<assetId, url>`
+- `readyItemsRef: Set<assetId>`
+- `preloadingRef: Set<assetId>`
+- `singleModeImageData` / `videoObjectUrl`
 - `src/utils/thumbnailCache.ts`
-  - `cache: Map<key, { data, bytes }>`（LRU / module-level）
-  - `inFlight: Map<key, Promise>`（同一取得の重複抑制）
+- `cache: Map<key, { data, bytes }>`（LRU / module-level）
+- `inFlight: Map<key, Promise>`（同一取得の重複抑制）
 - `src/store/useStore.ts`
-  - `assetCache: Map<assetId, Asset>`（thumbnail含む）
+- `assetCache: Map<assetId, Asset>`（thumbnail含む）
 - `src/components/LipSyncModal.tsx`
-  - `frames` / `maskDataUrl`（base64）
+- `frames` / `maskDataUrl`（base64）
 - `src/components/MaskPaintModal.tsx`
-  - `undoState` / `redoState`（ImageData）
+- `undoState` / `redoState`（ImageData）
 
 ※ サムネイル取得は `getThumbnail()` に集約（単一入口）。LRUは「総バイト + 件数」の二重ガード。
 
@@ -90,49 +97,42 @@
 ## 対策（リーク/膨張パターンの点検と対応案）
 
 ### 1) URL.createObjectURL の revoke 漏れ
-- **該当なし**：`URL.createObjectURL` の使用箇所が存在しない。
+- 該当なし。
 - `revokeIfBlob` は将来用で、現在は `media://` URL のため実質 noop。
 
 ### 2) イベント解除漏れ
-- **重大な漏れは見当たらない**。
-  - ほとんどの `addEventListener` が `useEffect` cleanup で解除されている。
-  - `window.addEventListener('beforeunload'...)` はアプリ終了時の解放目的で常駐設計。
+- 重大な漏れは見当たらない。
+- ほとんどの `addEventListener` が `useEffect` cleanup で解除されている。
+- `window.addEventListener('beforeunload'...)` はアプリ終了時の解放目的で常駐設計。
 
 ### 3) 無制限キャッシュ
-- **該当**：
-  - `assetCache`（全 Asset を保持）
-- **対応済み**：
-  - サムネイルは `thumbnailCache` で **LRU + 総バイト上限 + 件数上限** を導入。
-  - `initializeProject` / `clearProject` で `clearThumbnailCache()` 実行（module-level を含めて全クリア）。
-  - 環境設定モーダルで上限値を変更可能（`EnvironmentSettingsModal`）。
+- 該当
+- `assetCache`（全 Asset を保持）
+- 対応済み
+- サムネイルは `thumbnailCache` で LRU + 総バイト上限 + 件数上限。
+- `initializeProject` / `clearProject` で `clearThumbnailCache()` 実行。
+- 環境設定モーダルで上限値を変更可能（`EnvironmentSettingsModal`）。
 
 ### 4) base64 保持（data URL の膨張）
-- **該当あり**：
-  - `PreviewModal` / `CutCard` / `CutGroupCard` / `DetailsPanel` / `AssetPanel` / `Sidebar` / `LipSyncModal`
-- **対策案**：
-  - 可能なら base64 を **ディスクキャッシュ + パス参照**へ寄せる。
-  - 大きい画像は base64 ではなく `media://` か `Blob URL` を検討。
-  - base64 を使う場合、**縮小済みサムネイルのみ**に限定。
+- 該当あり。
+- `PreviewModal` / `CutCard` / `CutGroupCard` / `DetailsPanel` / `AssetPanel` / `Sidebar` / `LipSyncModal`
+- 対策案。
+- base64 をディスクキャッシュ + パス参照へ寄せる。
+- 大きい画像は base64 ではなく `media://` or Blob URL を検討。
+- base64 を使う場合は縮小済みサムネイルに限定。
 
 ### 5) ffmpeg stdout/stderr の溜め込み
-- **該当あり**：
-  - `read-audio-pcm`（stdout → Buffer[] 全量保持）
-  - `finalize-clip` / `export-sequence` / `extract-video-frame`（stderr を文字列で全量保持）
-- **対策（実装済み）**：
-  - `stderr` は **末尾 128KB のリングバッファ**で保持（ログ用途に限定）。
-    - UI には「最後のエラー周辺」だけ表示で十分。
-    - `EnvironmentSettingsModal` からサイズ変更可能。
-  - `read-audio-pcm`（PCM）は **上限（最大秒数 or 最大バイト）**で超過時は拒否。
-    - `maxClipSeconds = 60`, `maxTotalSeconds = 15 * 60`
-    - `maxClipBytes = 32 MiB`, `maxTotalBytes = 256 MiB`
-    - 秒数上限とバイト上限の **より厳しい方**で判定。
-    - `EnvironmentSettingsModal` から変更可能。
-    - チャンク処理は将来対応（現状は全量連結のため、まずは上限で抑止）。
+- 該当あり。
+- `read-audio-pcm`（stdout → Buffer[] 全量保持）
+- `finalize-clip` / `export-sequence` / `extract-video-frame`（stderr を文字列で全量保持）
+- 対策（実装済み）。
+- `stderr` は末尾 128KB のリングバッファで保持。
+- `read-audio-pcm`（PCM）は上限で超過時は拒否。
 
 ---
 
 ## 追加メモ
 
-- `media://` は **ストリーミング前提**なので、基本はフルバッファ化を避けられる。
-- 音声は **PCM + AudioBuffer** の二重保持が起きるため、長尺ではメモリが急増しやすい。
-- サムネイルは **単一入口（getThumbnail） + LRU** に統一。上限は **総バイト主軸 + 件数ガード**。
+- `media://` はストリーミング前提なので、基本はフルバッファ化を避けられる。
+- 音声は PCM + AudioBuffer の二重保持が起きるため、長尺ではメモリが急増しやすい。
+- サムネイルは単一入口（getThumbnail）+ LRU に統一。

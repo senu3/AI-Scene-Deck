@@ -1,5 +1,12 @@
 # Bulk Import Button Design Proposals
 
+**目的**: Bulk import ボタンのUI案を記録する。
+**適用範囲**: AssetPanel UI。
+**関連ファイル**: `src/components/AssetPanel.tsx`, `src/components/AssetPanel.css`。
+**更新頻度**: 低。
+
+> 未決: どの案を採用するかは未確定。
+
 ## Current Issue
 - Green button stands out in cool-toned UI
 - Toolbar area should focus on filtering/sorting
@@ -96,7 +103,7 @@ When assets exist, show small FAB or header icon.
 
 ### Option D: Dropdown Menu
 
-Add a "more actions" menu in the toolbar.
+Add a more actions menu in the toolbar.
 
 ```
 +----------------------------------+
@@ -134,12 +141,12 @@ Instead of green (`--accent-success`), use:
 
 ## Recommendation
 
-**Option A (FAB) with neutral/cyan color** is the best fit:
+Option A (FAB) with neutral/cyan color is the best fit:
 
 1. Keeps toolbar focused on filtering
 2. Always accessible
 3. Common pattern users understand
-4. Expandable (could add "refresh" etc. in future)
+4. Expandable (could add refresh etc. in future)
 5. Fits the cool color scheme
 
 Implementation:
