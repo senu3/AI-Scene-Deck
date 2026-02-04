@@ -341,6 +341,182 @@ export function PathField({
 }
 
 // ============================================
+// Toggle / Switch
+// ============================================
+export interface ToggleProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label?: ReactNode;
+  description?: string;
+  disabled?: boolean;
+  size?: 'sm' | 'md';
+  className?: string;
+}
+
+export function Toggle({
+  checked,
+  onChange,
+  label,
+  description,
+  disabled = false,
+  size = 'md',
+  className = '',
+}: ToggleProps) {
+  const handleClick = useCallback(() => {
+    if (!disabled) {
+      onChange(!checked);
+    }
+  }, [checked, disabled, onChange]);
+
+  return (
+    <div
+      className={`${styles.toggleWrapper} ${className}`}
+      data-disabled={disabled}
+      onClick={handleClick}
+    >
+      <div className={styles.toggleTrack} data-checked={checked} data-size={size}>
+        <div className={styles.toggleThumb} />
+      </div>
+      {(label || description) && (
+        <div className={styles.toggleText}>
+          {label && <span className={styles.toggleLabel}>{label}</span>}
+          {description && <span className={styles.toggleDescription}>{description}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// Tabs
+// ============================================
+export interface TabItem {
+  id: string;
+  label: string;
+  icon?: ReactNode;
+  disabled?: boolean;
+}
+
+export interface TabsProps {
+  tabs: TabItem[];
+  activeTab: string;
+  onChange: (tabId: string) => void;
+  variant?: 'default' | 'pills' | 'underline';
+  className?: string;
+}
+
+export function Tabs({
+  tabs,
+  activeTab,
+  onChange,
+  variant = 'default',
+  className = '',
+}: TabsProps) {
+  return (
+    <div className={`${styles.tabs} ${className}`} data-variant={variant} role="tablist">
+      {tabs.map((tab) => (
+        <button
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.id}
+          className={styles.tabItem}
+          data-active={activeTab === tab.id}
+          disabled={tab.disabled}
+          onClick={() => onChange(tab.id)}
+        >
+          {tab.icon && <span className={styles.tabIcon}>{tab.icon}</span>}
+          <span className={styles.tabLabel}>{tab.label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ============================================
+// SettingsSection - Group related settings
+// ============================================
+export interface SettingsSectionProps {
+  title?: string;
+  description?: string;
+  icon?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}
+
+export function SettingsSection({
+  title,
+  description,
+  icon,
+  children,
+  className = '',
+}: SettingsSectionProps) {
+  return (
+    <div className={`${styles.settingsSection} ${className}`}>
+      {(title || description) && (
+        <div className={styles.settingsSectionHeader}>
+          {icon && <span className={styles.settingsSectionIcon}>{icon}</span>}
+          <div className={styles.settingsSectionText}>
+            {title && <h4 className={styles.settingsSectionTitle}>{title}</h4>}
+            {description && <p className={styles.settingsSectionDesc}>{description}</p>}
+          </div>
+        </div>
+      )}
+      <div className={styles.settingsSectionContent}>{children}</div>
+    </div>
+  );
+}
+
+// ============================================
+// SettingsRow - Single setting row
+// ============================================
+export interface SettingsRowProps {
+  label: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+}
+
+export function SettingsRow({
+  label,
+  description,
+  children,
+  className = '',
+}: SettingsRowProps) {
+  return (
+    <div className={`${styles.settingsRow} ${className}`}>
+      <div className={styles.settingsRowLabel}>
+        <span className={styles.settingsRowLabelText}>{label}</span>
+        {description && <span className={styles.settingsRowDesc}>{description}</span>}
+      </div>
+      <div className={styles.settingsRowControl}>{children}</div>
+    </div>
+  );
+}
+
+// ============================================
+// StatDisplay - Show statistics
+// ============================================
+export interface StatDisplayProps {
+  label: string;
+  value: string | number;
+  unit?: string;
+  className?: string;
+}
+
+export function StatDisplay({ label, value, unit, className = '' }: StatDisplayProps) {
+  return (
+    <div className={`${styles.statDisplay} ${className}`}>
+      <span className={styles.statLabel}>{label}</span>
+      <span className={styles.statValue}>
+        {value}
+        {unit && <span className={styles.statUnit}>{unit}</span>}
+      </span>
+    </div>
+  );
+}
+
+// ============================================
 // Convenience export
 // ============================================
 export const FormControls = {
@@ -352,6 +528,11 @@ export const FormControls = {
   Field,
   ReadOnlyValue,
   PathField,
+  Toggle,
+  Tabs,
+  SettingsSection,
+  SettingsRow,
+  StatDisplay,
 };
 
 export default FormControls;
