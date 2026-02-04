@@ -8,6 +8,7 @@ import ffmpegPath from 'ffmpeg-static';
 import { Readable } from 'stream';
 import * as os from 'os';
 import { getMediaType, importAssetToVaultInternal, moveToTrashInternal, registerVaultGatewayHandlers, saveAssetIndexInternal, type AssetIndex, type TrashMeta } from './vaultGateway';
+import { createSaveProjectHandler } from './handlers/saveProject';
 const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
 
 let mainWindow: BrowserWindow | null = null;
@@ -1003,27 +1004,11 @@ ipcMain.handle('move-to-trash-with-meta', async (_, filePath: string, trashPath:
 });
 
 // Save project data
-ipcMain.handle('save-project', async (_, projectData: string, projectPath?: string) => {
-  let savePath = projectPath;
-
-  if (!savePath) {
-    const result = await dialog.showSaveDialog(mainWindow!, {
-      filters: [{ name: 'Scene Deck Project', extensions: ['sdp'] }],
-    });
-
-    if (result.canceled || !result.filePath) {
-      return null;
-    }
-    savePath = result.filePath;
-  }
-
-  try {
-    fs.writeFileSync(savePath, projectData, 'utf-8');
-    return savePath;
-  } catch {
-    return null;
-  }
-});
+ipcMain.handle('save-project', createSaveProjectHandler({
+  dialog,
+  fs,
+  getMainWindow: () => mainWindow,
+}));
 
 // Load project data
 ipcMain.handle('load-project', async () => {

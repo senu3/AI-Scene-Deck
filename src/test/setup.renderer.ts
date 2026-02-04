@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 
-// Minimal window.electronAPI mock for unit tests.
+// Minimal window.electronAPI mock for renderer unit tests.
 const electronAPIMock = {
   pathExists: vi.fn(async () => true),
   loadProjectFromPath: vi.fn(async () => ({ data: null, path: '' })),

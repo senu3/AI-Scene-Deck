@@ -5,7 +5,7 @@ import {
   isAssetInVault,
   importFileToVault,
 } from '../assetPath';
-import { resetElectronMocks } from '../../test/setup';
+import { resetElectronMocks } from '../../test/setup.renderer';
 
 // Minimal Asset shape
 const baseAsset = {
