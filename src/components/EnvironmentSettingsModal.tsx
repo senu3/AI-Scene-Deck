@@ -11,7 +11,6 @@ import {
   Zap,
   Database,
   Film,
-  Keyboard,
   Code,
   Info,
   RotateCcw,
@@ -20,6 +19,10 @@ import {
   Play,
   ImageIcon,
   Check,
+  Trash2,
+  History,
+  Download,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   Overlay,
@@ -44,7 +47,7 @@ export interface EnvironmentSettingsModalProps {
   onClose: () => void;
 }
 
-type SettingsTab = 'general' | 'editor' | 'performance' | 'keyboard' | 'advanced';
+type SettingsTab = 'general' | 'editor' | 'performance' | 'advanced';
 
 type ThemeMode = 'system' | 'dark' | 'light';
 type LanguageCode = 'ja' | 'en';
@@ -58,7 +61,6 @@ const TABS: TabItem[] = [
   { id: 'general', label: 'General', icon: <Monitor size={14} /> },
   { id: 'editor', label: 'Editor', icon: <Play size={14} /> },
   { id: 'performance', label: 'Performance', icon: <Zap size={14} /> },
-  { id: 'keyboard', label: 'Keyboard', icon: <Keyboard size={14} />, disabled: true },
   { id: 'advanced', label: 'Advanced', icon: <Code size={14} /> },
 ];
 
@@ -95,6 +97,23 @@ const PLAYBACK_RATE_OPTIONS = [
   { value: '2', label: '2x' },
 ];
 
+const TRASH_RETENTION_OPTIONS = [
+  { value: '1', label: '1 day' },
+  { value: '3', label: '3 days' },
+  { value: '7', label: '7 days' },
+  { value: '14', label: '14 days' },
+  { value: '30', label: '30 days' },
+  { value: 'never', label: 'Never (Manual)' },
+];
+
+const SNAPSHOT_COUNT_OPTIONS = [
+  { value: '3', label: '3 snapshots' },
+  { value: '5', label: '5 snapshots' },
+  { value: '10', label: '10 snapshots' },
+  { value: '20', label: '20 snapshots' },
+  { value: '50', label: '50 snapshots' },
+];
+
 export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentSettingsModalProps) {
   useModalKeyboard({ onEscape: onClose, enabled: open });
 
@@ -106,13 +125,26 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
   const [language, setLanguage] = useState<LanguageCode>('ja');
   const [startupBehavior, setStartupBehavior] = useState<StartupBehavior>('welcome');
 
-  // Editor settings
+  // Editor settings - Autosave
   const [autosaveEnabled, setAutosaveEnabled] = useState(true);
   const [autosaveInterval, setAutosaveInterval] = useState(30);
+
+  // Editor settings - Defaults
   const [defaultCutDuration, setDefaultCutDuration] = useState(3);
+
+  // Editor settings - Preview
   const [previewQuality, setPreviewQuality] = useState<PreviewQuality>('auto');
   const [defaultPlaybackRate, setDefaultPlaybackRate] = useState('1');
   const [showThumbnails, setShowThumbnails] = useState(true);
+
+  // Editor settings - Trash
+  const [trashRetention, setTrashRetention] = useState('7');
+  const [autoEmptyTrash, setAutoEmptyTrash] = useState(true);
+
+  // Editor settings - Snapshots
+  const [snapshotEnabled, setSnapshotEnabled] = useState(true);
+  const [snapshotMaxCount, setSnapshotMaxCount] = useState('10');
+  const [snapshotOnSave, setSnapshotOnSave] = useState(true);
 
   // Performance settings - Thumbnail cache
   const stats = useMemo(() => getThumbnailCacheStats(), [open]);
@@ -172,6 +204,16 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
     setHasChanges(true);
   }, []);
 
+  const handleEmptyTrash = useCallback(() => {
+    // TODO: Implement trash emptying
+    console.log('Empty trash');
+  }, []);
+
+  const handleForceRecovery = useCallback(() => {
+    // TODO: Implement force recovery from project data
+    console.log('Force recovery from project data');
+  }, []);
+
   const handleSave = useCallback(() => {
     // Save thumbnail cache settings
     const safeMb = Number.isFinite(maxMb) ? Math.max(1, Math.floor(maxMb)) : 1;
@@ -211,6 +253,11 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
     setPreviewQuality('auto');
     setDefaultPlaybackRate('1');
     setShowThumbnails(true);
+    setTrashRetention('7');
+    setAutoEmptyTrash(true);
+    setSnapshotEnabled(true);
+    setSnapshotMaxCount('10');
+    setSnapshotOnSave(true);
     setMaxMb(64);
     setMaxItems(200);
     setStderrMaxKb(128);
@@ -306,6 +353,60 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                     <span className={styles.inputUnit}>sec</span>
                   </div>
                 </SettingsRow>
+              </SettingsSection>
+
+              <SettingsSection title="Snapshots" icon={<History size={14} />}>
+                <SettingsRow label="Enable Snapshots" description="Keep version history of project">
+                  <Toggle
+                    checked={snapshotEnabled}
+                    onChange={handleChange(setSnapshotEnabled)}
+                    size="sm"
+                  />
+                </SettingsRow>
+                <SettingsRow label="Snapshot on Save" description="Create snapshot when saving">
+                  <Toggle
+                    checked={snapshotOnSave}
+                    onChange={handleChange(setSnapshotOnSave)}
+                    size="sm"
+                    disabled={!snapshotEnabled}
+                  />
+                </SettingsRow>
+                <SettingsRow label="Max Snapshots" description="Number of snapshots to keep">
+                  <Select
+                    value={snapshotMaxCount}
+                    options={SNAPSHOT_COUNT_OPTIONS}
+                    onChange={handleChange(setSnapshotMaxCount)}
+                    disabled={!snapshotEnabled}
+                  />
+                </SettingsRow>
+              </SettingsSection>
+
+              <SettingsSection title="Trash" icon={<Trash2 size={14} />}>
+                <SettingsRow label="Auto Empty Trash" description="Automatically delete old items">
+                  <Toggle
+                    checked={autoEmptyTrash}
+                    onChange={handleChange(setAutoEmptyTrash)}
+                    size="sm"
+                  />
+                </SettingsRow>
+                <SettingsRow label="Retention Period" description="Days before permanent deletion">
+                  <Select
+                    value={trashRetention}
+                    options={TRASH_RETENTION_OPTIONS}
+                    onChange={handleChange(setTrashRetention)}
+                    disabled={!autoEmptyTrash}
+                  />
+                </SettingsRow>
+                <div className={styles.actionRow}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={handleEmptyTrash}
+                  >
+                    <Trash2 size={14} />
+                    Empty Trash Now
+                  </button>
+                </div>
               </SettingsSection>
 
               <SettingsSection title="Defaults" icon={<ImageIcon size={14} />}>
@@ -484,19 +585,6 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
             </div>
           )}
 
-          {/* Keyboard Tab (Placeholder) */}
-          {activeTab === 'keyboard' && (
-            <div className={styles.tabContent}>
-              <SettingsSection title="Keyboard Shortcuts" icon={<Keyboard size={14} />}>
-                <div className={styles.comingSoon}>
-                  <Keyboard size={48} strokeWidth={1} />
-                  <h3>Coming Soon</h3>
-                  <p>Keyboard shortcut customization will be available in a future update.</p>
-                </div>
-              </SettingsSection>
-            </div>
-          )}
-
           {/* Advanced Tab */}
           {activeTab === 'advanced' && (
             <div className={styles.tabContent}>
@@ -518,6 +606,20 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
               </SettingsSection>
 
               <SettingsSection title="Data Management" icon={<HardDrive size={14} />}>
+                <div className={styles.recoveryWarning}>
+                  <AlertTriangle size={14} />
+                  <span>Recovery will overwrite current project state</span>
+                </div>
+                <div className={styles.actionRow}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={handleForceRecovery}
+                  >
+                    <Download size={14} />
+                    Force Recovery from Project Data
+                  </button>
+                </div>
                 <div className={styles.actionRow}>
                   <button
                     type="button"

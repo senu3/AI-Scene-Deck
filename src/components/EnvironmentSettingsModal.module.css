@@ -99,34 +99,23 @@
 }
 
 /* ========================================
-   Coming Soon placeholder
+   Recovery Warning
    ======================================== */
-.comingSoon {
+.recoveryWarning {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 48px 24px;
-  text-align: center;
-  color: var(--text-muted);
+  gap: 8px;
+  padding: 10px 14px;
+  background-color: rgba(var(--accent-warning-rgb, 245, 158, 11), 0.1);
+  border: 1px solid rgba(var(--accent-warning-rgb, 245, 158, 11), 0.2);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--accent-warning);
+  margin-bottom: 8px;
 }
 
-.comingSoon svg {
-  margin-bottom: 16px;
-  opacity: 0.5;
-}
-
-.comingSoon h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.comingSoon p {
-  margin: 0;
-  font-size: 13px;
-  max-width: 280px;
+.recoveryWarning svg {
+  flex-shrink: 0;
 }
 
 /* ========================================
