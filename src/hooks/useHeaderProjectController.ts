@@ -8,6 +8,7 @@ import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata } from '../utils/videoUtils';
 import { getThumbnail } from '../utils/thumbnailCache';
 import { createAutosaveController, subscribeProjectChanges } from '../utils/autosave';
+import { buildProjectSavePayload, serializeProjectSavePayload } from '../utils/projectSave';
 
 // Helper to detect media type from filename
 function getMediaType(filename: string): 'image' | 'video' {
@@ -242,14 +243,15 @@ export function useHeaderProjectController() {
       }
     }
 
-    const projectData = JSON.stringify({
-      version: 3, // Version 3 includes source panel state
+    const projectPayload = buildProjectSavePayload({
+      version: 3,
       name: projectName,
-      vaultPath: vaultPath,
+      vaultPath,
       scenes: scenesToSave,
       sourcePanel: sourcePanelState,
       savedAt: new Date().toISOString(),
     });
+    const projectData = serializeProjectSavePayload(projectPayload);
 
     const savedPath = await window.electronAPI.saveProject(projectData, vaultPath ? `${vaultPath}/project.sdp` : undefined);
     if (savedPath) {
@@ -486,7 +488,7 @@ export function useHeaderProjectController() {
   }, [clearProject, setProjectLoaded]);
 
   useEffect(() => {
-    if (!projectLoaded) return;
+    if (!projectLoaded || !vaultPath) return;
     const controller = createAutosaveController({
       debounceMs: 1000,
       save: handleAutosaveProject,

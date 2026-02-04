@@ -3,6 +3,7 @@ import {
   createAutosaveController,
   isProjectDirty,
   pickProjectStateForSave,
+  subscribeProjectChanges,
 } from '../autosave';
 
 function baseState() {
@@ -42,6 +43,31 @@ describe('autosave selector', () => {
     const snapB = pickProjectStateForSave(stateB);
 
     expect(isProjectDirty(snapA, snapB)).toBe(true);
+  });
+
+  it('subscription ignores UI-only changes', () => {
+    const listeners = new Set<(next: any, prev: any) => void>();
+    const store = {
+      subscribe: (listener: (state: any, prev: any) => void) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+
+    const stateA = baseState();
+    const stateB = { ...stateA, uiOnly: { selectedSceneId: 's2', sidebarOpen: false } };
+    const stateC = { ...stateA, scenes: [{ ...stateA.scenes[0], name: 'Changed' }] };
+
+    const onDirty = vi.fn();
+    const unsubscribe = subscribeProjectChanges(store as any, onDirty);
+
+    listeners.forEach((listener) => listener(stateB, stateA));
+    expect(onDirty).toHaveBeenCalledTimes(0);
+
+    listeners.forEach((listener) => listener(stateC, stateA));
+    expect(onDirty).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
   });
 });
 
