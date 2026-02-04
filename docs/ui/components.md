@@ -58,6 +58,18 @@ function MyComponent() {
     const id = toast.info('Processing...', undefined, { duration: 0 });
     // Later: toast.dismiss(id);
   };
+
+  // Toast with action button (CTA)
+  const handleAutosaveError = () => {
+    toast.error('Autosave failed', 'Please save manually.', {
+      id: 'autosave-failed',
+      duration: 0,
+      action: {
+        label: 'Save Now',
+        onClick: () => saveProject(),
+      },
+    });
+  };
 }
 ```
 
@@ -142,6 +154,29 @@ function CustomModal({ open, onClose }) {
 | info      | 4s       | Information |
 | warning   | 6s       | Warning message |
 | error     | 6s       | Error occurred |
+
+### Toast Options
+
+| Option    | Type         | Description |
+|-----------|--------------|-------------|
+| duration  | number       | Duration in ms. 0 = persistent (manual dismiss) |
+| id        | string       | Unique ID for deduplication |
+| action    | ToastAction  | Action button (CTA) |
+
+### Toast Action
+
+For toasts that need user action (e.g., autosave failure, retry prompts):
+
+```tsx
+toast.error('Autosave failed', 'Changes may be lost.', {
+  id: 'autosave-failed',
+  duration: 0,  // Persistent until dismissed
+  action: {
+    label: 'Save Now',
+    onClick: () => handleManualSave(),
+  },
+});
+```
 
 ## Dialog Variants
 

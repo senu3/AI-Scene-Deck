@@ -3,6 +3,7 @@ export {
   ToastProvider,
   useToast,
   type ToastVariant,
+  type ToastAction,
   type ToastOptions,
   type ToastItem,
   type ToastAPI,
