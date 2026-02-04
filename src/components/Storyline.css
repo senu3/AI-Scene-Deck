@@ -30,13 +30,19 @@
 
 .scene-header {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   padding: 14px 12px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
   border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
   transition: background 0.2s ease;
+}
+
+.scene-header-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .scene-column.selected .scene-header {
@@ -107,6 +113,23 @@
 .scene-menu-btn:hover {
   background-color: var(--panel-bg-strong);
   color: var(--text-primary);
+}
+
+.scene-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.scene-meta-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+.scene-meta-dot {
+  opacity: 0.6;
 }
 
 .scene-menu {
