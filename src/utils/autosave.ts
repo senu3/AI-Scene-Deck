@@ -33,6 +33,19 @@ export function isProjectDirty(prev: ProjectSaveSnapshot, next: ProjectSaveSnaps
   return serializeProjectSnapshot(prev) !== serializeProjectSnapshot(next);
 }
 
+export function subscribeProjectChanges(
+  store: { subscribe: (listener: (state: ProjectStateLike, prevState: ProjectStateLike) => void) => () => void },
+  onDirty: (next: ProjectSaveSnapshot, prev: ProjectSaveSnapshot) => void
+) {
+  return store.subscribe((state, prevState) => {
+    const prevSnap = pickProjectStateForSave(prevState);
+    const nextSnap = pickProjectStateForSave(state);
+    if (isProjectDirty(prevSnap, nextSnap)) {
+      onDirty(nextSnap, prevSnap);
+    }
+  });
+}
+
 export interface AutosaveControllerOptions {
   debounceMs: number;
   save: () => Promise<void>;

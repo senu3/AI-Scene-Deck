@@ -36,4 +36,36 @@ describe('save-project handler', () => {
     expect(showSaveDialog).toHaveBeenCalledTimes(1);
     expect(writeFileSync).toHaveBeenCalledWith('C:/vault/choose.sdp', '{"ok":true}', 'utf-8');
   });
+
+  it('returns null when dialog is canceled', async () => {
+    const writeFileSync = vi.fn();
+    const showSaveDialog = vi.fn(async () => ({ canceled: true, filePath: null }));
+
+    const handler = createSaveProjectHandler({
+      dialog: { showSaveDialog },
+      fs: { writeFileSync },
+      getMainWindow: () => ({}) as any,
+    });
+
+    const result = await handler({}, '{"ok":true}');
+
+    expect(result).toBeNull();
+    expect(writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it('returns null when write fails', async () => {
+    const writeFileSync = vi.fn(() => { throw new Error('disk error'); });
+    const showSaveDialog = vi.fn();
+
+    const handler = createSaveProjectHandler({
+      dialog: { showSaveDialog },
+      fs: { writeFileSync },
+      getMainWindow: () => ({}) as any,
+    });
+
+    const result = await handler({}, '{"ok":true}', 'C:/vault/project.sdp');
+
+    expect(result).toBeNull();
+    expect(writeFileSync).toHaveBeenCalledTimes(1);
+  });
 });

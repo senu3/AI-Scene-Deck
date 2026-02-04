@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../store/useStore';
 import { useDialog } from '../ui';
@@ -7,6 +7,7 @@ import type { MissingAssetInfo, RecoveryDecision } from '../components/MissingAs
 import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata } from '../utils/videoUtils';
 import { getThumbnail } from '../utils/thumbnailCache';
+import { createAutosaveController, subscribeProjectChanges } from '../utils/autosave';
 
 // Helper to detect media type from filename
 function getMediaType(filename: string): 'image' | 'video' {
@@ -172,6 +173,7 @@ function ensureSceneIds(scenes: Scene[]): { scenes: Scene[]; missingCount: numbe
 
 export function useHeaderProjectController() {
   const {
+    projectLoaded,
     scenes,
     vaultPath,
     clearProject,
@@ -189,20 +191,24 @@ export function useHeaderProjectController() {
   const [missingAssets, setMissingAssets] = useState<MissingAssetInfo[]>([]);
   const [pendingProject, setPendingProject] = useState<PendingProject | null>(null);
 
-  const handleSaveProject = useCallback(async () => {
+  const saveProjectInternal = useCallback(async (options?: { notify?: boolean; updateRecent?: boolean; allowPrompt?: boolean }) => {
     if (!window.electronAPI) {
-      window.alert('File system access is only available in the desktop app.');
+      if (options?.notify !== false) {
+        window.alert('File system access is only available in the desktop app.');
+      }
       return;
     }
 
     const { scenes: normalizedScenes, missingCount } = ensureSceneIds(scenes);
     if (missingCount > 0) {
-      await dialogAlert({
-        title: 'Scene ID の自動付与',
-        message: `Scene ID が未設定のシーンが ${missingCount} 件あります。OK を押すと自動付与して保存を続行します。`,
-        variant: 'warning',
-        confirmLabel: 'OK',
-      });
+      if (options?.allowPrompt !== false) {
+        await dialogAlert({
+          title: 'Scene ID の自動付与',
+          message: `Scene ID が未設定のシーンが ${missingCount} 件あります。OK を押すと自動付与して保存を続行します。`,
+          variant: 'warning',
+          confirmLabel: 'OK',
+        });
+      }
       loadProject(normalizedScenes);
     }
 
@@ -247,19 +253,32 @@ export function useHeaderProjectController() {
 
     const savedPath = await window.electronAPI.saveProject(projectData, vaultPath ? `${vaultPath}/project.sdp` : undefined);
     if (savedPath) {
-      alert('Project saved successfully!');
+      if (options?.notify !== false) {
+        alert('Project saved successfully!');
+      }
 
-      // Update recent projects
-      const recentProjects = await window.electronAPI.getRecentProjects();
-      const newRecent = {
-        name: projectName,
-        path: savedPath,
-        date: new Date().toISOString(),
-      };
-      const filtered = recentProjects.filter(p => p.path !== savedPath);
-      await window.electronAPI.saveRecentProjects([newRecent, ...filtered.slice(0, 9)]);
+      if (options?.updateRecent !== false) {
+        // Update recent projects
+        const recentProjects = await window.electronAPI.getRecentProjects();
+        const newRecent = {
+          name: projectName,
+          path: savedPath,
+          date: new Date().toISOString(),
+        };
+        const filtered = recentProjects.filter(p => p.path !== savedPath);
+        await window.electronAPI.saveRecentProjects([newRecent, ...filtered.slice(0, 9)]);
+      }
     }
   }, [dialogAlert, getSourcePanelState, loadProject, projectName, scenes, vaultPath]);
+
+  const handleSaveProject = useCallback(async () => {
+    await saveProjectInternal();
+  }, [saveProjectInternal]);
+
+  const handleAutosaveProject = useCallback(async () => {
+    if (!vaultPath) return;
+    await saveProjectInternal({ notify: false, updateRecent: false, allowPrompt: false });
+  }, [saveProjectInternal, vaultPath]);
 
   const finalizeProjectLoad = useCallback(async (project: PendingProject, recoveryDecisions?: RecoveryDecision[]) => {
     let finalScenes = project.scenes;
@@ -465,6 +484,19 @@ export function useHeaderProjectController() {
       setProjectLoaded(false);
     }
   }, [clearProject, setProjectLoaded]);
+
+  useEffect(() => {
+    if (!projectLoaded) return;
+    const controller = createAutosaveController({
+      debounceMs: 1000,
+      save: handleAutosaveProject,
+      onError: (error) => {
+        console.error('Autosave failed:', error);
+      },
+    });
+    const unsubscribe = subscribeProjectChanges(useStore, () => controller.schedule());
+    return () => unsubscribe();
+  }, [projectLoaded, handleAutosaveProject]);
 
   return {
     handleSaveProject,
