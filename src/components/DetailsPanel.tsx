@@ -163,7 +163,7 @@ export default function DetailsPanel() {
       // Load thumbnail
       if (asset.thumbnail) {
         setThumbnail(asset.thumbnail);
-      } else if (asset.type) {
+      } else if (asset.type === 'image' || asset.type === 'video') {
         try {
           const cached = await getThumbnail(asset.path, asset.type);
           if (cached) {
@@ -393,7 +393,7 @@ export default function DetailsPanel() {
   };
 
   const handleFrameCapture = async (timestamp: number): Promise<string | void> => {
-    if (!cutScene || !asset?.path || !vaultPath) {
+    if (!cutScene || !cut || !asset?.path || !vaultPath) {
       alert("Cannot capture frame: missing required data");
       return;
     }
@@ -441,7 +441,8 @@ export default function DetailsPanel() {
       let imageMetadata: ImageMetadata | undefined;
       if (window.electronAPI.readImageMetadata) {
         try {
-          imageMetadata = await window.electronAPI.readImageMetadata(outputPath);
+          const meta = await window.electronAPI.readImageMetadata(outputPath);
+          imageMetadata = meta ?? undefined;
         } catch {
           // Metadata not critical
         }

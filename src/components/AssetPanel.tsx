@@ -269,7 +269,8 @@ export default function AssetPanel({
         return sorted[0]?.originalName || fallback;
       };
 
-      const aggregateUsage = (assetIds: string[]) => {
+      type UsageType = 'cut' | 'audio' | 'both' | null;
+      const aggregateUsage = (assetIds: string[]): { count: number; type: UsageType } => {
         let totalCount = 0;
         let hasCut = false;
         let hasAudio = false;
@@ -286,7 +287,7 @@ export default function AssetPanel({
             hasAudio = true;
           }
         }
-        const usageType = hasCut && hasAudio ? 'both' : hasCut ? 'cut' : hasAudio ? 'audio' : null;
+        const usageType: UsageType = hasCut && hasAudio ? 'both' : hasCut ? 'cut' : hasAudio ? 'audio' : null;
         return { count: totalCount, type: usageType };
       };
 
@@ -453,8 +454,10 @@ export default function AssetPanel({
         if (!exists) return;
       }
 
-      const thumbnail = await getThumbnail(asset.path, asset.type);
-      if (thumbnail) setThumbnailCacheVersion((v) => v + 1);
+      if (asset.type === 'image' || asset.type === 'video') {
+        const thumbnail = await getThumbnail(asset.path, asset.type);
+        if (thumbnail) setThumbnailCacheVersion((v) => v + 1);
+      }
     } catch (error) {
       console.error('Failed to load thumbnail:', error);
     }

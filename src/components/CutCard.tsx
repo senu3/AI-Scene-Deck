@@ -276,7 +276,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
         return;
       }
 
-      if (asset?.path && asset.type) {
+      if (asset?.path && (asset.type === 'image' || asset.type === 'video')) {
         try {
           const thumbnail = await getThumbnail(asset.path, asset.type);
           if (thumbnail) {

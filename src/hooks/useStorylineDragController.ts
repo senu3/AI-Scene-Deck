@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { v4 as uuidv4 } from 'uuid';
 import { AddCutCommand } from '../store/commands';
+import type { Command } from '../store/historyStore';
+import type { CutImportSource } from '../utils/cutImport';
 import type { Asset, Scene } from '../types';
 
 // --- DND: placeholder state ---
@@ -16,12 +18,14 @@ export interface PlaceholderState {
 type DragKind = 'asset' | 'externalFiles' | 'none';
 
 // Helper to detect media type from filename
-function getMediaType(filename: string): 'image' | 'video' | null {
+function getMediaType(filename: string): 'image' | 'video' | 'audio' | null {
   const ext = filename.toLowerCase().split('.').pop() || '';
   const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
   const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
+  const audioExts = ['mp3', 'wav', 'm4a', 'ogg', 'flac'];
   if (imageExts.includes(ext)) return 'image';
   if (videoExts.includes(ext)) return 'video';
+  if (audioExts.includes(ext)) return 'audio';
   return null;
 }
 
@@ -79,19 +83,12 @@ interface UseStorylineDragControllerOptions {
   vaultPath: string | null;
   createCutFromImport: (
     sceneId: string,
-    source: {
-      assetId: string;
-      name: string;
-      sourcePath: string;
-      type: 'image' | 'video';
-      fileSize?: number;
-      existingAsset?: Asset;
-    },
+    source: CutImportSource,
     insertIndex?: number,
     vaultPathOverride?: string | null
   ) => Promise<string>;
   closeDetailsPanel: () => void;
-  executeCommand: (command: unknown) => Promise<void>;
+  executeCommand: (command: Command) => Promise<void>;
 }
 
 export function useStorylineDragController({

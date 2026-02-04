@@ -67,7 +67,7 @@ export default function CutGroupCard({ group, cuts, sceneId, index, isDragging }
         return;
       }
 
-      if (firstAsset?.path && firstAsset.type) {
+      if (firstAsset?.path && (firstAsset.type === 'image' || firstAsset.type === 'video')) {
         try {
           const thumbnail = await getThumbnail(firstAsset.path, firstAsset.type);
           if (thumbnail) {
