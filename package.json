@@ -10,7 +10,9 @@
     "build": "tsc && vite build",
     "build:electron": "tsc -p tsconfig.main.json",
     "preview": "vite preview",
-    "electron": "electron ."
+    "electron": "electron .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "electron",
@@ -31,8 +33,10 @@
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
     "electron": "^28.0.0",
+    "jsdom": "^28.0.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
+    "vitest": "^1.6.0",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
