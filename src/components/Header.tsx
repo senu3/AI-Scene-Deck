@@ -1,16 +1,14 @@
 import { useState } from 'react';
-import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X, RotateCcw } from 'lucide-react';
+import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useDialog } from '../ui';
 import { useHistoryStore } from '../store/historyStore';
-import type { Scene, Asset, SourcePanelState } from '../types';
+import type { Scene, Asset, SourcePanelState, AssetUsageRef } from '../types';
 import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from './MissingAssetRecoveryModal';
 import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata } from '../utils/videoUtils';
 import { getThumbnail } from '../utils/thumbnailCache';
-import { buildAssetUsageRefs, ensureSceneIds, getOrderedAssetIdsFromScenes, prepareScenesForSave } from '../utils/projectSave';
-import { useSnapshotStore } from '../store/snapshotStore';
-import { requestAutosave } from '../utils/autosaveBus';
+import { v4 as uuidv4 } from 'uuid';
 import './Header.css';
 
 // Helper to detect media type from filename
@@ -96,17 +94,93 @@ interface PendingProject {
   projectPath: string;
 }
 
-//
+// Convert assets to use relative paths for saving
+function prepareAssetForSave(asset: Asset): Asset {
+  if (asset.vaultRelativePath) {
+    return {
+      ...asset,
+      // Store relative path as the main path for portability
+      path: asset.vaultRelativePath,
+    };
+  }
+  return asset;
+}
+
+// Prepare scenes for saving (convert to relative paths)
+function prepareScenesForSave(scenes: Scene[]): Scene[] {
+  return scenes.map(scene => ({
+    ...scene,
+    cuts: scene.cuts.map(cut => ({
+      ...cut,
+      asset: cut.asset ? prepareAssetForSave(cut.asset) : undefined,
+    })),
+  }));
+}
+
+function getOrderedAssetIdsFromScenes(scenes: Scene[]): string[] {
+  const orderedIds: string[] = [];
+  const seen = new Set<string>();
+
+  for (const scene of scenes) {
+    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    for (const cut of cuts) {
+      const assetId = cut.asset?.id || cut.assetId;
+      if (assetId && !seen.has(assetId)) {
+        seen.add(assetId);
+        orderedIds.push(assetId);
+      }
+    }
+  }
+
+  return orderedIds;
+}
+
+function buildAssetUsageRefs(scenes: Scene[]): Map<string, AssetUsageRef[]> {
+  const usageMap = new Map<string, AssetUsageRef[]>();
+  const orderedScenes = [...scenes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  for (const scene of orderedScenes) {
+    const sceneOrder = scene.order ?? 0;
+    const cuts = [...scene.cuts].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    cuts.forEach((cut, index) => {
+      const assetId = cut.asset?.id || cut.assetId;
+      if (!assetId) return;
+      const ref: AssetUsageRef = {
+        sceneId: scene.id,
+        sceneName: scene.name,
+        sceneOrder,
+        cutId: cut.id,
+        cutOrder: cut.order ?? index,
+        cutIndex: index + 1,
+      };
+      const existing = usageMap.get(assetId) || [];
+      existing.push(ref);
+      usageMap.set(assetId, existing);
+    });
+  }
+
+  return usageMap;
+}
+
+function ensureSceneIds(scenes: Scene[]): { scenes: Scene[]; missingCount: number } {
+  let missingCount = 0;
+  const updatedScenes = scenes.map((scene) => {
+    if (typeof scene.id === 'string' && scene.id.trim().length > 0) return scene;
+    missingCount += 1;
+    return { ...scene, id: uuidv4() };
+  });
+
+  return { scenes: updatedScenes, missingCount };
+}
 
 interface HeaderProps {
   onOpenSettings?: () => void;
 }
 
 export default function Header({ onOpenSettings }: HeaderProps) {
-  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel, loadMetadata, loadProject, applySceneSnapshot, saveMetadata } = useStore();
-  const { undo, redo, canUndo, canRedo, clear: clearHistory } = useHistoryStore();
-  const { alert: dialogAlert, confirm: dialogConfirm } = useDialog();
-  const { setSnapshot, getSnapshot } = useSnapshotStore();
+  const { scenes, vaultPath, clearProject, projectName, setProjectLoaded, initializeProject, getSourcePanelState, initializeSourcePanel, loadMetadata, loadProject } = useStore();
+  const { undo, redo, canUndo, canRedo } = useHistoryStore();
+  const { alert: dialogAlert } = useDialog();
 
   // Recovery dialog state
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
@@ -170,12 +244,6 @@ export default function Header({ onOpenSettings }: HeaderProps) {
 
     const savedPath = await window.electronAPI.saveProject(projectData, vaultPath ? `${vaultPath}/project.sdp` : undefined);
     if (savedPath) {
-      setSnapshot('manual-save', {
-        createdAt: new Date().toISOString(),
-        label: 'Manual Save',
-        reason: 'manual-save',
-        scenes: normalizedScenes,
-      });
       alert('Project saved successfully!');
 
       // Update recent projects
@@ -306,12 +374,6 @@ export default function Header({ onOpenSettings }: HeaderProps) {
       vaultPath: project.vaultPath,
       scenes: finalScenes,
     });
-    setSnapshot('initial-load', {
-      createdAt: new Date().toISOString(),
-      label: 'Initial Load',
-      reason: 'load-project',
-      scenes: finalScenes,
-    });
 
     // Load metadata store (audio attachments, etc.)
     await loadMetadata(project.vaultPath);
@@ -404,64 +466,6 @@ export default function Header({ onOpenSettings }: HeaderProps) {
     }
   };
 
-  const handleRevertToManualSave = async () => {
-    const snapshot = getSnapshot('manual-save');
-    if (!snapshot) {
-      await dialogAlert({
-        title: 'Revert unavailable',
-        message: 'No manual save snapshot is available for this project.',
-        variant: 'warning',
-        confirmLabel: 'OK',
-      });
-      return;
-    }
-
-    const confirmed = await dialogConfirm({
-      title: 'Revert to Last Manual Save',
-      message: 'Discard changes made in this session and revert to the last manual save state?',
-      confirmLabel: 'Revert',
-      cancelLabel: 'Cancel',
-      variant: 'danger',
-    });
-
-    if (!confirmed) return;
-
-    applySceneSnapshot(snapshot.scenes);
-    clearHistory();
-    await saveMetadata();
-    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'revert' });
-    requestAutosave({ type: 'slow', urgency: 'immediate', reason: 'revert' });
-  };
-
-  const handleRevertToInitialLoad = async () => {
-    const snapshot = getSnapshot('initial-load');
-    if (!snapshot) {
-      await dialogAlert({
-        title: 'Revert unavailable',
-        message: 'No initial load snapshot is available for this project.',
-        variant: 'warning',
-        confirmLabel: 'OK',
-      });
-      return;
-    }
-
-    const confirmed = await dialogConfirm({
-      title: 'Revert to Opened State',
-      message: 'Discard changes made in this session and revert to the state when the project was opened?',
-      confirmLabel: 'Revert',
-      cancelLabel: 'Cancel',
-      variant: 'danger',
-    });
-
-    if (!confirmed) return;
-
-    applySceneSnapshot(snapshot.scenes);
-    clearHistory();
-    await saveMetadata();
-    requestAutosave({ type: 'fast', urgency: 'immediate', reason: 'revert-initial-load' });
-    requestAutosave({ type: 'slow', urgency: 'immediate', reason: 'revert-initial-load' });
-  };
-
   const handleUndo = async () => {
     try {
       await undo();
@@ -520,12 +524,6 @@ export default function Header({ onOpenSettings }: HeaderProps) {
           </button>
           <button className="header-btn" onClick={handleSaveProject} title="Save Project">
             <Save size={18} />
-          </button>
-          <button className="header-btn" onClick={handleRevertToManualSave} title="Revert to Last Manual Save">
-            <RotateCcw size={18} />
-          </button>
-          <button className="header-btn" onClick={handleRevertToInitialLoad} title="Revert to Opened State">
-            <RotateCcw size={18} />
           </button>
           <button className="header-btn" title="Environment Settings" onClick={onOpenSettings}>
             <MoreVertical size={18} />

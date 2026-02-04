@@ -1,7 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
 const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
-const IPC_AUTOSAVE_FLUSH_REQUEST = 'autosave-flush-request';
-const IPC_AUTOSAVE_FLUSH_COMPLETE = 'autosave-flush-complete';
 
 export interface FileItem {
   name: string;
@@ -331,16 +329,6 @@ const electronAPI = {
     const handler = () => callback();
     ipcRenderer.on(IPC_TOGGLE_SIDEBAR, handler);
     return () => ipcRenderer.removeListener(IPC_TOGGLE_SIDEBAR, handler);
-  },
-  onAutosaveFlushRequest: (callback: () => void | Promise<void>): (() => void) => {
-    const handler = () => {
-      void callback();
-    };
-    ipcRenderer.on(IPC_AUTOSAVE_FLUSH_REQUEST, handler);
-    return () => ipcRenderer.removeListener(IPC_AUTOSAVE_FLUSH_REQUEST, handler);
-  },
-  notifyAutosaveFlushed: (): void => {
-    ipcRenderer.send(IPC_AUTOSAVE_FLUSH_COMPLETE);
   },
 };
 

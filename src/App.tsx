@@ -2,7 +2,6 @@ import { DndContext, DragEndEvent, DragOverEvent, DragStartEvent, pointerWithin,
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useStore } from './store/useStore';
 import { useHistoryStore } from './store/historyStore';
-import { useAutoSave } from './hooks/useAutoSave';
 import { AddCutCommand, ReorderCutsCommand, MoveCutBetweenScenesCommand, MoveCutsToSceneCommand, PasteCutsCommand, RemoveCutCommand, UpdateClipPointsCommand } from './store/commands';
 import AssetDrawer from './components/AssetDrawer';
 import Sidebar from './components/Sidebar';
@@ -106,7 +105,6 @@ function App() {
   } = useStore();
 
   const { executeCommand, undo, redo } = useHistoryStore();
-  const { flushAutoSave } = useAutoSave();
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeType, setActiveType] = useState<'cut' | 'scene' | null>(null);
@@ -253,15 +251,6 @@ function App() {
     });
     return () => unsubscribe();
   }, [toggleSidebar]);
-
-  useEffect(() => {
-    if (!window.electronAPI?.onAutosaveFlushRequest || !window.electronAPI?.notifyAutosaveFlushed) return undefined;
-    const unsubscribe = window.electronAPI.onAutosaveFlushRequest(async () => {
-      await flushAutoSave();
-      await window.electronAPI.notifyAutosaveFlushed();
-    });
-    return () => unsubscribe();
-  }, [flushAutoSave]);
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { type?: string; sceneId?: string; index?: number } | undefined;
