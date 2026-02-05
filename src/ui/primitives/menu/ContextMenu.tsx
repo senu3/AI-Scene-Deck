@@ -4,10 +4,9 @@
  * Renders a menu at a specific position using Portal.
  * Handles click-outside and escape key to close.
  */
-import { useRef, useEffect, useCallback, type ReactNode } from 'react';
+import { useRef, useEffect, useState, useCallback, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Menu } from './Menu';
-import styles from './Menu.module.css';
 
 export interface ContextMenuPosition {
   x: number;
@@ -51,9 +50,36 @@ export function ContextMenu({
   className,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
+  const [adjustedPosition, setAdjustedPosition] = useState(position);
 
-  // Adjust position to keep menu within viewport
-  const adjustedPosition = useAdjustedPosition(position, menuRef);
+  // Adjust position after menu renders to keep within viewport
+  useEffect(() => {
+    if (!menuRef.current) {
+      setAdjustedPosition(position);
+      return;
+    }
+
+    const menuWidth = menuRef.current.offsetWidth;
+    const menuHeight = menuRef.current.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const padding = 8;
+
+    let adjustedX = position.x;
+    let adjustedY = position.y;
+
+    // Adjust X if menu overflows right edge
+    if (position.x + menuWidth + padding > viewportWidth) {
+      adjustedX = Math.max(padding, viewportWidth - menuWidth - padding);
+    }
+
+    // Adjust Y if menu overflows bottom edge
+    if (position.y + menuHeight + padding > viewportHeight) {
+      adjustedY = Math.max(padding, viewportHeight - menuHeight - padding);
+    }
+
+    setAdjustedPosition({ x: adjustedX, y: adjustedY });
+  }, [position]);
 
   // Close on click outside
   useEffect(() => {
@@ -79,55 +105,19 @@ export function ContextMenu({
   }, [onClose]);
 
   return createPortal(
-    <div ref={menuRef}>
-      <Menu
-        onClose={onClose}
-        className={className}
-        style={{
-          left: adjustedPosition.x,
-          top: adjustedPosition.y,
-        }}
-      >
-        {children}
-      </Menu>
-    </div>,
+    <Menu
+      ref={menuRef}
+      onClose={onClose}
+      className={className}
+      style={{
+        left: adjustedPosition.x,
+        top: adjustedPosition.y,
+      }}
+    >
+      {children}
+    </Menu>,
     document.body
   );
-}
-
-/**
- * Hook to adjust menu position to keep it within viewport bounds
- */
-function useAdjustedPosition(
-  position: ContextMenuPosition,
-  menuRef: React.RefObject<HTMLDivElement | null>
-): ContextMenuPosition {
-  const { x, y } = position;
-
-  // Get viewport dimensions
-  const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
-  const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
-
-  // Menu dimensions (estimate initially, will adjust on next render)
-  const menuWidth = menuRef.current?.offsetWidth || 180;
-  const menuHeight = menuRef.current?.offsetHeight || 200;
-
-  // Padding from viewport edge
-  const padding = 8;
-
-  // Adjust X
-  let adjustedX = x;
-  if (x + menuWidth + padding > viewportWidth) {
-    adjustedX = Math.max(padding, viewportWidth - menuWidth - padding);
-  }
-
-  // Adjust Y
-  let adjustedY = y;
-  if (y + menuHeight + padding > viewportHeight) {
-    adjustedY = Math.max(padding, viewportHeight - menuHeight - padding);
-  }
-
-  return { x: adjustedX, y: adjustedY };
 }
 
 // ============================================================================
@@ -164,37 +154,25 @@ export interface UseContextMenuReturn {
  * ```
  */
 export function useContextMenu(): UseContextMenuReturn {
-  const positionRef = useRef<ContextMenuPosition | null>(null);
-  const callbacksRef = useRef<{
-    setPosition: (pos: ContextMenuPosition | null) => void;
-  } | null>(null);
-
-  // Use a simple state to trigger re-renders
-  const forceUpdate = useCallback(() => {
-    // Will be set by the component using this hook
-  }, []);
+  const [position, setPosition] = useState<ContextMenuPosition | null>(null);
 
   const open = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    positionRef.current = { x: e.clientX, y: e.clientY };
-    callbacksRef.current?.setPosition({ x: e.clientX, y: e.clientY });
+    setPosition({ x: e.clientX, y: e.clientY });
   }, []);
 
   const close = useCallback(() => {
-    positionRef.current = null;
-    callbacksRef.current?.setPosition(null);
+    setPosition(null);
   }, []);
 
-  // This hook needs to be used with useState in the component
-  // Simplified version - components should manage their own state
   return {
-    isOpen: positionRef.current !== null,
-    position: positionRef.current,
+    isOpen: position !== null,
+    position,
     open,
     close,
-    props: positionRef.current
-      ? { position: positionRef.current, onClose: close }
+    props: position
+      ? { position, onClose: close }
       : null,
   };
 }

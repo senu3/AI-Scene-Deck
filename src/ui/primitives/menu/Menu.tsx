@@ -11,6 +11,7 @@ import {
   useEffect,
   useCallback,
   useState,
+  forwardRef,
   type ReactNode,
   type KeyboardEvent,
   type MouseEvent,
@@ -51,11 +52,29 @@ export interface MenuProps {
   style?: React.CSSProperties;
 }
 
-export function Menu({ children, onClose, className, style }: MenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
+export const Menu = forwardRef<HTMLDivElement, MenuProps>(function Menu(
+  { children, onClose, className, style },
+  forwardedRef
+) {
+  const internalRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const itemCountRef = useRef(0);
   const [, forceUpdate] = useState({});
+
+  // Merge refs: forward ref + internal ref for focus management
+  const setRefs = useCallback(
+    (node: HTMLDivElement | null) => {
+      // Set internal ref
+      (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      // Forward ref
+      if (typeof forwardedRef === 'function') {
+        forwardedRef(node);
+      } else if (forwardedRef) {
+        (forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      }
+    },
+    [forwardedRef]
+  );
 
   const registerItem = useCallback(() => {
     const index = itemCountRef.current;
@@ -73,8 +92,8 @@ export function Menu({ children, onClose, className, style }: MenuProps) {
 
   // Focus first item on mount
   useEffect(() => {
-    if (menuRef.current) {
-      menuRef.current.focus();
+    if (internalRef.current) {
+      internalRef.current.focus();
     }
     // Reset count on mount
     itemCountRef.current = 0;
@@ -121,7 +140,7 @@ export function Menu({ children, onClose, className, style }: MenuProps) {
   return (
     <MenuContext.Provider value={contextValue}>
       <div
-        ref={menuRef}
+        ref={setRefs}
         className={`${styles.menu} ${className || ''}`}
         style={style}
         tabIndex={-1}
