@@ -12,6 +12,9 @@ import {
   useCallback,
   useState,
   forwardRef,
+  type CSSProperties,
+  type ForwardedRef,
+  type MutableRefObject,
   type ReactNode,
   type KeyboardEvent,
   type MouseEvent,
@@ -49,12 +52,12 @@ export interface MenuProps {
   children: ReactNode;
   onClose: () => void;
   className?: string;
-  style?: React.CSSProperties;
+  style?: CSSProperties;
 }
 
-export const Menu = forwardRef<HTMLDivElement, MenuProps>(function Menu(
-  { children, onClose, className, style },
-  forwardedRef
+export const Menu = forwardRef(function Menu(
+  { children, onClose, className, style }: MenuProps,
+  forwardedRef: ForwardedRef<HTMLDivElement>
 ) {
   const internalRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
@@ -65,12 +68,12 @@ export const Menu = forwardRef<HTMLDivElement, MenuProps>(function Menu(
   const setRefs = useCallback(
     (node: HTMLDivElement | null) => {
       // Set internal ref
-      (internalRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+      (internalRef as MutableRefObject<HTMLDivElement | null>).current = node;
       // Forward ref
       if (typeof forwardedRef === 'function') {
         forwardedRef(node);
       } else if (forwardedRef) {
-        (forwardedRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        (forwardedRef as MutableRefObject<HTMLDivElement | null>).current = node;
       }
     },
     [forwardedRef]
@@ -151,7 +154,7 @@ export const Menu = forwardRef<HTMLDivElement, MenuProps>(function Menu(
       </div>
     </MenuContext.Provider>
   );
-}
+});
 
 // ============================================================================
 // MenuHeader
