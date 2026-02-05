@@ -183,6 +183,12 @@ export interface OpenFileDialogOptions {
 }
 
 const electronAPI = {
+  getVersions: () => ({
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+    v8: process.versions.v8,
+  }),
   // Folder operations
   selectFolder: (): Promise<FolderSelection | null> =>
     ipcRenderer.invoke('select-folder'),

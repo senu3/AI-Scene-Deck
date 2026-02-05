@@ -1016,7 +1016,6 @@ export default function AssetPanel({
         <AssetContextMenu
           position={{ x: unusedContextMenu.x, y: unusedContextMenu.y }}
           onClose={() => setUnusedContextMenu(null)}
-          assetName={unusedContextMenu.asset.sourceName}
           onDelete={handleDeleteUnusedAsset}
         />
       )}

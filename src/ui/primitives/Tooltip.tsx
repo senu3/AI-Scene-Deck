@@ -120,23 +120,30 @@ export function Tooltip({
     return children;
   }
 
-  const trigger = cloneElement(children, {
+  const child = children as ReactElement<{
+    onMouseEnter?: (e: MouseEvent) => void;
+    onMouseLeave?: (e: MouseEvent) => void;
+    onFocus?: (e: FocusEvent) => void;
+    onBlur?: (e: FocusEvent) => void;
+  }>;
+
+  const trigger = cloneElement(child, {
     ref: triggerRef,
     onMouseEnter: (e: MouseEvent) => {
       show();
-      children.props.onMouseEnter?.(e);
+      child.props.onMouseEnter?.(e);
     },
     onMouseLeave: (e: MouseEvent) => {
       hide();
-      children.props.onMouseLeave?.(e);
+      child.props.onMouseLeave?.(e);
     },
     onFocus: (e: FocusEvent) => {
       show();
-      children.props.onFocus?.(e);
+      child.props.onFocus?.(e);
     },
     onBlur: (e: FocusEvent) => {
       hide();
-      children.props.onBlur?.(e);
+      child.props.onBlur?.(e);
     },
   } as Record<string, unknown>);
 

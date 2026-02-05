@@ -10,7 +10,6 @@ import {
   useRef,
   useCallback,
   type KeyboardEvent,
-  type MouseEvent,
   type PointerEvent,
 } from 'react';
 import styles from './Slider.module.css';

@@ -38,8 +38,9 @@ describe('metadataStore', () => {
     ];
 
     const synced = syncSceneMetadata(baseStore, scenes as any);
-    expect(synced.sceneMetadata['scene-1']?.name).toBe('Scene 1');
-    expect(synced.sceneMetadata['scene-1']?.notes.length).toBe(1);
-    expect(synced.sceneMetadata['scene-2']?.name).toBe('Scene 2');
+    const sceneMetadata = synced.sceneMetadata || {};
+    expect(sceneMetadata['scene-1']?.name).toBe('Scene 1');
+    expect(sceneMetadata['scene-1']?.notes.length).toBe(1);
+    expect(sceneMetadata['scene-2']?.name).toBe('Scene 2');
   });
 });

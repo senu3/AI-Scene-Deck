@@ -6,7 +6,7 @@ const base = {
   name: 'Project',
   vaultPath: 'C:/vault',
   scenes: [{ id: 's1', name: 'Scene 1', cuts: [], order: 0, notes: [] }],
-  sourcePanel: { folders: [], expandedPaths: [], viewMode: 'list' },
+  sourcePanel: { folders: [], expandedPaths: [], viewMode: 'list' as const },
   savedAt: '2026-02-05T00:00:00.000Z',
 };
 

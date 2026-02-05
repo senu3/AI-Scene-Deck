@@ -176,7 +176,15 @@ interface FfmpegLimits {
   maxTotalBytes: number;
 }
 
+interface AppVersions {
+  electron: string;
+  chrome: string;
+  node: string;
+  v8: string;
+}
+
 interface ElectronAPI {
+  getVersions?: () => AppVersions;
   // Folder operations
   selectFolder: () => Promise<FolderSelection | null>;
   getFolderContents: (folderPath: string) => Promise<FileItem[]>;

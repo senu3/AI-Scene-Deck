@@ -16,8 +16,6 @@ import {
 export interface AssetContextMenuProps {
   position: ContextMenuPosition;
   onClose: () => void;
-  /** Asset name for display */
-  assetName?: string;
   /** Delete handler (move to trash) */
   onDelete: () => void;
 }
@@ -25,7 +23,6 @@ export interface AssetContextMenuProps {
 export function AssetContextMenu({
   position,
   onClose,
-  assetName,
   onDelete,
 }: AssetContextMenuProps) {
   return (

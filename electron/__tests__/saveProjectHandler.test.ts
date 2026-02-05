@@ -1,11 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { createSaveProjectHandler } from '../handlers/saveProject';
+import { createSaveProjectHandler, type SaveProjectDeps } from '../handlers/saveProject';
 
 describe('save-project handler', () => {
   it('writes to provided path with correct contents', async () => {
     const writeFileSync = vi.fn();
-    const showSaveDialog = vi.fn();
+    const showSaveDialog = vi.fn<Parameters<SaveProjectDeps['dialog']['showSaveDialog']>, ReturnType<SaveProjectDeps['dialog']['showSaveDialog']>>();
 
     const handler = createSaveProjectHandler({
       dialog: { showSaveDialog },
@@ -22,7 +22,9 @@ describe('save-project handler', () => {
 
   it('uses dialog when path not provided and writes once', async () => {
     const writeFileSync = vi.fn();
-    const showSaveDialog = vi.fn(async () => ({ canceled: false, filePath: 'C:/vault/choose.sdp' }));
+    const showSaveDialog = vi.fn<Parameters<SaveProjectDeps['dialog']['showSaveDialog']>, ReturnType<SaveProjectDeps['dialog']['showSaveDialog']>>(
+      async () => ({ canceled: false, filePath: 'C:/vault/choose.sdp' })
+    );
 
     const handler = createSaveProjectHandler({
       dialog: { showSaveDialog },
@@ -39,7 +41,9 @@ describe('save-project handler', () => {
 
   it('returns null when dialog is canceled', async () => {
     const writeFileSync = vi.fn();
-    const showSaveDialog = vi.fn(async () => ({ canceled: true, filePath: null }));
+    const showSaveDialog = vi.fn<Parameters<SaveProjectDeps['dialog']['showSaveDialog']>, ReturnType<SaveProjectDeps['dialog']['showSaveDialog']>>(
+      async () => ({ canceled: true, filePath: '' })
+    );
 
     const handler = createSaveProjectHandler({
       dialog: { showSaveDialog },
@@ -55,7 +59,7 @@ describe('save-project handler', () => {
 
   it('returns null when write fails', async () => {
     const writeFileSync = vi.fn(() => { throw new Error('disk error'); });
-    const showSaveDialog = vi.fn();
+    const showSaveDialog = vi.fn<Parameters<SaveProjectDeps['dialog']['showSaveDialog']>, ReturnType<SaveProjectDeps['dialog']['showSaveDialog']>>();
 
     const handler = createSaveProjectHandler({
       dialog: { showSaveDialog },

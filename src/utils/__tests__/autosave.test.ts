@@ -93,8 +93,8 @@ describe('autosave controller', () => {
 
   it('suppresses re-entrant saves and runs once more after in-flight', async () => {
     vi.useFakeTimers();
-    let resolveSave: (() => void) | null = null;
-    const save = vi.fn(() => new Promise<void>((resolve) => { resolveSave = resolve; }));
+    let resolveSave: (() => void) | undefined;
+    const save = vi.fn(() => new Promise<void>((resolve) => { resolveSave = () => resolve(); }));
     const controller = createAutosaveController({ debounceMs: 10, save });
 
     controller.schedule();
