@@ -541,21 +541,27 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
           </div>
         )}
 
-        {/* Asset type badge - icon only, positioned left of duration */}
-        {!isLipSync && (
-          <div className={`cut-type-badge ${isVideo ? 'video' : 'image'}`}>
-            {isVideo ? <Film size={10} /> : <Image size={10} />}
-          </div>
-        )}
+        {/* Asset type badge - icon + text, top-right */}
+        <div className={`cut-type-badge ${isLipSync ? 'lipsync' : isVideo ? 'video' : 'image'}`}>
+          {isLipSync ? (
+            <>
+              <Mic size={12} />
+              <span>LIP SYNC</span>
+            </>
+          ) : isVideo ? (
+            <>
+              <Film size={12} />
+              <span>VIDEO</span>
+            </>
+          ) : (
+            <>
+              <Image size={12} />
+              <span>IMAGE</span>
+            </>
+          )}
+        </div>
 
-        {/* Lip sync indicator */}
-        {isLipSync && (
-          <div className="lipsync-indicator" title="Lip Sync Cut">
-            <Mic size={12} />
-          </div>
-        )}
-
-        {/* Lip sync frame count */}
+        {/* Lip sync frame count - top-left (card state indicator area) */}
         {isLipSync && cut.lipSyncFrameCount && (
           <div className="lipsync-frame-count">
             <Image size={10} />
