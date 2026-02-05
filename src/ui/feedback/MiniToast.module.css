@@ -1,0 +1,67 @@
+/* MiniToast - Compact, auto-dismissing notification for overlay contexts (e.g. PreviewModal) */
+
+.miniToast {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #e2e8f0;
+  white-space: nowrap;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  z-index: 6;
+  pointer-events: none;
+  animation: miniToastIn 0.2s ease-out;
+}
+
+.miniToast[data-exiting='true'] {
+  animation: miniToastOut 0.18s ease-in forwards;
+}
+
+/* Variant border accents */
+.miniToast[data-variant='success'] {
+  border-color: rgba(var(--accent-success-rgb), 0.5);
+  color: var(--accent-success);
+}
+
+.miniToast[data-variant='info'] {
+  border-color: rgba(var(--accent-primary-rgb), 0.4);
+  color: var(--accent-primary);
+}
+
+.miniToast[data-variant='warning'] {
+  border-color: rgba(var(--accent-warning-rgb), 0.5);
+  color: var(--accent-warning);
+}
+
+.miniToast[data-variant='error'] {
+  border-color: rgba(var(--accent-danger-rgb), 0.5);
+  color: var(--accent-danger);
+}
+
+@keyframes miniToastIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes miniToastOut {
+  from {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-4px);
+  }
+}

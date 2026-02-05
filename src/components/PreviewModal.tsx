@@ -14,6 +14,7 @@ import {
   TimeDisplay,
 } from './shared';
 import type { FocusedMarker } from './shared';
+import { useMiniToast } from '../ui';
 import './PreviewModal.css';
 import './shared/timeline-common.css';
 
@@ -122,7 +123,7 @@ export default function PreviewModal({
   );
   const [isExporting, setIsExporting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
-  const [captureNotice, setCaptureNotice] = useState<string | null>(null);
+  const miniToast = useMiniToast();
   const overlayTimeoutRef = useRef<number | null>(null);
   // NOTE: Known issue (Free resolution only): very tall images can push overlay controls out of view.
   // Using the resolution simulator avoids the disappearance. Keep in mind for future layout tweaks.
@@ -453,12 +454,6 @@ export default function PreviewModal({
     };
   }, []);
 
-  useEffect(() => {
-    if (!captureNotice) return;
-    const timeout = window.setTimeout(() => setCaptureNotice(null), 2200);
-    return () => window.clearTimeout(timeout);
-  }, [captureNotice]);
-
   // Skip seconds (Both modes)
   const skip = useCallback((seconds: number) => {
     if (!usesSequenceController) {
@@ -617,11 +612,11 @@ export default function PreviewModal({
     try {
       const message = await onFrameCapture(timestamp);
       if (message) {
-        setCaptureNotice(message);
+        miniToast.show(message, 'success');
       }
     } catch (error) {
       console.error('Frame capture failed:', error);
-      setCaptureNotice('Capture failed');
+      miniToast.show('Capture failed', 'error');
     }
   }, [isSingleModeVideo, onFrameCapture, singleModeCurrentTime]);
 
@@ -1995,11 +1990,7 @@ export default function PreviewModal({
                   >
                     <Maximize size={16} />
                   </button>
-                  {captureNotice && (
-                    <div className="preview-capture-popup" role="status" aria-live="polite">
-                      {captureNotice}
-                    </div>
-                  )}
+                  {miniToast.element}
                 </div>
               </div>
             </div>
@@ -2250,6 +2241,7 @@ export default function PreviewModal({
                 >
                   <Maximize size={16} />
                 </button>
+                {miniToast.element}
               </div>
             </div>
           </div>
