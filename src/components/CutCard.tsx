@@ -318,12 +318,6 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
     }
   };
 
-  const getBadgeColor = () => {
-    // Generate a consistent color based on asset type
-    if (isVideo) return 'var(--accent-video)';
-    return 'var(--accent-primary)';
-  };
-
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -547,8 +541,24 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
           </div>
         )}
 
-        <div className={`cut-badge ${isLipSync ? 'lipsync' : ''}`} style={isLipSync ? undefined : { backgroundColor: getBadgeColor() }}>
-          {isLipSync ? 'S:LIP' : isVideo ? 'S:VID' : 'S:IMG'}
+        {/* Asset type badge - icon + label */}
+        <div className={`cut-type-badge ${isLipSync ? 'lipsync' : isVideo ? 'video' : 'image'}`}>
+          {isLipSync ? (
+            <>
+              <Mic size={10} />
+              <span>Lip Sync</span>
+            </>
+          ) : isVideo ? (
+            <>
+              <Film size={10} />
+              <span>Video</span>
+            </>
+          ) : (
+            <>
+              <Image size={10} />
+              <span>Image</span>
+            </>
+          )}
         </div>
 
         {/* Lip sync indicator */}

@@ -75,21 +75,38 @@
   color: var(--text-muted);
 }
 
-.cut-badge {
+/* Asset type badge - icon + label (AssetPanel style) */
+.cut-type-badge {
   position: absolute;
   top: 6px;
-  right: 6px;
-  padding: 2px 6px;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
   border-radius: var(--radius-sm);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 500;
   color: white;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  backdrop-filter: blur(4px);
+}
+
+.cut-type-badge span {
+  line-height: 1;
+}
+
+/* Image type badge */
+.cut-type-badge.image {
+  background-color: rgba(var(--accent-primary-rgb), 0.85);
+}
+
+/* Video type badge */
+.cut-type-badge.video {
+  background-color: rgba(var(--accent-video-rgb), 0.85);
 }
 
 /* Lip Sync badge - gradient pink/purple */
-.cut-badge.lipsync {
+.cut-type-badge.lipsync {
   background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
 }
 
@@ -148,9 +165,9 @@
   background-color: var(--accent-audio);
 }
 
-/* Hover effects for video badge */
-.cut-card:hover .cut-badge {
-  opacity: 0.9;
+/* Hover effects for type badge */
+.cut-card:hover .cut-type-badge {
+  opacity: 1;
 }
 
 /* Selected state indicator */
@@ -348,20 +365,21 @@
   z-index: 5;
 }
 
-/* Lip sync frame count indicator */
+/* Lip sync frame count indicator - positioned at top right */
 .lipsync-frame-count {
   position: absolute;
   top: 6px;
-  left: 6px;
+  right: 6px;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 2px 6px;
+  gap: 3px;
+  padding: 3px 6px;
   background-color: rgba(0, 0, 0, 0.7);
   border-radius: var(--radius-sm);
-  font-size: 9px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 500;
   color: white;
+  backdrop-filter: blur(4px);
 }
 
 .lipsync-frame-count svg {
