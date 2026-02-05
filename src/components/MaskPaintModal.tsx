@@ -23,6 +23,7 @@ import {
   RotateCcw,
   Check,
 } from "lucide-react";
+import { Overlay } from "../ui/primitives/Modal";
 import "./MaskPaintModal.css";
 
 interface MaskPaintModalProps {
@@ -509,18 +510,11 @@ export default function MaskPaintModal({
     transformOrigin: "center center",
   };
 
-  const handleOverlayClick = useCallback((e: React.MouseEvent) => {
-    // Only close if clicking directly on the overlay
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  }, [onClose]);
-
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="mask-modal-overlay" onClick={handleOverlayClick}>
-      <div className="mask-modal" onClick={(e) => e.stopPropagation()}>
+    <Overlay className="mask-modal-overlay" onClick={onClose}>
+      <div className="mask-modal">
         {/* Header */}
         <div className="mask-header">
           <h3 className="mask-title">
@@ -665,7 +659,7 @@ export default function MaskPaintModal({
           </div>
         </div>
       </div>
-    </div>
+    </Overlay>
   , document.body);
 }
 
