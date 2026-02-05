@@ -2,12 +2,12 @@
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 16px;
+  padding: 20px 24px;
 }
 
 .storyline-content {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   height: 100%;
   min-width: min-content;
 }
@@ -15,27 +15,33 @@
 .scene-column {
   display: flex;
   flex-direction: column;
-  width: 200px;
-  min-width: 200px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-2xl);
-  border: 2px solid transparent;
+  width: 280px;
+  min-width: 280px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-color);
   transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.scene-column:hover {
+  border-color: color-mix(in srgb, var(--scene-color, var(--border-color)) 50%, var(--border-color));
 }
 
 .scene-column.selected {
   border-color: var(--scene-color, var(--accent-primary));
-  box-shadow: 0 0 20px color-mix(in srgb, var(--scene-color, var(--accent-primary)) 25%, transparent);
+  box-shadow: 0 0 0 1px var(--scene-color, var(--accent-primary)),
+              0 4px 12px color-mix(in srgb, var(--scene-color, var(--accent-primary)) 15%, transparent);
 }
 
 .scene-header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 12px;
+  gap: 8px;
+  padding: 16px;
   border-bottom: 1px solid var(--border-color);
   cursor: pointer;
-  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   transition: background 0.2s ease;
 }
 
@@ -48,8 +54,8 @@
 .scene-column.selected .scene-header {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--scene-color, var(--accent-primary)) 15%, transparent),
-    color-mix(in srgb, var(--scene-color, var(--accent-primary)) 5%, transparent)
+    color-mix(in srgb, var(--scene-color, var(--accent-primary)) 12%, transparent),
+    color-mix(in srgb, var(--scene-color, var(--accent-primary)) 4%, transparent)
   );
 }
 
@@ -57,8 +63,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--scene-color, var(--text-muted));
   flex-shrink: 0;
@@ -70,9 +76,9 @@
 
 .scene-name {
   flex: 1;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   color: var(--text-secondary);
 }
 
@@ -118,9 +124,10 @@
 .scene-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
+  padding-left: 2px;
 }
 
 .scene-meta-time {
@@ -129,7 +136,7 @@
 }
 
 .scene-meta-dot {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .scene-menu {
@@ -178,11 +185,11 @@
 
 .scene-cuts {
   flex: 1;
-  padding: 12px;
+  padding: 16px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   min-height: 200px;
 }
 
@@ -195,8 +202,8 @@
   align-items: center;
   justify-content: center;
   min-height: 60px;
-  border: 2px dashed var(--border-color);
-  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   margin-top: auto;
   transition: all 0.15s ease;
@@ -205,17 +212,18 @@
 .drop-placeholder:hover {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
+  background-color: color-mix(in srgb, var(--accent-primary) 4%, transparent);
 }
 
 /* Placeholder card for drag and drop */
 .placeholder-card {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: 2px dashed var(--accent-primary);
-  border-radius: var(--radius-xl);
-  background-color: rgba(0, 180, 216, 0.1);
-  opacity: 0.8;
-  animation: placeholderPulse 1s ease-in-out infinite;
+  border: 1px dashed var(--accent-primary);
+  border-radius: var(--radius-lg);
+  background-color: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  opacity: 0.9;
+  animation: placeholderPulse 1.2s ease-in-out infinite;
 }
 
 .placeholder-content {
@@ -245,12 +253,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 120px;
-  min-width: 120px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-2xl);
-  border: 2px dashed var(--border-color);
+  gap: 10px;
+  width: 140px;
+  min-width: 140px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-xl);
+  border: 1px dashed var(--border-color);
   color: var(--text-muted);
   transition: all 0.2s ease;
 }
@@ -258,8 +266,7 @@
 .add-scene-btn:hover {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.08);
-  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--bg-secondary));
 }
 
 .add-scene-btn span {
