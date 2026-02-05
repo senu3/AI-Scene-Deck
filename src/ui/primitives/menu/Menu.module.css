@@ -1,0 +1,213 @@
+/* Menu Primitives - Context Menu Styles */
+
+/* Root menu container */
+.menu {
+  position: fixed;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 180px;
+  z-index: 1000;
+  overflow: hidden;
+  animation: menuFadeIn 0.15s ease-out;
+  outline: none;
+}
+
+.menu:focus {
+  outline: none;
+}
+
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Menu header */
+.menuHeader {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-tertiary);
+}
+
+/* Menu item */
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  outline: none;
+}
+
+.menuItem:hover,
+.menuItem:focus,
+.menuItem.focused {
+  background-color: var(--bg-hover);
+  outline: none;
+}
+
+.menuItem:active {
+  background-color: var(--bg-active);
+}
+
+/* Disabled state */
+.menuItem:disabled,
+.menuItem.disabled {
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.menuItem:disabled:hover,
+.menuItem.disabled:hover {
+  background-color: transparent;
+}
+
+/* Danger variant */
+.menuItem.danger {
+  color: var(--accent-danger);
+}
+
+.menuItem.danger:hover,
+.menuItem.danger:focus,
+.menuItem.danger.focused {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+/* Finalize/Action variant */
+.menuItem.action {
+  color: var(--accent-purple);
+}
+
+.menuItem.action:hover,
+.menuItem.action:focus,
+.menuItem.action.focused {
+  background-color: rgba(139, 92, 246, 0.1);
+}
+
+/* Success variant */
+.menuItem.success {
+  color: var(--accent-success);
+}
+
+.menuItem.success:hover,
+.menuItem.success:focus,
+.menuItem.success.focused {
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+/* Menu item icon */
+.menuItemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Menu item label */
+.menuItemLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Menu item shortcut */
+.menuItemShortcut {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Menu separator */
+.menuSeparator {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 4px 0;
+}
+
+/* Submenu container */
+.submenuContainer {
+  position: relative;
+}
+
+.submenuTrigger {
+  justify-content: space-between;
+}
+
+.submenuArrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.submenu {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  min-width: 150px;
+  z-index: 1001;
+  animation: menuFadeIn 0.1s ease-out;
+  outline: none;
+}
+
+/* Submenu positioning when overflowing right */
+.submenu.left {
+  left: auto;
+  right: 100%;
+}
+
+/* Checkbox item */
+.menuCheckboxItem {
+  composes: menuItem;
+}
+
+.menuCheckboxItem .checkIcon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+}
+
+.menuCheckboxItem .checkIcon.unchecked {
+  opacity: 0;
+}
+
+/* Overlay for capturing clicks outside */
+.menuOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+}

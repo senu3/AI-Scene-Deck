@@ -1,12 +1,13 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useState, useEffect, useRef } from 'react';
-import { Film, Image, Clock, Copy, Trash2, ArrowRightLeft, Clipboard, Scissors, Download, Loader2, Mic, Music, Layers, FolderMinus, RotateCcw } from 'lucide-react';
+import { Film, Image, Clock, Scissors, Loader2, Mic, Music } from 'lucide-react';
 import { useStore } from '../store/useStore';
-import type { Asset, Scene } from '../types';
+import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import './CutCard.css';
 import { getThumbnail } from '../utils/thumbnailCache';
+import { CutContextMenu } from '../ui/patterns/CutContextMenu';
 
 interface CutCardProps {
   cut: {
@@ -30,159 +31,6 @@ interface CutCardProps {
   index: number;
   isDragging: boolean;
   isHidden?: boolean;
-}
-
-interface ContextMenuProps {
-  x: number;
-  y: number;
-  isMultiSelect: boolean;
-  selectedCount: number;
-  scenes: Scene[];
-  currentSceneId: string;
-  canPaste: boolean;
-  isClip: boolean;
-  isInGroup: boolean;
-  onClose: () => void;
-  onCopy: () => void;
-  onPaste: () => void;
-  onDelete: () => void;
-  onMoveToScene: (sceneId: string) => void;
-  onFinalizeClip?: () => void;
-  onReverseClip?: () => void;
-  onCreateGroup?: () => void;
-  onRemoveFromGroup?: () => void;
-}
-
-export function CutContextMenu({
-  x,
-  y,
-  isMultiSelect,
-  selectedCount,
-  scenes,
-  currentSceneId,
-  canPaste,
-  isClip,
-  isInGroup,
-  onClose,
-  onCopy,
-  onPaste,
-  onDelete,
-  onMoveToScene,
-  onFinalizeClip,
-  onReverseClip,
-  onCreateGroup,
-  onRemoveFromGroup,
-}: ContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-  const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
-
-  // Filter out current scene from move options
-  const otherScenes = scenes.filter(s => s.id !== currentSceneId);
-
-  return (
-    <div
-      ref={menuRef}
-      className="cut-context-menu"
-      style={{ left: x, top: y }}
-    >
-      <div className="context-menu-header">
-        {isMultiSelect ? `${selectedCount} cuts selected` : 'Cut options'}
-      </div>
-
-      <button onClick={onCopy}>
-        <Copy size={14} />
-        Copy{isMultiSelect ? ` (${selectedCount})` : ''}
-      </button>
-
-      {canPaste && (
-        <button onClick={onPaste}>
-          <Clipboard size={14} />
-          Paste
-        </button>
-      )}
-
-      {otherScenes.length > 0 && (
-        <div
-          className="context-menu-item-with-submenu"
-          onMouseEnter={() => setShowMoveSubmenu(true)}
-          onMouseLeave={() => setShowMoveSubmenu(false)}
-        >
-          <button>
-            <ArrowRightLeft size={14} />
-            Move to Scene
-            <span className="submenu-arrow">▶</span>
-          </button>
-
-          {showMoveSubmenu && (
-            <div className="context-submenu">
-              {otherScenes.map(scene => (
-                <button
-                  key={scene.id}
-                  onClick={() => onMoveToScene(scene.id)}
-                >
-                  {scene.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Finalize Clip option - only for clips */}
-      {isClip && !isMultiSelect && onFinalizeClip && (
-        <>
-          <div className="context-menu-divider" />
-          <button onClick={onFinalizeClip} className="finalize">
-            <Download size={14} />
-            Finalize Clip (Add Cut)
-          </button>
-        </>
-      )}
-
-      {isClip && !isMultiSelect && onReverseClip && (
-        <button onClick={onReverseClip} className="finalize">
-          <RotateCcw size={14} />
-          Reverse Clip (Add Cut)
-        </button>
-      )}
-
-      {/* Group options */}
-      <div className="context-menu-divider" />
-
-      {/* Create Group - only for multi-select */}
-      {isMultiSelect && onCreateGroup && (
-        <button onClick={onCreateGroup}>
-          <Layers size={14} />
-          Create Group ({selectedCount})
-        </button>
-      )}
-
-      {/* Remove from Group - only for grouped cuts */}
-      {isInGroup && onRemoveFromGroup && (
-        <button onClick={onRemoveFromGroup}>
-          <FolderMinus size={14} />
-          Remove from Group
-        </button>
-      )}
-
-      <div className="context-menu-divider" />
-
-      <button onClick={onDelete} className="danger">
-        <Trash2 size={14} />
-        Delete{isMultiSelect ? ` (${selectedCount})` : ''}
-      </button>
-    </div>
-  );
 }
 
 export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: CutCardProps) {
@@ -589,8 +437,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
 
     {contextMenu && (
       <CutContextMenu
-        x={contextMenu.x}
-        y={contextMenu.y}
+        position={contextMenu}
         isMultiSelect={isMultiSelected}
         selectedCount={selectedCutIds.size}
         scenes={scenes}

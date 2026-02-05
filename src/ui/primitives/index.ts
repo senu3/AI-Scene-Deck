@@ -46,3 +46,25 @@ export {
   type ReadOnlyValueProps,
   type PathFieldProps,
 } from './FormControls';
+
+// Menu primitives
+export {
+  Menu,
+  MenuHeader,
+  MenuItem,
+  MenuSeparator,
+  MenuCheckboxItem,
+  ContextMenu,
+  useContextMenu,
+  MenuSubmenu,
+  type MenuProps,
+  type MenuHeaderProps,
+  type MenuItemProps,
+  type MenuItemVariant,
+  type MenuSeparatorProps,
+  type MenuCheckboxItemProps,
+  type ContextMenuProps,
+  type ContextMenuPosition,
+  type UseContextMenuReturn,
+  type MenuSubmenuProps,
+} from './menu';
