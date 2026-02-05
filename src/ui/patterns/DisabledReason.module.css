@@ -1,0 +1,91 @@
+/* ========================================
+   DisabledReason Styles
+   ======================================== */
+
+.wrapper {
+  display: inline-block;
+  cursor: not-allowed;
+}
+
+.balloon {
+  position: fixed;
+  z-index: 10000;
+  max-width: 240px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
+  border: 1px solid rgba(var(--accent-warning-rgb), 0.4);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: balloonFadeIn 0.15s ease;
+}
+
+/* Warning-tinted background */
+.balloon::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-color: rgba(var(--accent-warning-rgb), 0.05);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+@keyframes balloonFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Position-specific animations */
+.balloon[data-position="bottom"] {
+  animation-name: balloonFadeInBottom;
+}
+
+@keyframes balloonFadeInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.balloon[data-position="left"] {
+  animation-name: balloonFadeInLeft;
+}
+
+@keyframes balloonFadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.balloon[data-position="right"] {
+  animation-name: balloonFadeInRight;
+}
+
+@keyframes balloonFadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

@@ -1,8 +1,11 @@
 // UI Components - Main export
-// Re-export all primitives and feedback components
+// Re-export all primitives, patterns, and feedback components
 
-// Primitives
+// Primitives - Basic building blocks
 export * from './primitives';
 
-// Feedback
+// Patterns - Combined components for consistent UX
+export * from './patterns';
+
+// Feedback - Notifications and dialogs
 export * from './feedback';

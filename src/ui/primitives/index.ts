@@ -25,13 +25,23 @@ export {
 } from './Modal';
 
 export {
+  Tooltip,
+  type TooltipProps,
+  type TooltipPosition,
+} from './Tooltip';
+
+export {
+  Slider,
+  type SliderProps,
+} from './Slider';
+
+export {
   FormControls,
   Input,
   InputGroup,
   Select,
   RadioGroup,
   Checkbox,
-  Field,
   ReadOnlyValue,
   PathField,
   Toggle,
@@ -47,7 +57,6 @@ export {
   type RadioOption,
   type RadioGroupProps,
   type CheckboxProps,
-  type FieldProps,
   type ReadOnlyValueProps,
   type PathFieldProps,
   type ToggleProps,
@@ -57,3 +66,4 @@ export {
   type SettingsRowProps,
   type StatDisplayProps,
 } from './FormControls';
+// Note: Field is now exported from './patterns' with error support

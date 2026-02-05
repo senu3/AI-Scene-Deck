@@ -1,0 +1,64 @@
+/* ========================================
+   Field Styles
+   ======================================== */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldInline {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.fieldInline .fieldLabel {
+  flex-shrink: 0;
+  min-width: 100px;
+}
+
+.fieldInline .fieldInput {
+  flex: 1;
+}
+
+.fieldLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.fieldRequired {
+  color: var(--accent-danger);
+  margin-left: 2px;
+}
+
+.fieldInput {
+  /* Container for input element */
+}
+
+.fieldHint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.fieldError {
+  font-size: 11px;
+  color: var(--accent-danger);
+  line-height: 1.4;
+}
+
+/* Error state - add red border to inputs */
+.field[data-error] input,
+.field[data-error] textarea,
+.field[data-error] select {
+  border-color: var(--accent-danger);
+}
+
+.field[data-error] input:focus,
+.field[data-error] textarea:focus,
+.field[data-error] select:focus {
+  box-shadow: 0 0 0 2px rgba(var(--accent-danger-rgb), 0.2);
+}
