@@ -62,10 +62,11 @@ export function Slider({
   // Calculate percentage for styling
   const percentage = ((value - min) / (max - min)) * 100;
 
-  // Clamp value to valid range
+  // Clamp value to valid range (step aligned to min)
   const clamp = useCallback(
     (val: number): number => {
-      const stepped = Math.round(val / step) * step;
+      // Round to nearest step, anchored at min (not 0)
+      const stepped = Math.round((val - min) / step) * step + min;
       return Math.max(min, Math.min(max, stepped));
     },
     [min, max, step]
