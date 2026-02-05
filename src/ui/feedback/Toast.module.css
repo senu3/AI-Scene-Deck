@@ -129,6 +129,63 @@
 }
 
 /* ========================================
+   Toast Action Button (CTA)
+   ======================================== */
+.toastAction {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent-primary);
+  background-color: rgba(var(--accent-primary-rgb), 0.1);
+  border: 1px solid rgba(var(--accent-primary-rgb), 0.2);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.toastAction:hover {
+  background-color: rgba(var(--accent-primary-rgb), 0.2);
+  border-color: rgba(var(--accent-primary-rgb), 0.3);
+}
+
+/* Variant-specific action colors */
+.toast[data-variant="error"] .toastAction {
+  color: var(--accent-danger);
+  background-color: rgba(var(--accent-danger-rgb), 0.1);
+  border-color: rgba(var(--accent-danger-rgb), 0.2);
+}
+
+.toast[data-variant="error"] .toastAction:hover {
+  background-color: rgba(var(--accent-danger-rgb), 0.2);
+  border-color: rgba(var(--accent-danger-rgb), 0.3);
+}
+
+.toast[data-variant="warning"] .toastAction {
+  color: var(--accent-warning);
+  background-color: rgba(var(--accent-warning-rgb), 0.1);
+  border-color: rgba(var(--accent-warning-rgb), 0.2);
+}
+
+.toast[data-variant="warning"] .toastAction:hover {
+  background-color: rgba(var(--accent-warning-rgb), 0.2);
+  border-color: rgba(var(--accent-warning-rgb), 0.3);
+}
+
+.toast[data-variant="success"] .toastAction {
+  color: var(--accent-success);
+  background-color: rgba(var(--accent-success-rgb), 0.1);
+  border-color: rgba(var(--accent-success-rgb), 0.2);
+}
+
+.toast[data-variant="success"] .toastAction:hover {
+  background-color: rgba(var(--accent-success-rgb), 0.2);
+  border-color: rgba(var(--accent-success-rgb), 0.3);
+}
+
+/* ========================================
    Toast Close Button
    ======================================== */
 .toastClose {

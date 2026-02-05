@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AlertTriangle, FolderOpen, Trash2, SkipForward, Check, X } from 'lucide-react';
 import type { Asset } from '../types';
+import { Overlay, useModalKeyboard } from '../ui/primitives/Modal';
 import './MissingAssetRecoveryModal.css';
 
 export interface MissingAssetInfo {
@@ -152,9 +153,11 @@ export default function MissingAssetRecoveryModal({
   const decidedCount = decisions.size;
   const totalCount = missingAssets.length;
 
+  // ESC key to close
+  useModalKeyboard({ onEscape: onCancel });
+
   return (
-    <div className="missing-asset-modal">
-      <div className="modal-backdrop" onClick={onCancel} />
+    <Overlay className="missing-asset-modal" onClick={onCancel} blur>
       <div className="modal-container">
         <div className="modal-header">
           <AlertTriangle size={24} className="warning-icon" />
@@ -273,6 +276,6 @@ export default function MissingAssetRecoveryModal({
           </div>
         </div>
       </div>
-    </div>
+    </Overlay>
   );
 }

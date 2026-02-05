@@ -1,11 +1,11 @@
 // UI Components - Main export
-// Re-export all primitives, feedback components, and patterns
+// Re-export all primitives, patterns, and feedback components
 
-// Primitives
+// Primitives - Basic building blocks
 export * from './primitives';
 
-// Feedback
-export * from './feedback';
-
-// Patterns (SceneDeck-specific compositions)
+// Patterns - Combined components for consistent UX
 export * from './patterns';
+
+// Feedback - Notifications and dialogs
+export * from './feedback';

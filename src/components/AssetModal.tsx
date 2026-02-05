@@ -1,9 +1,10 @@
-import { useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store/useStore';
 import AssetPanel, { type FilterType, type AssetInfo } from './AssetPanel';
 import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
+import { Overlay, useModalKeyboard } from '../ui/primitives/Modal';
 import './AssetModal.css';
 
 export interface AssetModalProps {
@@ -25,26 +26,8 @@ export default function AssetModal({
 }: AssetModalProps) {
   const { vaultPath } = useStore();
 
-  // Handle ESC key to close
-  useEffect(() => {
-    if (!open) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [open, onClose]);
-
-  // Handle backdrop click
-  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  }, [onClose]);
+  // ESC key to close
+  useModalKeyboard({ onEscape: onClose, enabled: open });
 
   // Handle confirm from AssetPanel
   const handleConfirm = useCallback((assets: AssetInfo[]) => {
@@ -139,7 +122,7 @@ export default function AssetModal({
   if (typeof document === 'undefined') return null;
 
   return createPortal(
-    <div className="asset-modal-overlay" onClick={handleBackdropClick}>
+    <Overlay className="asset-modal-overlay" onClick={onClose}>
       <div className="asset-modal">
         <AssetPanel
           mode="modal"
@@ -155,6 +138,6 @@ export default function AssetModal({
           enableDragDrop={false}
         />
       </div>
-    </div>
+    </Overlay>
   , document.body);
 }

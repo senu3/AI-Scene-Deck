@@ -27,11 +27,20 @@ import styles from './Toast.module.css';
 // ============================================
 export type ToastVariant = 'success' | 'info' | 'warning' | 'error';
 
+export interface ToastAction {
+  /** Button label */
+  label: string;
+  /** Click handler */
+  onClick: () => void;
+}
+
 export interface ToastOptions {
   /** Duration in ms. 0 = persistent. Default: 4000 for success/info, 6000 for warning/error */
   duration?: number;
   /** Unique ID for deduplication */
   id?: string;
+  /** Optional action button (CTA) */
+  action?: ToastAction;
 }
 
 export interface ToastItem {
@@ -42,6 +51,7 @@ export interface ToastItem {
   duration: number;
   createdAt: number;
   exiting?: boolean;
+  action?: ToastAction;
 }
 
 export interface ToastAPI {
@@ -151,6 +161,7 @@ export function ToastProvider({ children, maxToasts = 5 }: ToastProviderProps) {
           message,
           duration,
           createdAt: Date.now(),
+          action: options?.action,
         };
 
         if (existingIndex >= 0) {
@@ -238,6 +249,11 @@ interface ToastProps {
 function Toast({ toast, onDismiss }: ToastProps) {
   const Icon = getIcon(toast.variant);
 
+  const handleActionClick = () => {
+    toast.action?.onClick();
+    onDismiss(toast.id);
+  };
+
   return (
     <div
       className={styles.toast}
@@ -250,6 +266,11 @@ function Toast({ toast, onDismiss }: ToastProps) {
       <div className={styles.toastContent}>
         <p className={styles.toastTitle}>{toast.title}</p>
         {toast.message && <p className={styles.toastMessage}>{toast.message}</p>}
+        {toast.action && (
+          <button className={styles.toastAction} onClick={handleActionClick}>
+            {toast.action.label}
+          </button>
+        )}
       </div>
       <button
         className={styles.toastClose}

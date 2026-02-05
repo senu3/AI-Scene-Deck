@@ -25,15 +25,30 @@ export {
 } from './Modal';
 
 export {
+  Tooltip,
+  type TooltipProps,
+  type TooltipPosition,
+} from './Tooltip';
+
+export {
+  Slider,
+  type SliderProps,
+} from './Slider';
+
+export {
   FormControls,
   Input,
   InputGroup,
   Select,
   RadioGroup,
   Checkbox,
-  Field,
   ReadOnlyValue,
   PathField,
+  Toggle,
+  Tabs,
+  SettingsSection,
+  SettingsRow,
+  StatDisplay,
   type InputSize,
   type InputProps,
   type InputGroupProps,
@@ -42,10 +57,17 @@ export {
   type RadioOption,
   type RadioGroupProps,
   type CheckboxProps,
-  type FieldProps,
   type ReadOnlyValueProps,
   type PathFieldProps,
+  type ToggleProps,
+  type TabItem,
+  type TabsProps,
+  type SettingsSectionProps,
+  type SettingsRowProps,
+  type StatDisplayProps,
 } from './FormControls';
+
+// Note: Field is now exported from './patterns' with error support
 
 // Menu primitives
 export {
