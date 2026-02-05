@@ -114,6 +114,34 @@ const SNAPSHOT_COUNT_OPTIONS = [
   { value: '50', label: '50 snapshots' },
 ];
 
+// Default values for all settings
+const DEFAULTS = {
+  theme: 'dark' as ThemeMode,
+  language: 'ja' as LanguageCode,
+  startupBehavior: 'welcome' as StartupBehavior,
+  autosaveEnabled: true,
+  autosaveInterval: 30,
+  defaultCutDuration: 3,
+  previewQuality: 'auto' as PreviewQuality,
+  defaultPlaybackRate: '1',
+  showThumbnails: true,
+  trashRetention: '7',
+  autoEmptyTrash: true,
+  snapshotEnabled: true,
+  snapshotMaxCount: '10',
+  snapshotOnSave: true,
+  maxMb: 64,
+  maxItems: 200,
+  stderrMaxKb: 128,
+  maxClipSeconds: 60,
+  maxTotalSeconds: 15 * 60,
+  maxClipMb: 32,
+  maxTotalMb: 256,
+  hardwareAcceleration: true,
+  debugMode: false,
+  verboseLogging: false,
+};
+
 export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentSettingsModalProps) {
   useModalKeyboard({ onEscape: onClose, enabled: open });
 
@@ -121,30 +149,30 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
   const [hasChanges, setHasChanges] = useState(false);
 
   // General settings
-  const [theme, setTheme] = useState<ThemeMode>('dark');
-  const [language, setLanguage] = useState<LanguageCode>('ja');
-  const [startupBehavior, setStartupBehavior] = useState<StartupBehavior>('welcome');
+  const [theme, setTheme] = useState<ThemeMode>(DEFAULTS.theme);
+  const [language, setLanguage] = useState<LanguageCode>(DEFAULTS.language);
+  const [startupBehavior, setStartupBehavior] = useState<StartupBehavior>(DEFAULTS.startupBehavior);
 
   // Editor settings - Autosave
-  const [autosaveEnabled, setAutosaveEnabled] = useState(true);
-  const [autosaveInterval, setAutosaveInterval] = useState(30);
+  const [autosaveEnabled, setAutosaveEnabled] = useState(DEFAULTS.autosaveEnabled);
+  const [autosaveInterval, setAutosaveInterval] = useState(DEFAULTS.autosaveInterval);
 
   // Editor settings - Defaults
-  const [defaultCutDuration, setDefaultCutDuration] = useState(3);
+  const [defaultCutDuration, setDefaultCutDuration] = useState(DEFAULTS.defaultCutDuration);
 
   // Editor settings - Preview
-  const [previewQuality, setPreviewQuality] = useState<PreviewQuality>('auto');
-  const [defaultPlaybackRate, setDefaultPlaybackRate] = useState('1');
-  const [showThumbnails, setShowThumbnails] = useState(true);
+  const [previewQuality, setPreviewQuality] = useState<PreviewQuality>(DEFAULTS.previewQuality);
+  const [defaultPlaybackRate, setDefaultPlaybackRate] = useState(DEFAULTS.defaultPlaybackRate);
+  const [showThumbnails, setShowThumbnails] = useState(DEFAULTS.showThumbnails);
 
   // Editor settings - Trash
-  const [trashRetention, setTrashRetention] = useState('7');
-  const [autoEmptyTrash, setAutoEmptyTrash] = useState(true);
+  const [trashRetention, setTrashRetention] = useState(DEFAULTS.trashRetention);
+  const [autoEmptyTrash, setAutoEmptyTrash] = useState(DEFAULTS.autoEmptyTrash);
 
   // Editor settings - Snapshots
-  const [snapshotEnabled, setSnapshotEnabled] = useState(true);
-  const [snapshotMaxCount, setSnapshotMaxCount] = useState('10');
-  const [snapshotOnSave, setSnapshotOnSave] = useState(true);
+  const [snapshotEnabled, setSnapshotEnabled] = useState(DEFAULTS.snapshotEnabled);
+  const [snapshotMaxCount, setSnapshotMaxCount] = useState(DEFAULTS.snapshotMaxCount);
+  const [snapshotOnSave, setSnapshotOnSave] = useState(DEFAULTS.snapshotOnSave);
 
   // Performance settings - Thumbnail cache
   const stats = useMemo(() => getThumbnailCacheStats(), [open]);
@@ -152,26 +180,49 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
   const [maxItems, setMaxItems] = useState(stats.limits.maxItems);
 
   // Performance settings - FFmpeg
-  const [stderrMaxKb, setStderrMaxKb] = useState(128);
-  const [maxClipSeconds, setMaxClipSeconds] = useState(60);
-  const [maxTotalSeconds, setMaxTotalSeconds] = useState(15 * 60);
-  const [maxClipMb, setMaxClipMb] = useState(32);
-  const [maxTotalMb, setMaxTotalMb] = useState(256);
-  const [hardwareAcceleration, setHardwareAcceleration] = useState(true);
+  const [stderrMaxKb, setStderrMaxKb] = useState(DEFAULTS.stderrMaxKb);
+  const [maxClipSeconds, setMaxClipSeconds] = useState(DEFAULTS.maxClipSeconds);
+  const [maxTotalSeconds, setMaxTotalSeconds] = useState(DEFAULTS.maxTotalSeconds);
+  const [maxClipMb, setMaxClipMb] = useState(DEFAULTS.maxClipMb);
+  const [maxTotalMb, setMaxTotalMb] = useState(DEFAULTS.maxTotalMb);
+  const [hardwareAcceleration, setHardwareAcceleration] = useState(DEFAULTS.hardwareAcceleration);
 
   // Advanced settings
-  const [debugMode, setDebugMode] = useState(false);
-  const [verboseLogging, setVerboseLogging] = useState(false);
+  const [debugMode, setDebugMode] = useState(DEFAULTS.debugMode);
+  const [verboseLogging, setVerboseLogging] = useState(DEFAULTS.verboseLogging);
 
-  // Load settings on open
+  // Reset all settings to defaults/stored values on open
   useEffect(() => {
     if (!open) return;
 
-    // Reset to initial values
+    // Reset all settings to defaults
+    // TODO: Load saved settings from storage instead of defaults
+    setTheme(DEFAULTS.theme);
+    setLanguage(DEFAULTS.language);
+    setStartupBehavior(DEFAULTS.startupBehavior);
+    setAutosaveEnabled(DEFAULTS.autosaveEnabled);
+    setAutosaveInterval(DEFAULTS.autosaveInterval);
+    setDefaultCutDuration(DEFAULTS.defaultCutDuration);
+    setPreviewQuality(DEFAULTS.previewQuality);
+    setDefaultPlaybackRate(DEFAULTS.defaultPlaybackRate);
+    setShowThumbnails(DEFAULTS.showThumbnails);
+    setTrashRetention(DEFAULTS.trashRetention);
+    setAutoEmptyTrash(DEFAULTS.autoEmptyTrash);
+    setSnapshotEnabled(DEFAULTS.snapshotEnabled);
+    setSnapshotMaxCount(DEFAULTS.snapshotMaxCount);
+    setSnapshotOnSave(DEFAULTS.snapshotOnSave);
+    setHardwareAcceleration(DEFAULTS.hardwareAcceleration);
+    setDebugMode(DEFAULTS.debugMode);
+    setVerboseLogging(DEFAULTS.verboseLogging);
+
+    // Reset thumbnail cache settings from current stats
     setMaxMb(Math.round(stats.limits.maxBytes / MB));
     setMaxItems(stats.limits.maxItems);
+
+    // Reset changes flag
     setHasChanges(false);
 
+    // Load FFmpeg limits from API
     let active = true;
     const loadFfmpegLimits = async () => {
       const api = window.electronAPI;
@@ -243,31 +294,31 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
   }, [maxMb, maxItems, stderrMaxKb, maxClipSeconds, maxTotalSeconds, maxClipMb, maxTotalMb, onClose]);
 
   const handleResetDefaults = useCallback(() => {
-    // Reset to default values
-    setTheme('dark');
-    setLanguage('ja');
-    setStartupBehavior('welcome');
-    setAutosaveEnabled(true);
-    setAutosaveInterval(30);
-    setDefaultCutDuration(3);
-    setPreviewQuality('auto');
-    setDefaultPlaybackRate('1');
-    setShowThumbnails(true);
-    setTrashRetention('7');
-    setAutoEmptyTrash(true);
-    setSnapshotEnabled(true);
-    setSnapshotMaxCount('10');
-    setSnapshotOnSave(true);
-    setMaxMb(64);
-    setMaxItems(200);
-    setStderrMaxKb(128);
-    setMaxClipSeconds(60);
-    setMaxTotalSeconds(15 * 60);
-    setMaxClipMb(32);
-    setMaxTotalMb(256);
-    setHardwareAcceleration(true);
-    setDebugMode(false);
-    setVerboseLogging(false);
+    // Reset to default values using DEFAULTS constant
+    setTheme(DEFAULTS.theme);
+    setLanguage(DEFAULTS.language);
+    setStartupBehavior(DEFAULTS.startupBehavior);
+    setAutosaveEnabled(DEFAULTS.autosaveEnabled);
+    setAutosaveInterval(DEFAULTS.autosaveInterval);
+    setDefaultCutDuration(DEFAULTS.defaultCutDuration);
+    setPreviewQuality(DEFAULTS.previewQuality);
+    setDefaultPlaybackRate(DEFAULTS.defaultPlaybackRate);
+    setShowThumbnails(DEFAULTS.showThumbnails);
+    setTrashRetention(DEFAULTS.trashRetention);
+    setAutoEmptyTrash(DEFAULTS.autoEmptyTrash);
+    setSnapshotEnabled(DEFAULTS.snapshotEnabled);
+    setSnapshotMaxCount(DEFAULTS.snapshotMaxCount);
+    setSnapshotOnSave(DEFAULTS.snapshotOnSave);
+    setMaxMb(DEFAULTS.maxMb);
+    setMaxItems(DEFAULTS.maxItems);
+    setStderrMaxKb(DEFAULTS.stderrMaxKb);
+    setMaxClipSeconds(DEFAULTS.maxClipSeconds);
+    setMaxTotalSeconds(DEFAULTS.maxTotalSeconds);
+    setMaxClipMb(DEFAULTS.maxClipMb);
+    setMaxTotalMb(DEFAULTS.maxTotalMb);
+    setHardwareAcceleration(DEFAULTS.hardwareAcceleration);
+    setDebugMode(DEFAULTS.debugMode);
+    setVerboseLogging(DEFAULTS.verboseLogging);
     setHasChanges(true);
   }, []);
 
