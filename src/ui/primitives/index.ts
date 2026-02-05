@@ -66,4 +66,27 @@ export {
   type SettingsRowProps,
   type StatDisplayProps,
 } from './FormControls';
+
 // Note: Field is now exported from './patterns' with error support
+
+// Menu primitives
+export {
+  Menu,
+  MenuHeader,
+  MenuItem,
+  MenuSeparator,
+  MenuCheckboxItem,
+  ContextMenu,
+  useContextMenu,
+  MenuSubmenu,
+  type MenuProps,
+  type MenuHeaderProps,
+  type MenuItemProps,
+  type MenuItemVariant,
+  type MenuSeparatorProps,
+  type MenuCheckboxItemProps,
+  type ContextMenuProps,
+  type ContextMenuPosition,
+  type UseContextMenuReturn,
+  type MenuSubmenuProps,
+} from './menu';

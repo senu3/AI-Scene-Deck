@@ -9,7 +9,6 @@ import {
   ArrowUpDown,
   Layers,
   Link2,
-  Trash2,
   Download,
   Check,
   FolderOpen,
@@ -21,8 +20,7 @@ import { useStore } from '../store/useStore';
 import type { Asset, Scene, MetadataStore, AssetIndexEntry } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { getCachedThumbnail, getThumbnail, removeThumbnailCache } from '../utils/thumbnailCache';
-import { CutContextMenu } from './CutCard';
-import { useToast } from '../ui';
+import { useToast, CutContextMenu, AssetContextMenu } from '../ui';
 import './AssetPanel.css';
 
 export type SortMode = 'name' | 'type' | 'used' | 'unused';
@@ -201,7 +199,6 @@ export default function AssetPanel({
     total: number;
   }>({ isActive: false, current: 0, total: 0 });
   const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const unusedMenuRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -462,17 +459,6 @@ export default function AssetPanel({
       console.error('Failed to load thumbnail:', error);
     }
   }, []);
-
-  useEffect(() => {
-    if (!unusedContextMenu) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (unusedMenuRef.current && !unusedMenuRef.current.contains(e.target as Node)) {
-        setUnusedContextMenu(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [unusedContextMenu]);
 
   // Close more menu when clicking outside
   useEffect(() => {
@@ -1008,8 +994,7 @@ export default function AssetPanel({
       {/* Context Menus (drawer mode only) */}
       {effectiveEnableContextMenu && cutContextMenu && (
         <CutContextMenu
-          x={cutContextMenu.x}
-          y={cutContextMenu.y}
+          position={{ x: cutContextMenu.x, y: cutContextMenu.y }}
           isMultiSelect={selectedCutIds.size > 1}
           selectedCount={selectedCutIds.size}
           scenes={scenes}
@@ -1028,18 +1013,12 @@ export default function AssetPanel({
       )}
 
       {effectiveEnableContextMenu && unusedContextMenu && (
-        <div
-          ref={unusedMenuRef}
-          className="cut-context-menu"
-          style={{ left: unusedContextMenu.x, top: unusedContextMenu.y }}
-        >
-          <div className="context-menu-header">Asset options</div>
-          <div className="context-menu-divider" />
-          <button onClick={handleDeleteUnusedAsset} className="danger">
-            <Trash2 size={14} />
-            Delete (Move to Trash)
-          </button>
-        </div>
+        <AssetContextMenu
+          position={{ x: unusedContextMenu.x, y: unusedContextMenu.y }}
+          onClose={() => setUnusedContextMenu(null)}
+          assetName={unusedContextMenu.asset.sourceName}
+          onDelete={handleDeleteUnusedAsset}
+        />
       )}
     </>
   );

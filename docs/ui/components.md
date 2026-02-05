@@ -14,11 +14,19 @@ src/ui/
 │   ├── Tooltip.tsx    # Hover/focus tooltip for explanations
 │   ├── Slider.tsx     # Horizontal range slider with keyboard support
 │   ├── FormControls.tsx # Input, Select, RadioGroup, Checkbox
+│   └── menu/          # Context menu primitives
+│       ├── Menu.tsx           # Menu, MenuHeader, MenuItem, MenuSeparator, MenuCheckboxItem
+│       ├── ContextMenu.tsx    # ContextMenu (Portal-based positioning)
+│       ├── MenuSubmenu.tsx    # MenuSubmenu (nested menus)
+│       ├── Menu.module.css
+│       └── index.ts
 │   └── *.module.css
 ├── patterns/          # Combined components for consistent UX
 │   ├── Field.tsx      # Label + hint + error wrapper
 │   ├── DisabledReason.tsx # Balloon for disabled state reasons
 │   ├── InlineSlider.tsx # Compact slider in popover (volume, opacity)
+│   ├── CutContextMenu.tsx    # Pre-built menu for cut operations
+│   ├── AssetContextMenu.tsx  # Pre-built menu for asset operations
 │   └── *.module.css
 ├── feedback/          # Notification/dialog components
 │   ├── Toast.tsx      # ToastProvider, useToast
@@ -360,6 +368,106 @@ import { Volume2 } from 'lucide-react';
 | label | string | - | Label as trigger |
 | position | 'top' \| 'bottom' \| 'left' \| 'right' | 'top' | Popover position |
 | popoverWidth | number | 140 | Popover width in px |
+
+## Context Menu Primitives
+
+### Basic Context Menu
+
+```tsx
+import {
+  ContextMenu,
+  MenuHeader,
+  MenuItem,
+  MenuSeparator,
+  MenuSubmenu,
+} from './ui';
+import { Copy, Trash2, ArrowRightLeft } from 'lucide-react';
+
+function MyComponent() {
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY });
+  };
+
+  return (
+    <>
+      <div onContextMenu={handleContextMenu}>
+        Right click me
+      </div>
+
+      {menu && (
+        <ContextMenu position={menu} onClose={() => setMenu(null)}>
+          <MenuHeader>Options</MenuHeader>
+          <MenuItem icon={<Copy size={14} />} onClick={handleCopy}>
+            Copy
+          </MenuItem>
+          <MenuItem disabled={!canPaste}>Paste</MenuItem>
+          <MenuSeparator />
+          <MenuSubmenu label="Move to" icon={<ArrowRightLeft size={14} />}>
+            <MenuItem onClick={() => handleMove('scene1')}>Scene 1</MenuItem>
+            <MenuItem onClick={() => handleMove('scene2')}>Scene 2</MenuItem>
+          </MenuSubmenu>
+          <MenuSeparator />
+          <MenuItem icon={<Trash2 size={14} />} variant="danger" onClick={handleDelete}>
+            Delete
+          </MenuItem>
+        </ContextMenu>
+      )}
+    </>
+  );
+}
+```
+
+### MenuItem Variants
+
+| Variant   | Color | Use Case |
+|-----------|-------|----------|
+| default   | text-primary | Normal actions |
+| danger    | accent-danger | Destructive actions |
+| action    | accent-purple | Clip operations, special actions |
+| success   | accent-success | Positive actions |
+
+### Pre-built Patterns
+
+For common use cases, use pre-built patterns from `src/ui/patterns/`:
+
+```tsx
+import { CutContextMenu, AssetContextMenu } from './ui';
+
+// Cut context menu (for Storyline cuts)
+<CutContextMenu
+  position={contextMenu}
+  isMultiSelect={selectedCount > 1}
+  selectedCount={selectedCount}
+  scenes={scenes}
+  currentSceneId={sceneId}
+  canPaste={canPaste}
+  isClip={isClip}
+  isInGroup={isInGroup}
+  onClose={() => setContextMenu(null)}
+  onCopy={handleCopy}
+  onPaste={handlePaste}
+  onDelete={handleDelete}
+  onMoveToScene={handleMoveToScene}
+/>
+
+// Asset context menu (for unused assets)
+<AssetContextMenu
+  position={contextMenu}
+  onClose={() => setContextMenu(null)}
+  onDelete={handleDelete}
+/>
+```
+
+### Keyboard Navigation
+
+Menu primitives support keyboard navigation:
+- `↑` / `↓`: Navigate items
+- `Enter` / `Space`: Select item
+- `Escape`: Close menu
+- `→` / `←`: Open/close submenus
 
 ## Notification Guidelines
 
