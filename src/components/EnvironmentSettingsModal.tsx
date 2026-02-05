@@ -1,5 +1,6 @@
 /**
- * EnvironmentSettingsModal - Redesigned settings modal with tabs
+ * EnvironmentSettingsModal - Redesigned settings modal with cleaner layout
+ * Following ExportModal's pattern: fewer borders, clearer grouping
  */
 
 import { useEffect, useMemo, useState, useCallback } from 'react';
@@ -23,6 +24,7 @@ import {
   History,
   Download,
   AlertTriangle,
+  Cog,
 } from 'lucide-react';
 import {
   Overlay,
@@ -33,8 +35,6 @@ import {
   Tabs,
   Toggle,
   Select,
-  SettingsSection,
-  SettingsRow,
   StatDisplay,
   Input,
   type TabItem,
@@ -349,356 +349,551 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
           {/* General Tab */}
           {activeTab === 'general' && (
             <div className={styles.tabContent}>
-              <SettingsSection title="Appearance" icon={<Palette size={14} />}>
-                <SettingsRow label="Theme" description="Choose application color theme">
-                  <Select
-                    value={theme}
-                    options={THEME_OPTIONS}
-                    onChange={(v) => handleChange(setTheme)(v as ThemeMode)}
-                  />
-                </SettingsRow>
-                <SettingsRow label="Language" description="Display language">
-                  <Select
-                    value={language}
-                    options={LANGUAGE_OPTIONS}
-                    onChange={(v) => handleChange(setLanguage)(v as LanguageCode)}
-                  />
-                </SettingsRow>
-              </SettingsSection>
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Cog size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Application Settings</span>
+                </div>
 
-              <SettingsSection title="Startup" icon={<Monitor size={14} />}>
-                <SettingsRow label="On Launch" description="What to show when app starts">
-                  <Select
-                    value={startupBehavior}
-                    options={STARTUP_OPTIONS}
-                    onChange={(v) => handleChange(setStartupBehavior)(v as StartupBehavior)}
-                  />
-                </SettingsRow>
-              </SettingsSection>
+                <div className={styles.panelContent}>
+                  {/* Appearance subsection */}
+                  <div className={styles.subsectionHeader}>
+                    <Palette size={14} />
+                    <span>Appearance</span>
+                  </div>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Theme</span>
+                      <span className={styles.rowDesc}>Application color scheme</span>
+                    </div>
+                    <Select
+                      value={theme}
+                      options={THEME_OPTIONS}
+                      onChange={(v) => handleChange(setTheme)(v as ThemeMode)}
+                    />
+                  </div>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Language</span>
+                      <span className={styles.rowDesc}>Display language</span>
+                    </div>
+                    <Select
+                      value={language}
+                      options={LANGUAGE_OPTIONS}
+                      onChange={(v) => handleChange(setLanguage)(v as LanguageCode)}
+                    />
+                  </div>
+
+                  {/* Startup subsection */}
+                  <div className={styles.subsectionHeader}>
+                    <Monitor size={14} />
+                    <span>Startup</span>
+                  </div>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>On Launch</span>
+                      <span className={styles.rowDesc}>What to show when app starts</span>
+                    </div>
+                    <Select
+                      value={startupBehavior}
+                      options={STARTUP_OPTIONS}
+                      onChange={(v) => handleChange(setStartupBehavior)(v as StartupBehavior)}
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Editor Tab */}
           {activeTab === 'editor' && (
             <div className={styles.tabContent}>
-              <SettingsSection title="Autosave" icon={<Save size={14} />}>
-                <SettingsRow label="Enable Autosave" description="Automatically save changes">
-                  <Toggle
-                    checked={autosaveEnabled}
-                    onChange={handleChange(setAutosaveEnabled)}
-                    size="sm"
-                  />
-                </SettingsRow>
-                <SettingsRow label="Save Interval" description="Seconds between saves">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={autosaveInterval}
-                      onChange={(e) => handleChange(setAutosaveInterval)(Number(e.target.value))}
-                      min={5}
-                      max={300}
-                      step={5}
-                      disabled={!autosaveEnabled}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>sec</span>
-                  </div>
-                </SettingsRow>
-              </SettingsSection>
-
-              <SettingsSection title="Snapshots" icon={<History size={14} />}>
-                <SettingsRow label="Enable Snapshots" description="Keep version history of project">
-                  <Toggle
-                    checked={snapshotEnabled}
-                    onChange={handleChange(setSnapshotEnabled)}
-                    size="sm"
-                  />
-                </SettingsRow>
-                <SettingsRow label="Snapshot on Save" description="Create snapshot when saving">
-                  <Toggle
-                    checked={snapshotOnSave}
-                    onChange={handleChange(setSnapshotOnSave)}
-                    size="sm"
-                    disabled={!snapshotEnabled}
-                  />
-                </SettingsRow>
-                <SettingsRow label="Max Snapshots" description="Number of snapshots to keep">
-                  <Select
-                    value={snapshotMaxCount}
-                    options={SNAPSHOT_COUNT_OPTIONS}
-                    onChange={handleChange(setSnapshotMaxCount)}
-                    disabled={!snapshotEnabled}
-                  />
-                </SettingsRow>
-              </SettingsSection>
-
-              <SettingsSection title="Trash" icon={<Trash2 size={14} />}>
-                <SettingsRow label="Auto Empty Trash" description="Automatically delete old items">
-                  <Toggle
-                    checked={autoEmptyTrash}
-                    onChange={handleChange(setAutoEmptyTrash)}
-                    size="sm"
-                  />
-                </SettingsRow>
-                <SettingsRow label="Retention Period" description="Days before permanent deletion">
-                  <Select
-                    value={trashRetention}
-                    options={TRASH_RETENTION_OPTIONS}
-                    onChange={handleChange(setTrashRetention)}
-                    disabled={!autoEmptyTrash}
-                  />
-                </SettingsRow>
-                <div className={styles.actionRow}>
-                  <button
-                    type="button"
-                    className={styles.secondaryButton}
-                    onClick={handleEmptyTrash}
-                  >
-                    <Trash2 size={14} />
-                    Empty Trash Now
-                  </button>
+              {/* Save & History Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Save size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Save & History</span>
                 </div>
-              </SettingsSection>
 
-              <SettingsSection title="Defaults" icon={<ImageIcon size={14} />}>
-                <SettingsRow label="Default Cut Duration" description="Duration for image cuts">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={defaultCutDuration}
-                      onChange={(e) => handleChange(setDefaultCutDuration)(Number(e.target.value))}
-                      min={0.5}
-                      max={30}
-                      step={0.5}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>sec</span>
+                <div className={styles.panelContent}>
+                  {/* Autosave */}
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Auto Save</span>
+                      <span className={styles.rowDesc}>Automatically save changes</span>
+                    </div>
+                    <div className={styles.rowControls}>
+                      <Toggle
+                        checked={autosaveEnabled}
+                        onChange={handleChange(setAutosaveEnabled)}
+                        size="sm"
+                      />
+                    </div>
                   </div>
-                </SettingsRow>
-              </SettingsSection>
 
-              <SettingsSection title="Preview" icon={<Play size={14} />}>
-                <SettingsRow label="Preview Quality" description="Video preview rendering quality">
-                  <Select
-                    value={previewQuality}
-                    options={PREVIEW_QUALITY_OPTIONS}
-                    onChange={(v) => handleChange(setPreviewQuality)(v as PreviewQuality)}
-                  />
-                </SettingsRow>
-                <SettingsRow label="Default Playback Speed" description="Initial playback rate">
-                  <Select
-                    value={defaultPlaybackRate}
-                    options={PLAYBACK_RATE_OPTIONS}
-                    onChange={handleChange(setDefaultPlaybackRate)}
-                  />
-                </SettingsRow>
-                <SettingsRow label="Show Thumbnails" description="Display thumbnails in timeline">
-                  <Toggle
-                    checked={showThumbnails}
-                    onChange={handleChange(setShowThumbnails)}
-                    size="sm"
-                  />
-                </SettingsRow>
-              </SettingsSection>
+                  <div className={styles.settingsRow} data-disabled={!autosaveEnabled}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Save Interval</span>
+                      <span className={styles.rowDesc}>Seconds between saves</span>
+                    </div>
+                    <div className={styles.inputWithUnit}>
+                      <Input
+                        type="number"
+                        value={autosaveInterval}
+                        onChange={(e) => handleChange(setAutosaveInterval)(Number(e.target.value))}
+                        min={5}
+                        max={300}
+                        step={5}
+                        disabled={!autosaveEnabled}
+                        className={styles.numberInput}
+                      />
+                      <span className={styles.inputUnit}>sec</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.divider} />
+
+                  {/* Snapshots */}
+                  <div className={styles.subsectionHeader}>
+                    <History size={14} />
+                    <span>Version Snapshots</span>
+                  </div>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Enable Snapshots</span>
+                      <span className={styles.rowDesc}>Keep version history of project</span>
+                    </div>
+                    <Toggle
+                      checked={snapshotEnabled}
+                      onChange={handleChange(setSnapshotEnabled)}
+                      size="sm"
+                    />
+                  </div>
+
+                  <div className={styles.settingsRow} data-disabled={!snapshotEnabled}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>On Save</span>
+                      <span className={styles.rowDesc}>Create snapshot when saving</span>
+                    </div>
+                    <Toggle
+                      checked={snapshotOnSave}
+                      onChange={handleChange(setSnapshotOnSave)}
+                      size="sm"
+                      disabled={!snapshotEnabled}
+                    />
+                  </div>
+
+                  <div className={styles.settingsRow} data-disabled={!snapshotEnabled}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Max Snapshots</span>
+                      <span className={styles.rowDesc}>Number of snapshots to keep</span>
+                    </div>
+                    <Select
+                      value={snapshotMaxCount}
+                      options={SNAPSHOT_COUNT_OPTIONS}
+                      onChange={handleChange(setSnapshotMaxCount)}
+                      disabled={!snapshotEnabled}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview & Defaults Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Play size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Playback & Defaults</span>
+                </div>
+
+                <div className={styles.panelContent}>
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Preview Quality</span>
+                      <span className={styles.rowDesc}>Video preview rendering quality</span>
+                    </div>
+                    <Select
+                      value={previewQuality}
+                      options={PREVIEW_QUALITY_OPTIONS}
+                      onChange={(v) => handleChange(setPreviewQuality)(v as PreviewQuality)}
+                    />
+                  </div>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Playback Speed</span>
+                      <span className={styles.rowDesc}>Default playback rate</span>
+                    </div>
+                    <Select
+                      value={defaultPlaybackRate}
+                      options={PLAYBACK_RATE_OPTIONS}
+                      onChange={handleChange(setDefaultPlaybackRate)}
+                    />
+                  </div>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Show Thumbnails</span>
+                      <span className={styles.rowDesc}>Display thumbnails in timeline</span>
+                    </div>
+                    <Toggle
+                      checked={showThumbnails}
+                      onChange={handleChange(setShowThumbnails)}
+                      size="sm"
+                    />
+                  </div>
+
+                  <div className={styles.divider} />
+
+                  <div className={styles.subsectionHeader}>
+                    <ImageIcon size={14} />
+                    <span>Defaults</span>
+                  </div>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Cut Duration</span>
+                      <span className={styles.rowDesc}>Default duration for image cuts</span>
+                    </div>
+                    <div className={styles.inputWithUnit}>
+                      <Input
+                        type="number"
+                        value={defaultCutDuration}
+                        onChange={(e) => handleChange(setDefaultCutDuration)(Number(e.target.value))}
+                        min={0.5}
+                        max={30}
+                        step={0.5}
+                        className={styles.numberInput}
+                      />
+                      <span className={styles.inputUnit}>sec</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trash Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Trash2 size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Trash</span>
+                </div>
+
+                <div className={styles.panelContent}>
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Auto Empty</span>
+                      <span className={styles.rowDesc}>Automatically delete old items</span>
+                    </div>
+                    <Toggle
+                      checked={autoEmptyTrash}
+                      onChange={handleChange(setAutoEmptyTrash)}
+                      size="sm"
+                    />
+                  </div>
+
+                  <div className={styles.settingsRow} data-disabled={!autoEmptyTrash}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Retention Period</span>
+                      <span className={styles.rowDesc}>Days before permanent deletion</span>
+                    </div>
+                    <Select
+                      value={trashRetention}
+                      options={TRASH_RETENTION_OPTIONS}
+                      onChange={handleChange(setTrashRetention)}
+                      disabled={!autoEmptyTrash}
+                    />
+                  </div>
+
+                  <div className={styles.actionRow}>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={handleEmptyTrash}
+                    >
+                      <Trash2 size={14} />
+                      Empty Trash Now
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Performance Tab */}
           {activeTab === 'performance' && (
             <div className={styles.tabContent}>
-              <SettingsSection title="Thumbnail Cache" icon={<Database size={14} />}>
-                <div className={styles.statsRow}>
-                  <StatDisplay label="Items" value={stats.items} />
-                  <StatDisplay label="Size" value={currentBytesMb} unit="MB" />
+              {/* Thumbnail Cache Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Database size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Thumbnail Cache</span>
                 </div>
-                <SettingsRow label="Max Cache Size" description="Maximum memory usage">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={maxMb}
-                      onChange={(e) => handleChange(setMaxMb)(Number(e.target.value))}
-                      min={1}
-                      max={512}
-                      step={8}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>MB</span>
+
+                <div className={styles.panelContent}>
+                  <div className={styles.statsRow}>
+                    <StatDisplay label="Items" value={stats.items} />
+                    <StatDisplay label="Size" value={currentBytesMb} unit="MB" />
                   </div>
-                </SettingsRow>
-                <SettingsRow label="Max Items" description="Maximum cached thumbnails">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={maxItems}
-                      onChange={(e) => handleChange(setMaxItems)(Number(e.target.value))}
-                      min={10}
-                      max={1000}
-                      step={10}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>items</span>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Max Cache Size</span>
+                      <span className={styles.rowDesc}>Maximum memory usage</span>
+                    </div>
+                    <div className={styles.inputWithUnit}>
+                      <Input
+                        type="number"
+                        value={maxMb}
+                        onChange={(e) => handleChange(setMaxMb)(Number(e.target.value))}
+                        min={1}
+                        max={512}
+                        step={8}
+                        className={styles.numberInput}
+                      />
+                      <span className={styles.inputUnit}>MB</span>
+                    </div>
                   </div>
-                </SettingsRow>
-                <div className={styles.actionRow}>
-                  <button
-                    type="button"
-                    className={styles.secondaryButton}
-                    onClick={handleClearCache}
-                  >
-                    <HardDrive size={14} />
-                    Clear Cache
-                  </button>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Max Items</span>
+                      <span className={styles.rowDesc}>Maximum cached thumbnails</span>
+                    </div>
+                    <div className={styles.inputWithUnit}>
+                      <Input
+                        type="number"
+                        value={maxItems}
+                        onChange={(e) => handleChange(setMaxItems)(Number(e.target.value))}
+                        min={10}
+                        max={1000}
+                        step={10}
+                        className={styles.numberInput}
+                      />
+                      <span className={styles.inputUnit}>items</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.actionRow}>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={handleClearCache}
+                    >
+                      <HardDrive size={14} />
+                      Clear Cache
+                    </button>
+                  </div>
                 </div>
-              </SettingsSection>
+              </div>
 
-              <SettingsSection title="FFmpeg Limits" icon={<Film size={14} />}>
-                <SettingsRow label="Hardware Acceleration" description="Use GPU for encoding">
-                  <Toggle
-                    checked={hardwareAcceleration}
-                    onChange={handleChange(setHardwareAcceleration)}
-                    size="sm"
-                  />
-                </SettingsRow>
-                <SettingsRow label="Stderr Buffer" description="Log buffer size">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={stderrMaxKb}
-                      onChange={(e) => handleChange(setStderrMaxKb)(Number(e.target.value))}
-                      min={16}
-                      max={1024}
-                      step={16}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>KB</span>
-                  </div>
-                </SettingsRow>
-              </SettingsSection>
+              {/* Processing Limits Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Film size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Processing Limits</span>
+                </div>
 
-              <SettingsSection title="PCM Audio Limits" icon={<Clock size={14} />}>
-                <SettingsRow label="Per-Clip Duration" description="Maximum clip length">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={maxClipSeconds}
-                      onChange={(e) => handleChange(setMaxClipSeconds)(Number(e.target.value))}
-                      min={10}
-                      max={600}
-                      step={10}
-                      className={styles.numberInput}
+                <div className={styles.panelContent}>
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Hardware Acceleration</span>
+                      <span className={styles.rowDesc}>Use GPU for encoding</span>
+                    </div>
+                    <Toggle
+                      checked={hardwareAcceleration}
+                      onChange={handleChange(setHardwareAcceleration)}
+                      size="sm"
                     />
-                    <span className={styles.inputUnit}>sec</span>
                   </div>
-                </SettingsRow>
-                <SettingsRow label="Per-Clip Size" description="Maximum clip memory">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={maxClipMb}
-                      onChange={(e) => handleChange(setMaxClipMb)(Number(e.target.value))}
-                      min={8}
-                      max={256}
-                      step={8}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>MB</span>
+
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Log Buffer</span>
+                      <span className={styles.rowDesc}>FFmpeg stderr buffer size</span>
+                    </div>
+                    <div className={styles.inputWithUnit}>
+                      <Input
+                        type="number"
+                        value={stderrMaxKb}
+                        onChange={(e) => handleChange(setStderrMaxKb)(Number(e.target.value))}
+                        min={16}
+                        max={1024}
+                        step={16}
+                        className={styles.numberInput}
+                      />
+                      <span className={styles.inputUnit}>KB</span>
+                    </div>
                   </div>
-                </SettingsRow>
-                <SettingsRow label="Total Duration" description="Maximum total audio">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={Math.round(maxTotalSeconds / 60)}
-                      onChange={(e) => handleChange(setMaxTotalSeconds)(Number(e.target.value) * 60)}
-                      min={1}
-                      max={60}
-                      step={1}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>min</span>
+
+                  <div className={styles.divider} />
+
+                  <div className={styles.subsectionHeader}>
+                    <Clock size={14} />
+                    <span>PCM Audio Limits</span>
                   </div>
-                </SettingsRow>
-                <SettingsRow label="Total Size" description="Maximum total memory">
-                  <div className={styles.inputWithUnit}>
-                    <Input
-                      type="number"
-                      value={maxTotalMb}
-                      onChange={(e) => handleChange(setMaxTotalMb)(Number(e.target.value))}
-                      min={64}
-                      max={1024}
-                      step={64}
-                      className={styles.numberInput}
-                    />
-                    <span className={styles.inputUnit}>MB</span>
+
+                  <div className={styles.twoColumnGrid}>
+                    <div className={styles.compactRow}>
+                      <span className={styles.compactLabel}>Per-Clip Duration</span>
+                      <div className={styles.inputWithUnit}>
+                        <Input
+                          type="number"
+                          value={maxClipSeconds}
+                          onChange={(e) => handleChange(setMaxClipSeconds)(Number(e.target.value))}
+                          min={10}
+                          max={600}
+                          step={10}
+                          className={styles.numberInput}
+                        />
+                        <span className={styles.inputUnit}>sec</span>
+                      </div>
+                    </div>
+
+                    <div className={styles.compactRow}>
+                      <span className={styles.compactLabel}>Per-Clip Size</span>
+                      <div className={styles.inputWithUnit}>
+                        <Input
+                          type="number"
+                          value={maxClipMb}
+                          onChange={(e) => handleChange(setMaxClipMb)(Number(e.target.value))}
+                          min={8}
+                          max={256}
+                          step={8}
+                          className={styles.numberInput}
+                        />
+                        <span className={styles.inputUnit}>MB</span>
+                      </div>
+                    </div>
+
+                    <div className={styles.compactRow}>
+                      <span className={styles.compactLabel}>Total Duration</span>
+                      <div className={styles.inputWithUnit}>
+                        <Input
+                          type="number"
+                          value={Math.round(maxTotalSeconds / 60)}
+                          onChange={(e) => handleChange(setMaxTotalSeconds)(Number(e.target.value) * 60)}
+                          min={1}
+                          max={60}
+                          step={1}
+                          className={styles.numberInput}
+                        />
+                        <span className={styles.inputUnit}>min</span>
+                      </div>
+                    </div>
+
+                    <div className={styles.compactRow}>
+                      <span className={styles.compactLabel}>Total Size</span>
+                      <div className={styles.inputWithUnit}>
+                        <Input
+                          type="number"
+                          value={maxTotalMb}
+                          onChange={(e) => handleChange(setMaxTotalMb)(Number(e.target.value))}
+                          min={64}
+                          max={1024}
+                          step={64}
+                          className={styles.numberInput}
+                        />
+                        <span className={styles.inputUnit}>MB</span>
+                      </div>
+                    </div>
                   </div>
-                </SettingsRow>
-              </SettingsSection>
+                </div>
+              </div>
             </div>
           )}
 
           {/* Advanced Tab */}
           {activeTab === 'advanced' && (
             <div className={styles.tabContent}>
-              <SettingsSection title="Developer Options" icon={<Code size={14} />}>
-                <SettingsRow label="Debug Mode" description="Show debug information">
-                  <Toggle
-                    checked={debugMode}
-                    onChange={handleChange(setDebugMode)}
-                    size="sm"
-                  />
-                </SettingsRow>
-                <SettingsRow label="Verbose Logging" description="Enable detailed logs">
-                  <Toggle
-                    checked={verboseLogging}
-                    onChange={handleChange(setVerboseLogging)}
-                    size="sm"
-                  />
-                </SettingsRow>
-              </SettingsSection>
+              {/* Developer Options Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Code size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Developer</span>
+                </div>
 
-              <SettingsSection title="Data Management" icon={<HardDrive size={14} />}>
-                <div className={styles.recoveryWarning}>
-                  <AlertTriangle size={14} />
-                  <span>Recovery will overwrite current project state</span>
-                </div>
-                <div className={styles.actionRow}>
-                  <button
-                    type="button"
-                    className={styles.secondaryButton}
-                    onClick={handleForceRecovery}
-                  >
-                    <Download size={14} />
-                    Force Recovery from Project Data
-                  </button>
-                </div>
-                <div className={styles.actionRow}>
-                  <button
-                    type="button"
-                    className={styles.secondaryButton}
-                    onClick={handleResetDefaults}
-                  >
-                    <RotateCcw size={14} />
-                    Reset to Defaults
-                  </button>
-                </div>
-              </SettingsSection>
+                <div className={styles.panelContent}>
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Debug Mode</span>
+                      <span className={styles.rowDesc}>Show debug information</span>
+                    </div>
+                    <Toggle
+                      checked={debugMode}
+                      onChange={handleChange(setDebugMode)}
+                      size="sm"
+                    />
+                  </div>
 
-              <SettingsSection title="About" icon={<Info size={14} />}>
-                <div className={styles.aboutInfo}>
-                  <div className={styles.aboutRow}>
+                  <div className={styles.settingsRow}>
+                    <div className={styles.rowInfo}>
+                      <span className={styles.rowLabel}>Verbose Logging</span>
+                      <span className={styles.rowDesc}>Enable detailed logs</span>
+                    </div>
+                    <Toggle
+                      checked={verboseLogging}
+                      onChange={handleChange(setVerboseLogging)}
+                      size="sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Maintenance Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <HardDrive size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>Maintenance</span>
+                </div>
+
+                <div className={styles.panelContent}>
+                  <div className={styles.warningBox}>
+                    <AlertTriangle size={14} />
+                    <span>Recovery will overwrite current project state</span>
+                  </div>
+
+                  <div className={styles.actionButtonsRow}>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={handleForceRecovery}
+                    >
+                      <Download size={14} />
+                      Force Recovery
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.actionBtn}
+                      onClick={handleResetDefaults}
+                    >
+                      <RotateCcw size={14} />
+                      Reset to Defaults
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* About Panel */}
+              <div className={styles.settingsPanel}>
+                <div className={styles.panelHeader}>
+                  <Info size={14} className={styles.panelHeaderIcon} />
+                  <span className={styles.panelHeaderTitle}>About</span>
+                </div>
+
+                <div className={styles.panelContent}>
+                  <div className={styles.aboutGrid}>
                     <span className={styles.aboutLabel}>Application</span>
                     <span className={styles.aboutValue}>AI-Scene-Deck</span>
-                  </div>
-                  <div className={styles.aboutRow}>
                     <span className={styles.aboutLabel}>Version</span>
                     <span className={styles.aboutValue}>1.0.0</span>
-                  </div>
-                  <div className={styles.aboutRow}>
                     <span className={styles.aboutLabel}>Electron</span>
                     <span className={styles.aboutValue}>{window.electronAPI?.getVersions?.()?.electron || 'N/A'}</span>
                   </div>
                 </div>
-              </SettingsSection>
+              </div>
             </div>
           )}
         </Body>
