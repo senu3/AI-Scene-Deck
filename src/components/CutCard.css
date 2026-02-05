@@ -75,39 +75,29 @@
   color: var(--text-muted);
 }
 
-/* Asset type badge - icon + label (AssetPanel style) */
+/* Asset type badge - icon only, bottom-right (left of duration) */
 .cut-type-badge {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  bottom: 6px;
+  right: 52px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: 500;
   color: white;
   backdrop-filter: blur(4px);
 }
 
-.cut-type-badge span {
-  line-height: 1;
-}
-
-/* Image type badge */
+/* Image type badge - accent-primary per color-system.md */
 .cut-type-badge.image {
-  background-color: rgba(var(--accent-primary-rgb), 0.85);
+  background-color: rgba(var(--accent-primary-rgb), 0.9);
 }
 
-/* Video type badge */
+/* Video type badge - accent-video per color-system.md */
 .cut-type-badge.video {
-  background-color: rgba(var(--accent-video-rgb), 0.85);
-}
-
-/* Lip Sync badge - gradient pink/purple */
-.cut-type-badge.lipsync {
-  background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
+  background-color: rgba(var(--accent-video-rgb), 0.9);
 }
 
 .cut-duration {
@@ -165,10 +155,6 @@
   background-color: var(--accent-audio);
 }
 
-/* Hover effects for type badge */
-.cut-card:hover .cut-type-badge {
-  opacity: 1;
-}
 
 /* Selected state indicator */
 .cut-card.selected::before {
