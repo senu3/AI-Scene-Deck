@@ -6,3 +6,9 @@ export {
   type DisabledReasonProps,
   type BalloonPosition,
 } from './DisabledReason';
+
+export {
+  InlineSlider,
+  type InlineSliderProps,
+  type PopoverPosition,
+} from './InlineSlider';

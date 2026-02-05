@@ -31,6 +31,11 @@ export {
 } from './Tooltip';
 
 export {
+  Slider,
+  type SliderProps,
+} from './Slider';
+
+export {
   FormControls,
   Input,
   InputGroup,

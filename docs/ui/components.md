@@ -12,11 +12,13 @@ src/ui/
 ├── primitives/        # Basic building blocks
 │   ├── Modal.tsx      # Overlay, Container, Header, Body, Footer, Actions, ActionButton
 │   ├── Tooltip.tsx    # Hover/focus tooltip for explanations
+│   ├── Slider.tsx     # Horizontal range slider with keyboard support
 │   ├── FormControls.tsx # Input, Select, RadioGroup, Checkbox
 │   └── *.module.css
 ├── patterns/          # Combined components for consistent UX
 │   ├── Field.tsx      # Label + hint + error wrapper
 │   ├── DisabledReason.tsx # Balloon for disabled state reasons
+│   ├── InlineSlider.tsx # Compact slider in popover (volume, opacity)
 │   └── *.module.css
 ├── feedback/          # Notification/dialog components
 │   ├── Toast.tsx      # ToastProvider, useToast
@@ -289,6 +291,75 @@ import { DisabledReason } from './ui';
 ```
 
 Use for important actions (Export, Delete) where users need to understand why disabled.
+
+## Slider
+
+Horizontal range slider with keyboard navigation:
+
+```tsx
+import { Slider } from './ui';
+
+// Basic slider
+<Slider value={volume} min={0} max={100} onChange={setVolume} />
+
+// With value display
+<Slider
+  value={opacity}
+  min={0}
+  max={1}
+  step={0.1}
+  onChange={setOpacity}
+  showValue
+  formatValue={(v) => `${Math.round(v * 100)}%`}
+/>
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| value | number | - | Current value |
+| min | number | 0 | Minimum value |
+| max | number | 100 | Maximum value |
+| step | number | 1 | Step increment |
+| disabled | boolean | false | Disabled state |
+| showValue | boolean | false | Show value label |
+| formatValue | (v) => string | - | Custom value formatter |
+
+Keyboard: Arrow keys (±step), PageUp/Down (±10×step), Home/End (min/max)
+
+## InlineSlider
+
+Compact slider in popover (for toolbars, panels):
+
+```tsx
+import { InlineSlider } from './ui';
+import { Volume2 } from 'lucide-react';
+
+// With icon trigger
+<InlineSlider
+  value={volume}
+  onChange={setVolume}
+  icon={<Volume2 size={16} />}
+/>
+
+// With label trigger
+<InlineSlider
+  value={opacity}
+  min={0}
+  max={1}
+  step={0.1}
+  onChange={setOpacity}
+  label="Opacity"
+  formatValue={(v) => `${Math.round(v * 100)}%`}
+  position="bottom"
+/>
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| icon | ReactNode | - | Icon as trigger |
+| label | string | - | Label as trigger |
+| position | 'top' \| 'bottom' \| 'left' \| 'right' | 'top' | Popover position |
+| popoverWidth | number | 140 | Popover width in px |
 
 ## Notification Guidelines
 

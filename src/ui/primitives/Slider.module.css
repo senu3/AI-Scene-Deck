@@ -1,0 +1,109 @@
+/* ========================================
+   Slider Container
+   ======================================== */
+
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 80px;
+}
+
+.slider[data-disabled] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ========================================
+   Track
+   ======================================== */
+
+.track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.track:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* ========================================
+   Fill (progress)
+   ======================================== */
+
+.fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  background-color: var(--accent-primary);
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* ========================================
+   Thumb
+   ======================================== */
+
+.thumb {
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background-color: var(--text-primary);
+  border: 2px solid var(--accent-primary);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+/* Hover state */
+.track:hover .thumb {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 0 4px rgba(var(--accent-primary-rgb), 0.2);
+}
+
+/* Active/dragging state */
+.track:active .thumb {
+  transform: translate(-50%, -50%) scale(1.1);
+  box-shadow: 0 0 0 6px rgba(var(--accent-primary-rgb), 0.25);
+}
+
+/* Focus state */
+.track:focus-visible .thumb {
+  box-shadow: 0 0 0 4px rgba(var(--accent-primary-rgb), 0.35);
+}
+
+/* ========================================
+   Value Label
+   ======================================== */
+
+.value {
+  flex-shrink: 0;
+  min-width: 32px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+}
+
+/* ========================================
+   Disabled State
+   ======================================== */
+
+.slider[data-disabled] .fill {
+  background-color: var(--text-muted);
+}
+
+.slider[data-disabled] .thumb {
+  background-color: var(--text-muted);
+  border-color: var(--text-muted);
+}
