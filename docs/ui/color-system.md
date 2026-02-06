@@ -120,6 +120,18 @@ Notes
 | Primary actions | Blue→Purple | `.action-btn.primary` |
 | Lip Sync actions | Pink→Purple | `.action-btn.lip-sync` |
 
+### Timeline Scene Colors
+
+Scene segments in TimelineBar and Storyline cycle through these tokens:
+
+| Token | Mapped Accent | Color |
+|-------|---------------|-------|
+| `--timeline-scene-1` | `--accent-primary` | Cyan |
+| `--timeline-scene-2` | `--accent-secondary` | Blue |
+| `--timeline-scene-3` | `--accent-purple` | Purple |
+| `--timeline-scene-4` | `--accent-pink` | Pink |
+| `--timeline-scene-5` | `--accent-success` | Green |
+
 ### Accent Progression
 
 | Usage | Rule |
@@ -138,7 +150,7 @@ Notes
 
 ### Deep Surface Colors
 
-Used for full-viewport backdrops and info panels (e.g. StartupModal).
+Used for full-viewport backdrops, info panels (e.g. StartupModal), and the Header bar.
 
 | Variable | HEX | Usage |
 |----------|-----|-------|

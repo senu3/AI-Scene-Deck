@@ -41,11 +41,11 @@
   --accent-group: rgb(var(--accent-group-rgb)); /* Teal - Group/Multi-select */
 
   /* Timeline bar scene colors */
-  --timeline-scene-1: var(--accent-secondary);
-  --timeline-scene-2: var(--accent-purple);
-  --timeline-scene-3: var(--accent-pink);
-  --timeline-scene-4: var(--accent-success);
-  --timeline-scene-5: var(--accent-audio);
+  --timeline-scene-1: var(--accent-primary);
+  --timeline-scene-2: var(--accent-secondary);
+  --timeline-scene-3: var(--accent-purple);
+  --timeline-scene-4: var(--accent-pink);
+  --timeline-scene-5: var(--accent-success);
 
   --border-color: #334155;
   --border-light: #475569;

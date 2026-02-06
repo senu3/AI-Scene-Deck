@@ -3,7 +3,7 @@
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
-  background: var(--bg-tertiary);
+  background: linear-gradient(180deg, var(--bg-depth-1), var(--bg-depth-2));
   border-bottom: 1px solid var(--border-color);
   -webkit-app-region: drag;
 }
@@ -64,24 +64,54 @@
   -webkit-app-region: no-drag;
 }
 
-/* Duration Pill */
-.header-pill {
+/* Project Stats */
+.header-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-right: 8px;
+}
+
+.header-stat {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  background: var(--panel-bg);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-pill);
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.2px;
 }
 
-.header-pill svg {
-  opacity: 0.7;
+.header-stat svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.header-stat-value {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Time display */
+.header-stat-time {
+  gap: 4px;
+}
+
+.header-time-current {
+  color: var(--accent-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.header-time-sep {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.header-time-total {
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
 /* Header Buttons */

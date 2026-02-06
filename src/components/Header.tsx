@@ -1,5 +1,5 @@
 import { useMemo, useState, useRef, useEffect } from 'react';
-import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X, Play, Download, Clock, Settings } from 'lucide-react';
+import { Clapperboard, FolderOpen, Save, MoreVertical, Undo, Redo, X, Play, Download, Clock, Layers, Film, Settings } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import MissingAssetRecoveryModal from './MissingAssetRecoveryModal';
@@ -16,7 +16,7 @@ interface HeaderProps {
 }
 
 export default function Header({ onOpenSettings, onPreview, onExport, isExporting }: HeaderProps) {
-  const { projectName, scenes, selectedSceneId, selectScene } = useStore();
+  const { projectName, scenes, selectedSceneId, selectedCutId, selectScene } = useStore();
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
   const {
     handleSaveProject,
@@ -32,12 +32,31 @@ export default function Header({ onOpenSettings, onPreview, onExport, isExportin
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
-  // Calculate total duration
-  const totalDuration = useMemo(() => {
-    return scenes.reduce((total, scene) => {
-      return total + scene.cuts.reduce((acc, cut) => acc + (isFinite(cut.displayTime) ? cut.displayTime : 0), 0);
-    }, 0);
-  }, [scenes]);
+  // Project stats
+  const { totalDuration, totalCuts, selectedCutTime } = useMemo(() => {
+    let duration = 0;
+    let cuts = 0;
+    let cutTime: number | null = null;
+    let elapsed = 0;
+
+    for (const scene of scenes) {
+      for (const cut of scene.cuts) {
+        const dt = isFinite(cut.displayTime) ? cut.displayTime : 0;
+        if (selectedCutId && cut.id === selectedCutId && cutTime === null) {
+          cutTime = elapsed;
+        }
+        elapsed += dt;
+        duration += dt;
+        cuts++;
+      }
+    }
+
+    return {
+      totalDuration: duration,
+      totalCuts: cuts,
+      selectedCutTime: selectedCutId ? cutTime : null,
+    };
+  }, [scenes, selectedCutId]);
 
   // Close menu on outside click
   useEffect(() => {
@@ -85,10 +104,26 @@ export default function Header({ onOpenSettings, onPreview, onExport, isExportin
           </div>
 
           <div className="header-right">
-            {/* Total Duration Pill */}
-            <div className="header-pill" title="Total Duration">
-              <Clock size={14} />
-              <span>{formatTimeCode(totalDuration)}</span>
+            {/* Project Stats */}
+            <div className="header-stats">
+              <div className="header-stat">
+                <Layers size={14} />
+                <span className="header-stat-value">{scenes.length}</span>
+                <span>scenes</span>
+              </div>
+              <div className="header-stat">
+                <Film size={14} />
+                <span className="header-stat-value">{totalCuts}</span>
+                <span>cuts</span>
+              </div>
+              <div className="header-stat header-stat-time">
+                <Clock size={14} />
+                <span className="header-time-current">
+                  {selectedCutTime !== null ? formatTimeCode(selectedCutTime) : '--'}
+                </span>
+                <span className="header-time-sep">/</span>
+                <span className="header-time-total">{formatTimeCode(totalDuration)}</span>
+              </div>
             </div>
 
             {/* Preview Button */}
