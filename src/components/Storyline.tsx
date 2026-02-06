@@ -11,13 +11,13 @@ import type { Asset, CutGroup, Cut } from '../types';
 import { useStorylineDragController, type PlaceholderState } from '../hooks/useStorylineDragController';
 import './Storyline.css';
 
-// Scene color palette - cycles through for each scene
+// Scene color palette - uses --timeline-scene-* tokens to match TimelineBar
 const SCENE_COLORS = [
-  'var(--accent-secondary)',  // blue
-  'var(--accent-purple)',     // purple
-  'var(--accent-pink)',       // pink
-  'var(--accent-success)',    // green
-  'var(--accent-audio)',      // audio purple
+  'var(--timeline-scene-1)',  // cyan
+  'var(--timeline-scene-2)',  // blue
+  'var(--timeline-scene-3)',  // purple
+  'var(--timeline-scene-4)',  // pink
+  'var(--timeline-scene-5)',  // green
 ];
 
 const getSceneColor = (index: number) => SCENE_COLORS[index % SCENE_COLORS.length];
@@ -398,67 +398,61 @@ function SceneColumn({
           onSelect();
         }}
       >
-        <div className="scene-header-row">
-          <div className="scene-indicator" />
+        <span className="scene-indicator" />
 
-          {isEditing ? (
-            <input
-              ref={inputRef}
-              type="text"
-              className="scene-name-input"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onBlur={handleRename}
-              onKeyDown={handleKeyDown}
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <span className="scene-name">{sceneName.toUpperCase()}</span>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            className="scene-name-input"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={handleRename}
+            onKeyDown={handleKeyDown}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="scene-name">{sceneName}</span>
+        )}
+
+        <span className="scene-duration">{sceneDuration.toFixed(1)}s</span>
+
+        <div className="scene-menu-container" ref={menuRef}>
+          <button
+            className="scene-menu-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+          >
+            <MoreHorizontal size={16} />
+          </button>
+
+          {showMenu && (
+            <div className="scene-menu">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                  setShowMenu(false);
+                }}
+              >
+                <Edit2 size={14} />
+                Rename
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
+                className="danger"
+                disabled={scenes.length <= 1}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </div>
           )}
-
-          <div className="scene-menu-container" ref={menuRef}>
-            <button
-              className="scene-menu-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-            >
-              <MoreHorizontal size={16} />
-            </button>
-
-            {showMenu && (
-              <div className="scene-menu">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsEditing(true);
-                    setShowMenu(false);
-                  }}
-                >
-                  <Edit2 size={14} />
-                  Rename
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  className="danger"
-                  disabled={scenes.length <= 1}
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="scene-meta">
-          <span className="scene-meta-time">{sceneDuration.toFixed(1)}s</span>
-          <span className="scene-meta-dot">•</span>
-          <span>{cuts.length} cuts</span>
         </div>
       </div>
 
