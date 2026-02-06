@@ -29,10 +29,12 @@ export default function NotificationTestModal({ open, onClose }: NotificationTes
   const { toast } = useToast();
   const { alert, confirm } = useDialog();
   const { banner } = useBanner();
-  const { show: showMiniToast, element: miniToastElement } = useMiniToast();
+  const { show: showMiniToast, dismiss: dismissMiniToast, element: miniToastElement } = useMiniToast();
 
   const [progressBannerId, setProgressBannerId] = useState<string | null>(null);
   const [progressValue, setProgressValue] = useState(0);
+  const [persistentToastId, setPersistentToastId] = useState<string | null>(null);
+  const [lastBannerId, setLastBannerId] = useState<string | null>(null);
 
   const handleConfirmResult = useCallback(
     async (variant: 'default' | 'warning' | 'danger' | 'info') => {
@@ -156,9 +158,10 @@ export default function NotificationTestModal({ open, onClose }: NotificationTes
                   <button
                     type="button"
                     className={styles.actionBtn}
-                    onClick={() =>
-                      toast.info('Processing...', 'This stays until dismissed.', { duration: 0, id: 'toast-persistent' })
-                    }
+                    onClick={() => {
+                      const id = toast.info('Processing...', 'This stays until dismissed.', { duration: 0 });
+                      setPersistentToastId(id);
+                    }}
                   >
                     Persistent
                   </button>
@@ -172,6 +175,18 @@ export default function NotificationTestModal({ open, onClose }: NotificationTes
                     }
                   >
                     With Action
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => {
+                      if (persistentToastId) {
+                        toast.dismiss(persistentToastId);
+                        setPersistentToastId(null);
+                      }
+                    }}
+                  >
+                    Dismiss
                   </button>
                   <button type="button" className={styles.actionBtn} onClick={() => toast.dismissAll()}>
                     Dismiss All
@@ -269,25 +284,44 @@ export default function NotificationTestModal({ open, onClose }: NotificationTes
                   <button
                     type="button"
                     className={styles.actionBtn}
-                    onClick={() => banner.show({ variant: 'info', message: 'Connected to sync service.', icon: 'info' })}
+                    onClick={() => {
+                      const id = banner.show({ variant: 'info', message: 'Connected to sync service.', icon: 'info', dismissible: true });
+                      setLastBannerId(id);
+                    }}
                   >
                     Info
                   </button>
                   <button
                     type="button"
                     className={styles.actionBtn}
-                    onClick={() =>
-                      banner.show({ variant: 'warning', message: 'Network unstable.', icon: 'wifi-off' })
-                    }
+                    onClick={() => {
+                      const id = banner.show({ variant: 'warning', message: 'Network unstable.', icon: 'wifi-off', dismissible: true });
+                      setLastBannerId(id);
+                    }}
                   >
                     Warning
                   </button>
                   <button
                     type="button"
                     className={styles.actionBtn}
-                    onClick={() => banner.show({ variant: 'error', message: 'Sync failed. Retry needed.', icon: 'alert' })}
+                    onClick={() => {
+                      const id = banner.show({ variant: 'error', message: 'Sync failed. Retry needed.', icon: 'alert', dismissible: true });
+                      setLastBannerId(id);
+                    }}
                   >
                     Error
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => {
+                      if (lastBannerId) {
+                        banner.dismiss(lastBannerId);
+                        setLastBannerId(null);
+                      }
+                    }}
+                  >
+                    Dismiss
                   </button>
                   <button type="button" className={styles.actionBtn} onClick={() => banner.dismissAll()}>
                     Dismiss All
@@ -362,6 +396,16 @@ export default function NotificationTestModal({ open, onClose }: NotificationTes
                     onClick={() => showMiniToast('Sync failed', 'error')}
                   >
                     Error
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => showMiniToast('Persistent toast', 'info', 0)}
+                  >
+                    Persistent
+                  </button>
+                  <button type="button" className={styles.actionBtn} onClick={dismissMiniToast}>
+                    Dismiss
                   </button>
                 </div>
               </SettingsRow>

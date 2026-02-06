@@ -36,6 +36,8 @@ export interface UseMiniToastOptions {
 export interface MiniToastAPI {
   /** Show a mini toast message */
   show: (message: string, variant?: MiniToastVariant, duration?: number) => void;
+  /** Dismiss the current mini toast immediately */
+  dismiss: () => void;
   /** ReactNode to render inside your overlay container */
   element: React.ReactNode;
 }
@@ -54,6 +56,20 @@ export function useMiniToast(options?: UseMiniToastOptions): MiniToastAPI {
     };
   }, []);
 
+  const dismiss = useCallback(() => {
+    // Clear any pending timers
+    window.clearTimeout(dismissTimerRef.current);
+    window.clearTimeout(removeTimerRef.current);
+
+    // Start exit animation
+    setToast((prev) => (prev ? { ...prev, exiting: true } : null));
+
+    // Remove after exit animation completes
+    removeTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+    }, 180);
+  }, []);
+
   const show = useCallback(
     (message: string, variant: MiniToastVariant = 'info', duration?: number) => {
       // Clear any pending timers
@@ -64,6 +80,9 @@ export function useMiniToast(options?: UseMiniToastOptions): MiniToastAPI {
 
       // Show immediately (new key forces re-mount for animation)
       setToast({ message, variant, key: Date.now(), exiting: false });
+
+      // If duration is 0, make it persistent (no auto-dismiss)
+      if (ms === 0) return;
 
       // Start exit animation before removal
       dismissTimerRef.current = window.setTimeout(() => {
@@ -91,5 +110,5 @@ export function useMiniToast(options?: UseMiniToastOptions): MiniToastAPI {
     </div>
   ) : null;
 
-  return { show, element };
+  return { show, dismiss, element };
 }
