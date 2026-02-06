@@ -477,7 +477,7 @@ export default function PreviewModal({
     setSingleModeCurrentTime(videoRef.current.currentTime);
 
     // If both IN and OUT points are set, constrain playback
-    if (inPoint !== null && outPoint !== null) {
+    if (singleModeIsPlaying && inPoint !== null && outPoint !== null) {
       const clipStart = Math.min(inPoint, outPoint);
       const clipEnd = Math.max(inPoint, outPoint);
       if (videoRef.current.currentTime >= clipEnd) {
@@ -491,7 +491,7 @@ export default function PreviewModal({
         }
       }
     }
-  }, [isSingleModeVideo, inPoint, outPoint, isLooping]);
+  }, [isSingleModeVideo, inPoint, outPoint, isLooping, singleModeIsPlaying]);
 
   const handleSingleModeLoadedMetadata = useCallback(() => {
     if (!videoRef.current || !isSingleModeVideo) return;

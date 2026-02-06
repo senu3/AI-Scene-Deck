@@ -275,8 +275,8 @@ export function useSequencePlaybackController(itemDurations: number[]) {
     const progress = duration > 0 ? (clampedLocal / duration) * 100 : 0;
     dispatch({ type: 'SET_POSITION', index: current.currentIndex, progress });
 
-    const { inPoint, outPoint } = getEffectiveRange();
-    if (current.inPoint !== null && current.outPoint !== null) {
+    if (current.isPlaying && current.inPoint !== null && current.outPoint !== null) {
+      const { inPoint, outPoint } = getEffectiveRange();
       const absTime = calculateAbsoluteTime(current.currentIndex, progress, current.itemDurations);
       if (absTime >= outPoint) {
         if (current.isLooping) {
