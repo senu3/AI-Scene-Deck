@@ -12,7 +12,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import {
-  X,
   Brush,
   Eraser,
   ZoomIn,
@@ -23,7 +22,7 @@ import {
   RotateCcw,
   Check,
 } from "lucide-react";
-import { Overlay } from "../ui/primitives/Modal";
+import { Overlay, Header } from "../ui/primitives/Modal";
 import "./MaskPaintModal.css";
 
 interface MaskPaintModalProps {
@@ -516,15 +515,13 @@ export default function MaskPaintModal({
     <Overlay className="mask-modal-overlay" onClick={onClose}>
       <div className="mask-modal">
         {/* Header */}
-        <div className="mask-header">
-          <h3 className="mask-title">
-            <Brush size={18} />
-            Mask Editor
-          </h3>
-          <button className="mask-close-btn" onClick={onClose}>
-            <X size={20} />
-          </button>
-        </div>
+        <Header
+          title="Mask Editor"
+          icon={<Brush size={18} />}
+          iconVariant="default"
+          onClose={onClose}
+          className="mask-header-icon-pink"
+        />
 
         {/* Toolbar */}
         <div className="mask-toolbar">

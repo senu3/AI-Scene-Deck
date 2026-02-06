@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X, Camera, Play, Pause, Mic, Volume2, Film, Check, Brush } from "lucide-react";
 import type { Asset } from "../types";
+import { Slider } from "../ui/primitives/Slider";
 import MaskPaintModal from "./MaskPaintModal";
 import "./LipSyncModal.css";
 
@@ -203,10 +204,6 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
       <div className="lipsync-modal" onClick={(e) => e.stopPropagation()}>
         {/* Left: Preview Section */}
         <div className="lipsync-preview-section">
-          <button className="lipsync-close-btn" onClick={onClose}>
-            <X size={20} />
-          </button>
-
           <div className="lipsync-video-container">
             {isVideo ? (
               <video
@@ -271,6 +268,9 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
               <Mic size={18} />
             </div>
             <h3 className="lipsync-panel-title">Lip Sync Setup</h3>
+            <button className="lipsync-close-btn" onClick={onClose}>
+              <X size={20} />
+            </button>
           </div>
 
           <div className="lipsync-panel-content">
@@ -371,42 +371,42 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
               <div className="lipsync-thresholds">
                 <div className="threshold-row">
                   <span className="threshold-label">T1 (Half1)</span>
-                  <input
-                    type="range"
+                  <Slider
+                    value={thresholds.t1}
                     min={0}
                     max={1}
                     step={0.01}
-                    value={thresholds.t1}
-                    onChange={(e) => handleThresholdChange("t1", parseFloat(e.target.value))}
-                    className="threshold-slider"
+                    onChange={(v) => handleThresholdChange("t1", v)}
+                    showValue
+                    formatValue={(v) => v.toFixed(2)}
+                    aria-label="T1 threshold"
                   />
-                  <span className="threshold-value">{thresholds.t1.toFixed(2)}</span>
                 </div>
                 <div className="threshold-row">
                   <span className="threshold-label">T2 (Half2)</span>
-                  <input
-                    type="range"
+                  <Slider
+                    value={thresholds.t2}
                     min={0}
                     max={1}
                     step={0.01}
-                    value={thresholds.t2}
-                    onChange={(e) => handleThresholdChange("t2", parseFloat(e.target.value))}
-                    className="threshold-slider"
+                    onChange={(v) => handleThresholdChange("t2", v)}
+                    showValue
+                    formatValue={(v) => v.toFixed(2)}
+                    aria-label="T2 threshold"
                   />
-                  <span className="threshold-value">{thresholds.t2.toFixed(2)}</span>
                 </div>
                 <div className="threshold-row">
                   <span className="threshold-label">T3 (Open)</span>
-                  <input
-                    type="range"
+                  <Slider
+                    value={thresholds.t3}
                     min={0}
                     max={1}
                     step={0.01}
-                    value={thresholds.t3}
-                    onChange={(e) => handleThresholdChange("t3", parseFloat(e.target.value))}
-                    className="threshold-slider"
+                    onChange={(v) => handleThresholdChange("t3", v)}
+                    showValue
+                    formatValue={(v) => v.toFixed(2)}
+                    aria-label="T3 threshold"
                   />
-                  <span className="threshold-value">{thresholds.t3.toFixed(2)}</span>
                 </div>
               </div>
             </div>

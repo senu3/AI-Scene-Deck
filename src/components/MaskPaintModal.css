@@ -46,48 +46,10 @@
 }
 
 /* ====================================
-   Header
+   Header (uses Modal.Header primitive)
    ==================================== */
-.mask-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  background: linear-gradient(180deg, #252832 0%, #1e2128 100%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.mask-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-}
-
-.mask-title svg {
+.mask-header-icon-pink [data-variant="default"] {
   color: var(--accent-pink);
-}
-
-.mask-close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: rgba(255, 255, 255, 0.05);
-  border: none;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.mask-close-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  color: var(--accent-danger);
 }
 
 /* ====================================
