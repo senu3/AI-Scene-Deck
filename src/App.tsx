@@ -12,6 +12,7 @@ import Header from './components/Header';
 import StartupModal from './components/StartupModal';
 import ExportModal, { type ExportSettings } from './components/ExportModal';
 import EnvironmentSettingsModal from './components/EnvironmentSettingsModal';
+import NotificationTestModal from './components/NotificationTestModal';
 import { Trash2 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
@@ -109,6 +110,7 @@ function App() {
   const [showPreview, setShowPreview] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showEnvironmentSettings, setShowEnvironmentSettings] = useState(false);
+  const [showNotificationTests, setShowNotificationTests] = useState(false);
   const [exportResolution, setExportResolution] = useState({ name: 'Free', width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const dragDataRef = useRef<{ sceneId?: string; index?: number; type?: string }>({});
@@ -476,6 +478,11 @@ function App() {
     setShowExportModal(true);
   }, [isExporting]);
 
+  const handleOpenNotificationTests = useCallback(() => {
+    setShowEnvironmentSettings(false);
+    setShowNotificationTests(true);
+  }, []);
+
   // Handle export from ExportModal
   const handleExport = useCallback(async (settings: ExportSettings) => {
     if (!window.electronAPI || isExporting) return;
@@ -701,6 +708,11 @@ function App() {
         <EnvironmentSettingsModal
           open={showEnvironmentSettings}
           onClose={() => setShowEnvironmentSettings(false)}
+          onOpenNotificationTests={handleOpenNotificationTests}
+        />
+        <NotificationTestModal
+          open={showNotificationTests}
+          onClose={() => setShowNotificationTests(false)}
         />
       </div>
     </DndContext>

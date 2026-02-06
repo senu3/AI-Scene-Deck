@@ -25,6 +25,7 @@ import {
   Download,
   AlertTriangle,
   Cog,
+  Bell,
 } from 'lucide-react';
 import {
   Overlay,
@@ -46,6 +47,7 @@ import styles from './EnvironmentSettingsModal.module.css';
 export interface EnvironmentSettingsModalProps {
   open: boolean;
   onClose: () => void;
+  onOpenNotificationTests?: () => void;
 }
 
 type SettingsTab = 'general' | 'editor' | 'performance' | 'advanced';
@@ -143,7 +145,11 @@ const DEFAULTS = {
   verboseLogging: false,
 };
 
-export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentSettingsModalProps) {
+export default function EnvironmentSettingsModal({
+  open,
+  onClose,
+  onOpenNotificationTests,
+}: EnvironmentSettingsModalProps) {
   useModalKeyboard({ onEscape: onClose, enabled: open });
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('general');
@@ -922,6 +928,27 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                       size="sm"
                     />
                   </SettingsRow>
+
+                  {onOpenNotificationTests && (
+                    <SettingsRow
+                      label="Notification Tests"
+                      description="Open notification test tools"
+                      className={styles.settingsRow}
+                      labelWrapperClassName={styles.rowInfo}
+                      labelClassName={styles.rowLabel}
+                      descriptionClassName={styles.rowDesc}
+                      controlsClassName={styles.rowControls}
+                    >
+                      <button
+                        type="button"
+                        className={styles.actionBtn}
+                        onClick={onOpenNotificationTests}
+                      >
+                        <Bell size={14} />
+                        Open Tests
+                      </button>
+                    </SettingsRow>
+                  )}
                 </div>
               </div>
 
