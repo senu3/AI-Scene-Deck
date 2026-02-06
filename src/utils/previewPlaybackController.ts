@@ -310,6 +310,17 @@ export function useSequencePlaybackController(itemDurations: number[]) {
     getGlobalProgress,
   }), [getAbsoluteTime, getGlobalProgress]);
 
+  const getLiveAbsoluteTime = useCallback(() => {
+    const current = stateRef.current;
+    const source = sourceRef.current;
+    if (!source) return getAbsoluteTime();
+    const duration = current.itemDurations[current.currentIndex] ?? 0;
+    if (duration <= 0) return getAbsoluteTime();
+    const localTime = clamp(source.getCurrentTime(), 0, duration);
+    const progress = (localTime / duration) * 100;
+    return calculateAbsoluteTime(current.currentIndex, progress, current.itemDurations);
+  }, [getAbsoluteTime]);
+
   return {
     state,
     setSource,
@@ -328,5 +339,6 @@ export function useSequencePlaybackController(itemDurations: number[]) {
     goToPrev,
     tick,
     selectors,
+    getLiveAbsoluteTime,
   };
 }

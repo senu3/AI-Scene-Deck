@@ -160,6 +160,7 @@ export default function PreviewModal({
     seekPercent: seekSequencePercent,
     skip: skipSequence,
     selectors: sequenceSelectors,
+    getLiveAbsoluteTime: getSequenceLiveAbsoluteTime,
   } = sequencePlayback;
 
   const currentIndex = usesSequenceController ? sequenceState.currentIndex : 0;
@@ -174,6 +175,8 @@ export default function PreviewModal({
 
   const modalRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressFillRef = useRef<HTMLDivElement>(null);
+  const progressHandleRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const displayContainerRef = useRef<HTMLDivElement>(null);
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 });
@@ -483,7 +486,8 @@ export default function PreviewModal({
         } else {
           videoRef.current.pause();
           setSingleModeIsPlaying(false);
-          videoRef.current.currentTime = clipStart;
+          videoRef.current.currentTime = clipEnd;
+          setSingleModeCurrentTime(clipEnd);
         }
       }
     }
@@ -616,7 +620,8 @@ export default function PreviewModal({
       }
     } catch (error) {
       console.error('Frame capture failed:', error);
-      miniToast.show('Capture failed', 'error');
+      const message = error instanceof Error ? error.message : 'Capture failed';
+      miniToast.show(message, 'error');
     }
   }, [isSingleModeVideo, onFrameCapture, singleModeCurrentTime]);
 
@@ -627,10 +632,18 @@ export default function PreviewModal({
     if (singleModeIsPlaying) {
       videoRef.current.pause();
     } else {
+      if (inPoint !== null && outPoint !== null) {
+        const clipStart = Math.min(inPoint, outPoint);
+        const clipEnd = Math.max(inPoint, outPoint);
+        if (videoRef.current.currentTime < clipStart || videoRef.current.currentTime >= clipEnd) {
+          videoRef.current.currentTime = clipStart;
+          setSingleModeCurrentTime(clipStart);
+        }
+      }
       videoRef.current.play();
     }
     setSingleModeIsPlaying(!singleModeIsPlaying);
-  }, [isSingleModeVideo, singleModeIsPlaying]);
+  }, [isSingleModeVideo, singleModeIsPlaying, inPoint, outPoint]);
 
   // Apply playback speed (Single Mode)
   useEffect(() => {
@@ -1166,7 +1179,7 @@ export default function PreviewModal({
       if (sequenceState.inPoint !== null && sequenceState.outPoint !== null) {
         const effectiveOutPoint = Math.max(sequenceState.inPoint, sequenceState.outPoint);
         const effectiveInPoint = Math.min(sequenceState.inPoint, sequenceState.outPoint);
-        if (currentAbsTime >= effectiveOutPoint - 0.1) {
+        if (currentAbsTime < effectiveInPoint - 0.001 || currentAbsTime >= effectiveOutPoint - 0.001) {
           seekSequenceAbsolute(effectiveInPoint);
         }
       } else if (sequenceState.currentIndex >= items.length - 1 && sequenceState.localProgress >= 99) {
@@ -1716,6 +1729,44 @@ export default function PreviewModal({
   // Suppress unused variable warnings - code kept for future use
   void _hasRange;
 
+  useEffect(() => {
+    if (progressFillRef.current) {
+      progressFillRef.current.style.width = `${globalProgress}%`;
+    }
+    if (progressHandleRef.current) {
+      progressHandleRef.current.style.left = `${globalProgress}%`;
+    }
+  }, [globalProgress]);
+
+  useEffect(() => {
+    if (!usesSequenceController || !sequenceState.isPlaying || isDragging) return;
+
+    let rafId = 0;
+    const update = () => {
+      const totalDuration = sequenceState.totalDuration;
+      if (totalDuration > 0) {
+        const liveTime = getSequenceLiveAbsoluteTime();
+        const percent = Math.max(0, Math.min(100, (liveTime / totalDuration) * 100));
+        if (progressFillRef.current) {
+          progressFillRef.current.style.width = `${percent}%`;
+        }
+        if (progressHandleRef.current) {
+          progressHandleRef.current.style.left = `${percent}%`;
+        }
+      }
+      rafId = window.requestAnimationFrame(update);
+    };
+
+    rafId = window.requestAnimationFrame(update);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [
+    usesSequenceController,
+    sequenceState.isPlaying,
+    sequenceState.totalDuration,
+    isDragging,
+    getSequenceLiveAbsoluteTime,
+  ]);
+
   // Single Mode: show Save button only when both IN/OUT are set
   const showSingleModeSaveButton = isSingleModeVideo && inPoint !== null && outPoint !== null && !!onClipSave;
 
@@ -2167,8 +2218,16 @@ export default function PreviewModal({
                     onMarkerDragEnd={handleMarkerDragEnd}
                     progressBarRef={progressBarRef}
                   />
-                  <div className="preview-progress-fill" style={{ width: `${globalProgress}%` }} />
-                  <div className="preview-progress-handle" style={{ left: `${globalProgress}%` }} />
+                  <div
+                    ref={progressFillRef}
+                    className="preview-progress-fill"
+                    style={{ width: `${globalProgress}%` }}
+                  />
+                  <div
+                    ref={progressHandleRef}
+                    className="preview-progress-handle"
+                    style={{ left: `${globalProgress}%` }}
+                  />
                   {hoverTime && (
                     <div className="preview-progress-tooltip">
                       {hoverTime}

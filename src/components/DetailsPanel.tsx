@@ -394,16 +394,14 @@ export default function DetailsPanel() {
 
   const handleFrameCapture = async (timestamp: number): Promise<string | void> => {
     if (!cutScene || !cut || !asset?.path || !vaultPath) {
-      alert("Cannot capture frame: missing required data");
-      return;
+      throw new Error('Cannot capture frame: missing required data');
     }
 
     if (
       !window.electronAPI?.extractVideoFrame ||
       !window.electronAPI?.ensureAssetsFolder
     ) {
-      alert("Frame capture requires app restart after update.");
-      return;
+      throw new Error('Frame capture requires app restart after update.');
     }
 
     try {
@@ -411,8 +409,7 @@ export default function DetailsPanel() {
       const assetsFolder =
         await window.electronAPI.ensureAssetsFolder(vaultPath);
       if (!assetsFolder) {
-        alert("Failed to access assets folder");
-        return;
+        throw new Error('Failed to access assets folder');
       }
 
       // Generate unique filename: {video_name}_frame_{timestamp}_{uuid}.png
@@ -430,8 +427,7 @@ export default function DetailsPanel() {
       });
 
       if (!result.success) {
-        alert(`Failed to capture frame: ${result.error}`);
-        return;
+        throw new Error(`Failed to capture frame: ${result.error}`);
       }
 
       // Read the captured image as base64 for thumbnail
@@ -482,7 +478,7 @@ export default function DetailsPanel() {
       return `Captured frame: ${sourceLabel}`;
     } catch (error) {
       console.error("Frame capture failed:", error);
-      alert(`Failed to capture frame: ${error}`);
+      throw error;
     }
   };
 

@@ -582,24 +582,21 @@ function App() {
   }, [previewData, executeCommand, cacheAsset, updateCutAsset]);
 
   // Handle frame capture from video preview modal
-  const handleVideoPreviewFrameCapture = useCallback(async (timestamp: number) => {
+  const handleVideoPreviewFrameCapture = useCallback(async (timestamp: number): Promise<string | void> => {
     if (!previewData || !vaultPath) {
-      alert('Cannot capture frame: missing required data');
-      return;
+      throw new Error('Cannot capture frame: missing required data');
     }
 
     const { scene, asset } = previewData;
 
     if (!window.electronAPI?.extractVideoFrame || !window.electronAPI?.ensureAssetsFolder) {
-      alert('Frame capture requires app restart after update.');
-      return;
+      throw new Error('Frame capture requires app restart after update.');
     }
 
     try {
       const assetsFolder = await window.electronAPI.ensureAssetsFolder(vaultPath);
       if (!assetsFolder) {
-        alert('Failed to access assets folder');
-        return;
+        throw new Error('Failed to access assets folder');
       }
 
       const baseName = asset.name.replace(/\.[^/.]+$/, '');
@@ -615,8 +612,7 @@ function App() {
       });
 
       if (!result.success) {
-        alert(`Failed to capture frame: ${result.error}`);
-        return;
+        throw new Error(`Failed to capture frame: ${result.error}`);
       }
 
       const thumbnailBase64 = await getThumbnail(outputPath, 'image');
@@ -637,10 +633,10 @@ function App() {
       cacheAsset(finalAsset);
       await executeCommand(new AddCutCommand(scene.id, finalAsset));
 
-      alert(`Frame captured!\n\nFile: ${frameFileName}`);
+      return `Frame captured: ${frameFileName}`;
     } catch (error) {
       console.error('Frame capture failed:', error);
-      alert(`Failed to capture frame: ${error}`);
+      throw error;
     }
   }, [previewData, vaultPath, cacheAsset, executeCommand]);
 
