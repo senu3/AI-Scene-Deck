@@ -166,12 +166,6 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
     }
   };
 
-  const getBadgeColor = () => {
-    // Generate a consistent color based on asset type
-    if (isVideo) return 'var(--accent-video)';
-    return 'var(--accent-primary)';
-  };
-
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -395,18 +389,27 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
           </div>
         )}
 
-        <div className={`cut-badge ${isLipSync ? 'lipsync' : ''}`} style={isLipSync ? undefined : { backgroundColor: getBadgeColor() }}>
-          {isLipSync ? 'S:LIP' : isVideo ? 'S:VID' : 'S:IMG'}
+        {/* Asset type badge - icon + text, top-right */}
+        <div className={`cut-type-badge ${isLipSync ? 'lipsync' : isVideo ? 'video' : 'image'}`}>
+          {isLipSync ? (
+            <>
+              <Mic size={12} />
+              <span>LIP SYNC</span>
+            </>
+          ) : isVideo ? (
+            <>
+              <Film size={12} />
+              <span>VIDEO</span>
+            </>
+          ) : (
+            <>
+              <Image size={12} />
+              <span>IMAGE</span>
+            </>
+          )}
         </div>
 
-        {/* Lip sync indicator */}
-        {isLipSync && (
-          <div className="lipsync-indicator" title="Lip Sync Cut">
-            <Mic size={12} />
-          </div>
-        )}
-
-        {/* Lip sync frame count */}
+        {/* Lip sync frame count - top-left (card state indicator area) */}
         {isLipSync && cut.lipSyncFrameCount && (
           <div className="lipsync-frame-count">
             <Image size={10} />

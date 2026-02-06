@@ -2,55 +2,55 @@
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 16px;
+  padding: 20px 40px;
 }
 
 .storyline-content {
   display: flex;
-  gap: 16px;
+  gap: 24px;
   height: 100%;
   min-width: min-content;
 }
 
+/* Scene column - frameless container */
 .scene-column {
   display: flex;
   flex-direction: column;
-  width: 200px;
-  min-width: 200px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-2xl);
-  border: 2px solid transparent;
-  transition: all 0.2s ease;
+  width: 232px;
+  min-width: 232px;
 }
 
-.scene-column.selected {
-  border-color: var(--scene-color, var(--accent-primary));
-  box-shadow: 0 0 20px color-mix(in srgb, var(--scene-color, var(--accent-primary)) 25%, transparent);
-}
-
+/* Scene header - standalone card element */
 .scene-header {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 14px 12px;
-  border-bottom: 1px solid var(--border-color);
+  padding: 12px 14px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+}
+
+.scene-header:hover {
+  border-color: color-mix(in srgb, var(--scene-color, var(--border-color)) 40%, var(--border-color));
+}
+
+.scene-column.selected .scene-header {
+  border-color: var(--scene-color, var(--accent-primary));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--scene-color, var(--accent-primary)) 10%, var(--bg-secondary)),
+    var(--bg-secondary)
+  );
+  box-shadow: 0 0 0 1px var(--scene-color, var(--accent-primary));
 }
 
 .scene-header-row {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.scene-column.selected .scene-header {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--scene-color, var(--accent-primary)) 15%, transparent),
-    color-mix(in srgb, var(--scene-color, var(--accent-primary)) 5%, transparent)
-  );
 }
 
 .scene-indicator {
@@ -72,7 +72,7 @@
   flex: 1;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
   color: var(--text-secondary);
 }
 
@@ -106,12 +106,12 @@
   transition: all 0.15s ease;
 }
 
-.scene-column:hover .scene-menu-btn {
+.scene-header:hover .scene-menu-btn {
   opacity: 1;
 }
 
 .scene-menu-btn:hover {
-  background-color: var(--panel-bg-strong);
+  background-color: var(--bg-hover);
   color: var(--text-primary);
 }
 
@@ -121,6 +121,7 @@
   gap: 6px;
   color: var(--text-muted);
   font-size: 11px;
+  padding-left: 1px;
 }
 
 .scene-meta-time {
@@ -129,7 +130,7 @@
 }
 
 .scene-meta-dot {
-  opacity: 0.6;
+  opacity: 0.4;
 }
 
 .scene-menu {
@@ -176,18 +177,20 @@
   background-color: rgba(239, 68, 68, 0.1);
 }
 
+/* Cuts container - open layout without frame */
 .scene-cuts {
   flex: 1;
-  padding: 12px;
+  padding: 12px 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 200px;
+  gap: 10px;
+  min-height: 180px;
 }
 
 .scene-cuts.drop-active {
-  background-color: rgba(0, 180, 216, 0.1);
+  background-color: color-mix(in srgb, var(--accent-primary) 6%, transparent);
+  border-radius: var(--radius-md);
 }
 
 .drop-placeholder {
@@ -195,8 +198,8 @@
   align-items: center;
   justify-content: center;
   min-height: 60px;
-  border: 2px dashed var(--border-color);
-  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
   color: var(--text-muted);
   margin-top: auto;
   transition: all 0.15s ease;
@@ -205,17 +208,18 @@
 .drop-placeholder:hover {
   border-color: var(--accent-primary);
   color: var(--accent-primary);
+  background-color: color-mix(in srgb, var(--accent-primary) 4%, transparent);
 }
 
 /* Placeholder card for drag and drop */
 .placeholder-card {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: 2px dashed var(--accent-primary);
-  border-radius: var(--radius-xl);
-  background-color: rgba(0, 180, 216, 0.1);
-  opacity: 0.8;
-  animation: placeholderPulse 1s ease-in-out infinite;
+  border: 1px dashed var(--accent-primary);
+  border-radius: var(--radius-lg);
+  background-color: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+  opacity: 0.9;
+  animation: placeholderPulse 1.2s ease-in-out infinite;
 }
 
 .placeholder-content {
@@ -240,30 +244,35 @@
   display: none;
 }
 
+/* Add scene button - matches header style */
 .add-scene-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 120px;
-  min-width: 120px;
-  background: var(--bg-tertiary);
-  border-radius: var(--radius-2xl);
-  border: 2px dashed var(--border-color);
+  width: 100px;
+  min-width: 100px;
+  height: fit-content;
+  padding: 20px 16px;
+  margin-top: 0;
+  align-self: flex-start;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-color);
   color: var(--text-muted);
   transition: all 0.2s ease;
 }
 
 .add-scene-btn:hover {
   border-color: var(--accent-primary);
+  border-style: solid;
   color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.08);
-  transform: translateY(-2px);
+  background: color-mix(in srgb, var(--accent-primary) 6%, var(--bg-secondary));
 }
 
 .add-scene-btn span {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
 }
 
