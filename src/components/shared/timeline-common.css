@@ -37,6 +37,46 @@
   transform: translateX(-50%) scaleY(1.15);
 }
 
+/* Marker Time Tooltip */
+.marker-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  background: rgba(15, 23, 42, 0.92);
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  animation: markerTooltipIn 0.12s ease-out;
+}
+
+.marker-tooltip.in-tooltip {
+  color: #4CAF50;
+  border: 1px solid rgba(76, 175, 80, 0.4);
+}
+
+.marker-tooltip.out-tooltip {
+  color: #f44336;
+  border: 1px solid rgba(244, 67, 54, 0.4);
+}
+
+@keyframes markerTooltipIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
 /* Timeline Selection Region */
 .timeline-selection {
   position: absolute;

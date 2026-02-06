@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useState } from 'react';
 import { formatTime } from '../../utils/timeUtils';
 import './timeline-common.css';
 
@@ -28,6 +28,7 @@ export function TimelineMarkers({
   progressBarRef,
 }: TimelineMarkersProps) {
   const draggingMarkerRef = useRef<'in' | 'out' | null>(null);
+  const [hoveredMarker, setHoveredMarker] = useState<'in' | 'out' | null>(null);
 
   const calculateTimeFromMouseEvent = useCallback((e: MouseEvent | React.MouseEvent): number => {
     if (!progressBarRef?.current) return 0;
@@ -73,6 +74,9 @@ export function TimelineMarkers({
   const inPointPercent = inPoint !== null ? (inPoint / duration) * 100 : null;
   const outPointPercent = outPoint !== null ? (outPoint / duration) * 100 : null;
 
+  const showInTooltip = inPoint !== null && (hoveredMarker === 'in' || focusedMarker === 'in');
+  const showOutTooltip = outPoint !== null && (hoveredMarker === 'out' || focusedMarker === 'out');
+
   return (
     <>
       {/* IN point marker */}
@@ -80,10 +84,17 @@ export function TimelineMarkers({
         <div
           className={`timeline-marker in-marker ${focusedMarker === 'in' ? 'focused' : ''}`}
           style={{ left: `${inPointPercent}%` }}
-          title={`IN: ${formatTime(inPoint!, showMilliseconds)}`}
           onClick={(e) => handleMarkerClick('in', e)}
           onMouseDown={(e) => handleMarkerMouseDown('in', e)}
-        />
+          onMouseEnter={() => setHoveredMarker('in')}
+          onMouseLeave={() => setHoveredMarker(null)}
+        >
+          {showInTooltip && (
+            <span className="marker-tooltip in-tooltip">
+              IN {formatTime(inPoint!, showMilliseconds)}
+            </span>
+          )}
+        </div>
       )}
 
       {/* OUT point marker */}
@@ -91,10 +102,17 @@ export function TimelineMarkers({
         <div
           className={`timeline-marker out-marker ${focusedMarker === 'out' ? 'focused' : ''}`}
           style={{ left: `${outPointPercent}%` }}
-          title={`OUT: ${formatTime(outPoint!, showMilliseconds)}`}
           onClick={(e) => handleMarkerClick('out', e)}
           onMouseDown={(e) => handleMarkerMouseDown('out', e)}
-        />
+          onMouseEnter={() => setHoveredMarker('out')}
+          onMouseLeave={() => setHoveredMarker(null)}
+        >
+          {showOutTooltip && (
+            <span className="marker-tooltip out-tooltip">
+              OUT {formatTime(outPoint!, showMilliseconds)}
+            </span>
+          )}
+        </div>
       )}
 
       {/* Selected region */}
