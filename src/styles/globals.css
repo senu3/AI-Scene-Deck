@@ -19,8 +19,10 @@
 
   --accent-primary-rgb: 0, 180, 216;
   --accent-primary: rgb(var(--accent-primary-rgb));
-  --accent-purple: #8b5cf6;
-  --accent-pink: #ec4899;
+  --accent-purple-rgb: 139, 92, 246;
+  --accent-purple: rgb(var(--accent-purple-rgb));
+  --accent-pink-rgb: 236, 72, 153;
+  --accent-pink: rgb(var(--accent-pink-rgb));
 
   /* Semantic color variables */
   --accent-secondary-rgb: 59, 130, 246;
@@ -64,6 +66,13 @@
   --radius-xl: 18px;
   --radius-2xl: 22px;
   --radius-pill: 999px;
+
+  /* Deep surface / panel backgrounds */
+  --bg-depth-1: #0d1117;      /* Deepest backdrop */
+  --bg-depth-2: #161b22;      /* Deep mid-tone */
+  --bg-depth-3: #1a1d23;      /* Deep warm end */
+  --bg-info-panel: #131a2e;   /* Info-panel gradient end */
+  --accent-primary-deep: #0096c7; /* Darker accent-primary for gradient end */
 
   /* Glassy UI */
   --glass-bg: rgba(0, 0, 0, 0.22);

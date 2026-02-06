@@ -1,5 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Clapperboard, FolderPlus, FolderOpen, Clock, ChevronRight, X } from 'lucide-react';
+import {
+  Clapperboard,
+  FolderPlus,
+  FolderOpen,
+  Clock,
+  ChevronRight,
+  ArrowLeft,
+  HardDrive,
+  FileImage,
+  Shield,
+  FolderTree,
+  Copy,
+  Database,
+} from 'lucide-react';
 import { useStore } from '../store/useStore';
 import type { Scene, Asset, SourcePanelState } from '../types';
 import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from './MissingAssetRecoveryModal';
@@ -511,115 +524,258 @@ export default function StartupModal() {
     return date.toLocaleDateString();
   };
 
+  // Extract directory name from vault path for display
+  const getVaultDisplayPath = (path: string) => {
+    if (!path) return '';
+    // Show last 2 segments for context
+    const segments = path.replace(/\\/g, '/').split('/').filter(Boolean);
+    if (segments.length <= 2) return path;
+    return '.../' + segments.slice(-2).join('/');
+  };
+
+  // ─── New Project Screen ───
   if (step === 'new-project') {
     return (
       <div className="startup-modal">
         <div className="startup-backdrop" />
-        <div className="startup-container">
-          <button className="back-btn" onClick={() => setStep('choice')}>
-            <X size={20} />
-          </button>
+        <div className="startup-split">
+          {/* Left: Vault explanation */}
+          <div className="startup-info-panel">
+            <button className="back-btn" onClick={() => setStep('choice')}>
+              <ArrowLeft size={18} />
+              <span>Back</span>
+            </button>
 
-          <div className="startup-header">
-            <Clapperboard size={32} className="logo-icon" />
-            <h1>Create New Project</h1>
-            <p>Set up a vault folder for your project</p>
+            <div className="info-panel-content">
+              <div className="info-panel-header">
+                <div className="info-icon-wrapper">
+                  <HardDrive size={28} />
+                </div>
+                <h2>Vault Structure</h2>
+                <p>
+                  Each project creates a dedicated <strong>vault folder</strong> that
+                  stores everything needed to restore your work.
+                </p>
+              </div>
+
+              <div className="vault-tree-visual">
+                <div className="tree-item tree-root">
+                  <FolderTree size={14} />
+                  <span className="tree-label">YourProject/</span>
+                </div>
+                <div className="tree-item tree-child">
+                  <Database size={14} />
+                  <span className="tree-label">project.sdp</span>
+                  <span className="tree-tag">Scene order &amp; timing</span>
+                </div>
+                <div className="tree-item tree-child">
+                  <FolderTree size={14} />
+                  <span className="tree-label">assets/</span>
+                  <span className="tree-tag">All media files</span>
+                </div>
+                <div className="tree-item tree-grandchild">
+                  <FileImage size={14} />
+                  <span className="tree-label tree-muted">img_a1b2c3.png</span>
+                </div>
+                <div className="tree-item tree-grandchild">
+                  <FileImage size={14} />
+                  <span className="tree-label tree-muted">vid_d4e5f6.mp4</span>
+                </div>
+                <div className="tree-item tree-child">
+                  <Database size={14} />
+                  <span className="tree-label">.index.json</span>
+                  <span className="tree-tag">Asset index</span>
+                </div>
+              </div>
+
+              <div className="info-notes">
+                <div className="info-note">
+                  <Copy size={14} />
+                  <span>
+                    Imported files are <strong>copied</strong> into
+                    {' '}<code>assets/</code> with unique hash names.
+                    The original files remain untouched.
+                  </span>
+                </div>
+                <div className="info-note">
+                  <Shield size={14} />
+                  <span>
+                    The vault folder is self-contained.
+                    Copy or move it anywhere and your project stays intact.
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="new-project-form">
-            <div className="form-group">
-              <label>Project Name</label>
-              <input
-                type="text"
-                placeholder="My AI Scene Project"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                autoFocus
-              />
-            </div>
+          {/* Right: Create form */}
+          <div className="startup-main-panel">
+            <div className="startup-main-inner">
+              <div className="form-header">
+                <Clapperboard size={28} className="logo-icon" />
+                <h1>Create New Project</h1>
+              </div>
 
-            <div className="form-group">
-              <label>Vault Location</label>
-              <div className="vault-selector">
-                <input
-                  type="text"
-                  placeholder="Select a folder..."
-                  value={vaultPath}
-                  readOnly
-                />
-                <button onClick={handleSelectVault}>
-                  <FolderOpen size={18} />
-                  Browse
+              <div className="new-project-form">
+                <div className="form-group">
+                  <label htmlFor="project-name">Project Name</label>
+                  <input
+                    id="project-name"
+                    type="text"
+                    placeholder="My AI Scene Project"
+                    value={projectName}
+                    onChange={(e) => setProjectName(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="vault-location">Vault Location</label>
+                  <div className="vault-selector">
+                    <input
+                      id="vault-location"
+                      type="text"
+                      placeholder="Select a folder..."
+                      value={vaultPath}
+                      readOnly
+                      title={vaultPath}
+                    />
+                    <button onClick={handleSelectVault}>
+                      <FolderOpen size={16} />
+                      Browse
+                    </button>
+                  </div>
+                  <p className="form-hint">
+                    A new folder named <strong>{projectName.trim() || '...'}</strong> will
+                    be created inside this location.
+                  </p>
+                </div>
+
+                {vaultPath && projectName.trim() && (
+                  <div className="vault-preview">
+                    <span className="vault-preview-label">Created at:</span>
+                    <code className="vault-preview-path">
+                      {getVaultDisplayPath(vaultPath)}/{projectName.trim()}/
+                    </code>
+                  </div>
+                )}
+
+                <button
+                  className="create-btn"
+                  onClick={handleCreateProject}
+                  disabled={!projectName.trim() || !vaultPath || isCreating}
+                >
+                  <FolderPlus size={18} />
+                  {isCreating ? 'Creating...' : 'Create Project'}
                 </button>
               </div>
-              <p className="form-hint">
-                A new folder will be created inside this location for your project files.
-              </p>
             </div>
-
-            <button
-              className="create-btn"
-              onClick={handleCreateProject}
-              disabled={!projectName.trim() || !vaultPath || isCreating}
-            >
-              {isCreating ? 'Creating...' : 'Create Project'}
-            </button>
           </div>
         </div>
       </div>
     );
   }
 
+  // ─── Main Choice Screen ───
   return (
     <div className="startup-modal">
       <div className="startup-backdrop" />
-      <div className="startup-container">
-        <div className="startup-header">
-          <Clapperboard size={48} className="logo-icon" />
-          <h1>AI Scene Deck</h1>
-          <p>Visual asset management for AI-generated content</p>
-        </div>
-
-        <div className="startup-actions">
-          <button className="action-card" onClick={() => setStep('new-project')}>
-            <FolderPlus size={24} />
-            <div className="action-text">
-              <span className="action-title">New Project</span>
-              <span className="action-desc">Create a new vault and start fresh</span>
+      <div className="startup-split">
+        {/* Left: Hero / About */}
+        <div className="startup-info-panel startup-hero">
+          <div className="info-panel-content">
+            <div className="hero-brand">
+              <Clapperboard size={48} className="hero-logo" />
+              <h1>AI Scene Deck</h1>
+              <p className="hero-tagline">Visual asset management for AI-generated content</p>
             </div>
-            <ChevronRight size={20} className="action-arrow" />
-          </button>
 
-          <button className="action-card" onClick={handleLoadProject}>
-            <FolderOpen size={24} />
-            <div className="action-text">
-              <span className="action-title">Open Project</span>
-              <span className="action-desc">Load an existing .sdp project file</span>
-            </div>
-            <ChevronRight size={20} className="action-arrow" />
-          </button>
-        </div>
-
-        {recentProjects.length > 0 && (
-          <div className="recent-projects">
-            <h3>
-              <Clock size={16} />
-              Recent Projects
-            </h3>
-            <div className="recent-list">
-              {recentProjects.map((project, index) => (
-                <button
-                  key={index}
-                  className="recent-item"
-                  onClick={() => handleOpenRecent(project)}
-                >
-                  <span className="recent-name">{project.name}</span>
-                  <span className="recent-date">{formatDate(project.date)}</span>
-                </button>
-              ))}
+            <div className="hero-features">
+              <div className="hero-feature">
+                <div className="feature-icon">
+                  <HardDrive size={18} />
+                </div>
+                <div className="feature-text">
+                  <strong>Self-contained Vault</strong>
+                  <span>All assets are copied into a dedicated project folder. Safe to move or back up.</span>
+                </div>
+              </div>
+              <div className="hero-feature">
+                <div className="feature-icon">
+                  <Copy size={18} />
+                </div>
+                <div className="feature-text">
+                  <strong>Non-destructive Import</strong>
+                  <span>Original files are never modified. Assets are duplicated with hash-based names.</span>
+                </div>
+              </div>
+              <div className="hero-feature">
+                <div className="feature-icon">
+                  <Shield size={18} />
+                </div>
+                <div className="feature-text">
+                  <strong>Full Recoverability</strong>
+                  <span>Project file + asset index = complete recovery of scenes, cuts, and timing.</span>
+                </div>
+              </div>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Right: Actions + Recent */}
+        <div className="startup-main-panel">
+          <div className="startup-main-inner">
+            <h2 className="get-started-title">Get Started</h2>
+
+            <div className="startup-actions">
+              <button className="action-card" onClick={() => setStep('new-project')}>
+                <div className="action-icon-wrapper">
+                  <FolderPlus size={22} />
+                </div>
+                <div className="action-text">
+                  <span className="action-title">New Project</span>
+                  <span className="action-desc">Create a new vault and start fresh</span>
+                </div>
+                <ChevronRight size={18} className="action-arrow" />
+              </button>
+
+              <button className="action-card" onClick={handleLoadProject}>
+                <div className="action-icon-wrapper">
+                  <FolderOpen size={22} />
+                </div>
+                <div className="action-text">
+                  <span className="action-title">Open Project</span>
+                  <span className="action-desc">Load an existing .sdp project file</span>
+                </div>
+                <ChevronRight size={18} className="action-arrow" />
+              </button>
+            </div>
+
+            {recentProjects.length > 0 && (
+              <div className="recent-projects">
+                <h3>
+                  <Clock size={14} />
+                  Recent Projects
+                </h3>
+                <div className="recent-list">
+                  {recentProjects.map((project, index) => (
+                    <button
+                      key={index}
+                      className="recent-item"
+                      onClick={() => handleOpenRecent(project)}
+                    >
+                      <div className="recent-info">
+                        <Clapperboard size={14} className="recent-icon" />
+                        <span className="recent-name">{project.name}</span>
+                      </div>
+                      <span className="recent-date">{formatDate(project.date)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Missing Asset Recovery Dialog */}
