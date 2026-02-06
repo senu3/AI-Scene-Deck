@@ -12,7 +12,7 @@
 | 用語 | 定義 | 境界（含む / 含まない） | 主要操作 | 関連TS型 / ファイル |
 | --- | --- | --- | --- | --- |
 | **プロジェクト** | `Project` は `id/name/vaultPath/scenes/createdAt/updatedAt/version/sourcePanel` を持つ永続ルート。 | **含む:** vaultPath と scenes。**含まない:** UI状態（選択/再生）は `AppState` 側。 | **作成/保存/読み込み:** StartupModal → project.sdp。 | `Project`（`src/types/index.ts`）、`StartupModal.tsx` |
-| **シーン** | `Scene` は `id/name/cuts/order/notes/folderPath/groups` を持つ編集単位。 | **含む:** cuts と notes。**含まない:** vaultPath。 | **追加/削除/名称変更:** `addScene/removeScene/renameScene`。 | `Scene`、`Storyline.tsx`、`PlaybackControls.tsx` |
+| **シーン** | `Scene` は `id/name/cuts/order/notes/folderPath/groups` を持つ編集単位。 | **含む:** cuts と notes。**含まない:** vaultPath。 | **追加/削除/名称変更:** `addScene/removeScene/renameScene`。 | `Scene`、`Storyline.tsx` |
 | **シーンノート** | `SceneNote` はシーン内のメモ（text/image）を表す。 | **含む:** notes 配列。**含まない:** asset 本体。 | **追加/更新/削除:** `addSceneNote/updateSceneNote/removeSceneNote`。 | `SceneNote`、`DetailsPanel.tsx` |
 | **カット** | `Cut` は `assetId/asset/displayTime/order/inPoint/outPoint/isClip` を持つ再生単位。 | **含む:** clip(in/out) と loading 状態。**含まない:** scene の並び順。 | **追加/削除/時間更新/移動:** `addCutToScene/updateCutDisplayTime/moveCutToScene`。 | `Cut`、`CutCard.tsx`、`Storyline.tsx` |
 | **カットグループ** | `CutGroup` はタイムライン上の視覚的グルーピング。 | **含む:** `cutIds` と `isCollapsed`。**含まない:** カット本体。 | **作成/削除/折りたたみ/並び替え:** `useStore` 内 group 操作。 | `CutGroup`、`CutGroupCard.tsx`、`Storyline.tsx` |
@@ -32,7 +32,7 @@
 | **アセットパネル** | アセット一覧の共通 UI。 | **含む:** 検索/フィルタ/並び替え/選択。 | **一覧構築:** `loadAssetIndex` / `getFolderContents`。 | `AssetPanel.tsx` |
 | **アセットモーダル** | `AssetPanel` のモーダルラッパー。 | **含む:** オーバーレイ/ESC/閉じる挙動。 | **選択結果の返却。** | `AssetModal.tsx` |
 | **ストーリーライン** | シーン列とカットの D&D 配置を扱うタイムライン UI。 | **含む:** シーン/カット D&D、外部ファイル投入。 | **ドロップ処理:** vault 取込とカット追加。 | `Storyline.tsx` |
-| **プレビュー** | `PreviewModal` が単体/シーケンス再生を行う。 | **含む:** Single/Sequence モードと再生 UI。 | **起動:** `PlaybackControls` / `CutCard`。 | `PreviewModal.tsx` |
+| **プレビュー** | `PreviewModal` が単体/シーケンス再生を行う。 | **含む:** Single/Sequence モードと再生 UI。 | **起動:** `CutCard`。 | `PreviewModal.tsx` |
 | **プレビュー項目** | `PreviewItem` は Sequence 用の派生構造体。 | **含む:** cut/sceneName/thumbnail。 | **構築:** `PreviewModal` 内で生成。 | `PreviewModal.tsx` |
 | **プレビュー制御** | `useSequencePlaybackController` が再生状態を管理。 | **含む:** currentIndex/localProgress/range/loop/buffering。 | **操作:** `setSource/seek/skip` 等。 | `PlaybackState`、`previewPlaybackController.ts` |
 | **メディアソース** | `MediaSource` は Video/Image を共通化する抽象。 | **含む:** play/pause/seek/setRate/getCurrentTime/dispose と JSX 要素。 | **生成:** `createVideoMediaSource` / `createImageMediaSource`。 | `previewMedia.tsx` |

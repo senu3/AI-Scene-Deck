@@ -472,7 +472,7 @@ function App() {
     }
   }, [selectedSceneId, scenes, createCutFromImport]);
 
-  // Open export modal from PlaybackControls
+  // Open export modal from controls
   const handleExportFromControls = useCallback(() => {
     if (isExporting) return;
     setShowExportModal(true);
