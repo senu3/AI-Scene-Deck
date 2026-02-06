@@ -31,3 +31,10 @@ export {
   type BannerContextValue,
   type BannerProviderProps,
 } from './Banner';
+
+export {
+  useMiniToast,
+  type MiniToastVariant,
+  type MiniToastAPI,
+  type UseMiniToastOptions,
+} from './MiniToast';

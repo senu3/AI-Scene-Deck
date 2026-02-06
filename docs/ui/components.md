@@ -30,6 +30,7 @@ src/ui/
 │   └── *.module.css
 ├── feedback/          # Notification/dialog components
 │   ├── Toast.tsx      # ToastProvider, useToast
+│   ├── MiniToast.tsx  # useMiniToast (compact overlay toast)
 │   ├── Dialog.tsx     # DialogProvider, useDialog (confirm/alert)
 │   ├── Banner.tsx     # BannerProvider, useBanner (persistent notifications)
 │   └── *.module.css
@@ -194,6 +195,40 @@ toast.error('Autosave failed', 'Changes may be lost.', {
   },
 });
 ```
+
+## MiniToast
+
+Compact, auto-dismissing notification for overlay contexts (e.g. PreviewModal).
+No provider required — renders inline where placed.
+
+```tsx
+import { useMiniToast } from './ui';
+
+function PreviewOverlay() {
+  const miniToast = useMiniToast();
+
+  const handleCapture = () => {
+    miniToast.show('Frame captured', 'success');
+  };
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* media content */}
+      {miniToast.element}
+    </div>
+  );
+}
+```
+
+| Variant   | Duration | Use Case |
+|-----------|----------|----------|
+| success   | 1.8s     | Capture / save confirmation |
+| info      | 1.8s     | State change (IN/OUT set) |
+| warning   | 1.8s     | Non-blocking warning |
+| error     | 1.8s     | Operation failed |
+
+Duration can be overridden per-call: `miniToast.show('msg', 'info', 3000)`.
+Default can be set via hook options: `useMiniToast({ duration: 2500 })`.
 
 ## Dialog Variants
 
@@ -475,6 +510,7 @@ Menu primitives support keyboard navigation:
 |-----------|-----------|
 | Success | Toast (short) |
 | Failure | Toast (long) + action |
+| Overlay feedback (preview) | MiniToast (compact, auto-dismiss) |
 | Ongoing state | Banner |
 | Destructive action | Confirm modal (danger) |
 | Form validation | Inline error (Field) |
