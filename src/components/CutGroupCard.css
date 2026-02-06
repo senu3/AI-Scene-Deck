@@ -1,21 +1,20 @@
 /* Cut Group Card - Collapsed State */
 .cut-group-card {
   position: relative;
-  border-radius: var(--radius-md);
+  border-radius: 3px;
   cursor: grab;
   transition: all 0.15s ease;
   background-color: var(--bg-card);
-  border: 2px solid transparent;
+  border: 1px solid rgba(255,255,255,0.06);
 }
 
 .cut-group-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  border-color: rgba(255,255,255,0.15);
 }
 
 .cut-group-card.selected {
   border-color: var(--accent-group);
-  box-shadow: 0 0 0 2px rgba(var(--accent-group-rgb), 0.3);
+  box-shadow: 0 0 0 1px var(--accent-group);
 }
 
 .cut-group-card.dragging {
@@ -40,8 +39,8 @@
   content: '';
   position: absolute;
   background-color: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 2px;
   z-index: -1;
 }
 
@@ -65,7 +64,7 @@
   position: relative;
   width: 100%;
   height: 100%;
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   overflow: hidden;
   background-color: var(--bg-secondary);
 }
@@ -90,12 +89,12 @@
   right: 6px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
+  gap: 3px;
+  padding: 2px 6px;
   background-color: rgba(var(--accent-group-rgb), 0.9);
-  border-radius: var(--radius-sm);
-  font-size: 10px;
-  font-weight: 600;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
   color: white;
 }
 
@@ -130,7 +129,7 @@
   gap: 3px;
   padding: 2px 6px;
   background-color: rgba(0, 0, 0, 0.7);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 500;
   color: white;
@@ -147,7 +146,7 @@
   width: 24px;
   height: 24px;
   background-color: rgba(0, 0, 0, 0.6);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   color: white;
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -162,8 +161,8 @@
 .expanded-group-container {
   position: relative;
   padding: 8px;
-  border: 2px dashed var(--accent-group);
-  border-radius: var(--radius-lg);
+  border: 1px dashed var(--accent-group);
+  border-radius: 3px;
   background-color: rgba(var(--accent-group-rgb), 0.05);
 }
 
@@ -180,7 +179,7 @@
   padding: 6px 8px;
   margin-bottom: 8px;
   background-color: rgba(var(--accent-group-rgb), 0.15);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
 }
 
 .expanded-group-title {
@@ -209,7 +208,7 @@
   justify-content: center;
   width: 24px;
   height: 24px;
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   color: var(--text-secondary);
   transition: all 0.15s ease;
 }

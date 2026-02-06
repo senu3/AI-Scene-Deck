@@ -1,37 +1,37 @@
-/* Cut Card - Modern minimal design */
+/* Cut Card - Sharp frame design */
 .cut-card {
   position: relative;
-  border-radius: var(--radius-lg);
+  border-radius: 3px;
   overflow: hidden;
   cursor: grab;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
   background-color: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255,255,255,0.06);
 }
 
 .cut-card:hover {
-  border-color: var(--border-light);
+  border-color: rgba(255,255,255,0.15);
 }
 
-/* Selection - subtle inner glow instead of thick border */
+/* Selection - clean border highlight */
 .cut-card.selected {
   border-color: var(--accent-primary);
-  box-shadow: inset 0 0 0 1px var(--accent-primary);
+  box-shadow: 0 0 0 1px var(--accent-primary);
 }
 
 .cut-card.multi-selected {
   border-color: var(--accent-group);
-  box-shadow: inset 0 0 0 1px var(--accent-group);
+  box-shadow: 0 0 0 1px var(--accent-group);
 }
 
 /* Multi-select indicator dot - top-left */
 .cut-card.multi-selected::after {
   content: '';
   position: absolute;
-  top: 6px;
-  left: 6px;
-  width: 14px;
-  height: 14px;
+  top: 4px;
+  left: 4px;
+  width: 12px;
+  height: 12px;
   background-color: var(--accent-group);
   border-radius: 50%;
   z-index: 15;
@@ -52,32 +52,32 @@
   overflow: hidden;
 }
 
-/* Viewfinder corner marks - camera/storyboard feel */
+/* Viewfinder corner marks */
 .cut-thumbnail-container::after {
   content: '';
   position: absolute;
-  inset: 6px;
+  inset: 5px;
   pointer-events: none;
   z-index: 10;
   background:
     /* Top-left L */
-    linear-gradient(white, white) 0 0 / 10px 1px no-repeat,
-    linear-gradient(white, white) 0 0 / 1px 10px no-repeat,
+    linear-gradient(white, white) 0 0 / 12px 1px no-repeat,
+    linear-gradient(white, white) 0 0 / 1px 12px no-repeat,
     /* Top-right L */
-    linear-gradient(white, white) 100% 0 / 10px 1px no-repeat,
-    linear-gradient(white, white) 100% 0 / 1px 10px no-repeat,
+    linear-gradient(white, white) 100% 0 / 12px 1px no-repeat,
+    linear-gradient(white, white) 100% 0 / 1px 12px no-repeat,
     /* Bottom-left L */
-    linear-gradient(white, white) 0 100% / 10px 1px no-repeat,
-    linear-gradient(white, white) 0 100% / 1px 10px no-repeat,
+    linear-gradient(white, white) 0 100% / 12px 1px no-repeat,
+    linear-gradient(white, white) 0 100% / 1px 12px no-repeat,
     /* Bottom-right L */
-    linear-gradient(white, white) 100% 100% / 10px 1px no-repeat,
-    linear-gradient(white, white) 100% 100% / 1px 10px no-repeat;
-  opacity: 0.15;
+    linear-gradient(white, white) 100% 100% / 12px 1px no-repeat,
+    linear-gradient(white, white) 100% 100% / 1px 12px no-repeat;
+  opacity: 0.2;
   transition: opacity 0.15s ease;
 }
 
 .cut-card:hover .cut-thumbnail-container::after {
-  opacity: 0.35;
+  opacity: 0.45;
 }
 
 .cut-thumbnail {
@@ -97,19 +97,19 @@
   color: var(--text-muted);
 }
 
-/* Asset type badge - icon + text, top-right (per reference design) */
+/* Asset type badge - compact, top-right */
 .cut-type-badge {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 5px;
+  right: 5px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: var(--radius-md);
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
   color: white;
 }
 
@@ -137,7 +137,7 @@
   gap: 3px;
   padding: 2px 6px;
   background-color: rgba(0, 0, 0, 0.7);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 500;
   color: white;
@@ -154,7 +154,7 @@
   width: 22px;
   height: 22px;
   background-color: rgba(var(--accent-video-rgb), 0.9);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   color: white;
   z-index: 5;
 }
@@ -174,7 +174,7 @@
   width: 22px;
   height: 22px;
   background-color: rgba(var(--accent-audio-rgb), 0.9);
-  border-radius: var(--radius-sm);
+  border-radius: 2px;
   color: white;
   z-index: 5;
 }
@@ -190,7 +190,7 @@
   position: fixed;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: 3px;
   box-shadow: var(--shadow-lg);
   min-width: 180px;
   z-index: 1000;
@@ -278,7 +278,7 @@
   top: 0;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border-radius: 3px;
   box-shadow: var(--shadow-lg);
   min-width: 150px;
   z-index: 1001;
@@ -358,9 +358,9 @@
   display: flex;
   align-items: center;
   gap: 3px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   background-color: rgba(0, 0, 0, 0.75);
-  border-radius: var(--radius-md);
+  border-radius: 2px;
   font-size: 10px;
   font-weight: 500;
   color: white;
