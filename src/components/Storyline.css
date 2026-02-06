@@ -71,6 +71,13 @@
   color: var(--text-primary);
 }
 
+.scene-duration {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
 .scene-name-input {
   flex: 1;
   font-size: 13px;

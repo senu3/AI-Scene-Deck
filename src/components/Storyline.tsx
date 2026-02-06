@@ -1,7 +1,7 @@
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import { AddSceneCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
@@ -11,13 +11,13 @@ import type { Asset, CutGroup, Cut } from '../types';
 import { useStorylineDragController, type PlaceholderState } from '../hooks/useStorylineDragController';
 import './Storyline.css';
 
-// Scene color palette - cycles through for each scene
+// Scene color palette - uses --timeline-scene-* tokens to match TimelineBar
 const SCENE_COLORS = [
-  'var(--accent-secondary)',  // blue
-  'var(--accent-purple)',     // purple
-  'var(--accent-pink)',       // pink
-  'var(--accent-success)',    // green
-  'var(--accent-audio)',      // audio purple
+  'var(--timeline-scene-1)',  // cyan
+  'var(--timeline-scene-2)',  // blue
+  'var(--timeline-scene-3)',  // purple
+  'var(--timeline-scene-4)',  // pink
+  'var(--timeline-scene-5)',  // green
 ];
 
 const getSceneColor = (index: number) => SCENE_COLORS[index % SCENE_COLORS.length];
@@ -159,6 +159,9 @@ function SceneColumn({
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const cutsContainerRef = useRef<HTMLDivElement>(null);
+  const sceneDuration = useMemo(() => {
+    return cuts.reduce((total, cut) => total + (cut.displayTime || 0), 0);
+  }, [cuts]);
 
   // Droppable for cuts
   const { setNodeRef: setDroppableRef } = useDroppable({
@@ -411,6 +414,8 @@ function SceneColumn({
         ) : (
           <span className="scene-name">{sceneName}</span>
         )}
+
+        <span className="scene-duration">{sceneDuration.toFixed(1)}s</span>
 
         <div className="scene-menu-container" ref={menuRef}>
           <button
