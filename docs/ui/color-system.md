@@ -42,6 +42,7 @@ AI-Scene-Deck uses a slate-tinted dark color scheme with cool cyan accents.
 | Variable | HEX | Usage |
 |----------|-----|-------|
 | `--accent-primary` | #00b4d8 | Primary accent, single selection, notes |
+| `--accent-primary-deep` | #0096c7 | Darker shade for gradient endpoints (buttons, CTA) |
 | `--accent-secondary` | #3b82f6 | Secondary role color (blue), cut usage indicators |
 | `--accent-success` | #10b981 | Success states, apply actions |
 | `--accent-warning` | #f59e0b | Warnings only |
@@ -61,6 +62,8 @@ AI-Scene-Deck uses a slate-tinted dark color scheme with cool cyan accents.
 | `--accent-success` | #10b981 | `--accent-success-rgb` | Success states with transparency |
 | `--accent-warning` | #f59e0b | `--accent-warning-rgb` | Warning states with transparency |
 | `--accent-danger` | #ef4444 | `--accent-danger-rgb` | Danger states with transparency |
+| `--accent-purple` | #8b5cf6 | `--accent-purple-rgb` | Lip Sync, gradients, glow effects |
+| `--accent-pink` | #ec4899 | `--accent-pink-rgb` | Lip Sync gradient start |
 
 ## Color Spectrum
 
@@ -133,6 +136,29 @@ Notes
 | Muted/secondary outlines | `--border-muted` |
 | Selected | `rgba(var(--accent-primary-rgb), 0.3)` |
 
+### Deep Surface Colors
+
+Used for full-viewport backdrops and info panels (e.g. StartupModal).
+
+| Variable | HEX | Usage |
+|----------|-----|-------|
+| `--bg-depth-1` | #0d1117 | Deepest backdrop layer |
+| `--bg-depth-2` | #161b22 | Deep mid-tone |
+| `--bg-depth-3` | #1a1d23 | Deep warm end |
+| `--bg-info-panel` | #131a2e | Info/hero panel gradient end |
+| `--accent-primary-deep` | #0096c7 | Darker accent for gradient endpoints |
+
+```css
+/* Backdrop gradient */
+background: linear-gradient(135deg, var(--bg-depth-1), var(--bg-depth-2), var(--bg-depth-3));
+
+/* Info panel gradient */
+background: linear-gradient(160deg, var(--bg-primary), var(--bg-info-panel));
+
+/* Primary button gradient */
+background: linear-gradient(135deg, var(--accent-primary), var(--accent-primary-deep));
+```
+
 ### Derived Surface Tokens
 
 | Token | Value | Usage |
@@ -200,3 +226,13 @@ box-shadow: 0 0 0 2px rgba(var(--accent-audio-rgb), 0.3);
 - Multi-select stats: `--accent-group`
 - Clip info section: `--accent-video`
 - Attached audio section: `--accent-audio`
+
+### StartupModal
+
+- Backdrop gradient: `--bg-depth-1` → `--bg-depth-2` → `--bg-depth-3`
+- Info panel gradient: `--bg-primary` → `--bg-info-panel`
+- Info panel glow (top): `rgba(var(--accent-primary-rgb), 0.06)`
+- Info panel glow (bottom): `rgba(var(--accent-purple-rgb), 0.04)`
+- Feature/action icon bg: `rgba(var(--accent-primary-rgb), 0.08)`
+- Create button gradient: `--accent-primary` → `--accent-primary-deep`
+- Vault preview highlight: `rgba(var(--accent-primary-rgb), 0.05)`
