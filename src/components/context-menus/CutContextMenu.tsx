@@ -21,7 +21,7 @@ import {
   MenuSeparator,
   MenuSubmenu,
   type ContextMenuPosition,
-} from '../primitives/menu';
+} from '../../ui/primitives/menu';
 import type { Scene } from '../../types';
 
 export interface CutContextMenuProps {

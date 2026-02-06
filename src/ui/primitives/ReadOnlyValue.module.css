@@ -1,0 +1,5 @@
+.readOnlyValue {
+  font-size: 13px;
+  color: var(--text-primary);
+  padding: 8px 0;
+}

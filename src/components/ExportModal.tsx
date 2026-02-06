@@ -11,6 +11,7 @@ import {
   Body,
   useModalKeyboard,
 } from '../ui/primitives/Modal';
+import { SettingsRow } from '../ui';
 import { useStore } from '../store/useStore';
 import styles from './ExportModal.module.css';
 
@@ -142,32 +143,45 @@ export default function ExportModal({ open, onClose, onExport }: ExportModalProp
 
             <div className={styles.settingsContent}>
               {/* Output Path */}
-              <div className={styles.settingsRow}>
-                <span className={styles.settingsLabel}>Output Folder</span>
-                <div className={styles.pathFieldInline}>
-                  <span className={styles.pathDisplay} title={outputPath || defaultOutputPath}>
-                    {outputPath || defaultOutputPath}
-                  </span>
-                  <button
-                    type="button"
-                    className={styles.pathChangeBtn}
-                    onClick={handleChangePath}
-                  >
-                    Change
-                  </button>
-                </div>
-              </div>
+              <SettingsRow
+                label="Output Folder"
+                className={styles.settingsRow}
+                labelWrapperClassName=""
+                labelClassName={styles.settingsLabel}
+                controlsClassName={styles.pathFieldInline}
+              >
+                <span className={styles.pathDisplay} title={outputPath || defaultOutputPath}>
+                  {outputPath || defaultOutputPath}
+                </span>
+                <button
+                  type="button"
+                  className={styles.pathChangeBtn}
+                  onClick={handleChangePath}
+                >
+                  Change
+                </button>
+              </SettingsRow>
 
               {/* Project Settings (read-only) */}
-              <div className={styles.settingsRow}>
-                <span className={styles.settingsLabel}>Resolution</span>
-                <span className={styles.settingsValueMuted}>1920 × 1080</span>
-              </div>
+              <SettingsRow
+                label="Resolution"
+                className={styles.settingsRow}
+                labelWrapperClassName=""
+                labelClassName={styles.settingsLabel}
+                controlsClassName={styles.settingsValueMuted}
+              >
+                1920 × 1080
+              </SettingsRow>
 
-              <div className={styles.settingsRow}>
-                <span className={styles.settingsLabel}>Frame Rate</span>
-                <span className={styles.settingsValueMuted}>30 fps</span>
-              </div>
+              <SettingsRow
+                label="Frame Rate"
+                className={styles.settingsRow}
+                labelWrapperClassName=""
+                labelClassName={styles.settingsLabel}
+                controlsClassName={styles.settingsValueMuted}
+              >
+                30 fps
+              </SettingsRow>
             </div>
 
             {/* Format-specific Options */}

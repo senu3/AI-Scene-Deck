@@ -37,6 +37,7 @@ import {
   Select,
   StatDisplay,
   Input,
+  SettingsRow,
   type TabItem,
 } from '../ui';
 import { getThumbnailCacheStats, setThumbnailCacheLimits, clearThumbnailCache } from '../utils/thumbnailCache';
@@ -362,29 +363,37 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                     <span>Appearance</span>
                   </div>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Theme</span>
-                      <span className={styles.rowDesc}>Application color scheme</span>
-                    </div>
+                  <SettingsRow
+                    label="Theme"
+                    description="Application color scheme"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Select
                       value={theme}
                       options={THEME_OPTIONS}
                       onChange={(v) => handleChange(setTheme)(v as ThemeMode)}
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Language</span>
-                      <span className={styles.rowDesc}>Display language</span>
-                    </div>
+                  <SettingsRow
+                    label="Language"
+                    description="Display language"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Select
                       value={language}
                       options={LANGUAGE_OPTIONS}
                       onChange={(v) => handleChange(setLanguage)(v as LanguageCode)}
                     />
-                  </div>
+                  </SettingsRow>
 
                   {/* Startup subsection */}
                   <div className={styles.subsectionHeader}>
@@ -392,17 +401,21 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                     <span>Startup</span>
                   </div>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>On Launch</span>
-                      <span className={styles.rowDesc}>What to show when app starts</span>
-                    </div>
+                  <SettingsRow
+                    label="On Launch"
+                    description="What to show when app starts"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Select
                       value={startupBehavior}
                       options={STARTUP_OPTIONS}
                       onChange={(v) => handleChange(setStartupBehavior)(v as StartupBehavior)}
                     />
-                  </div>
+                  </SettingsRow>
                 </div>
               </div>
             </div>
@@ -420,25 +433,32 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
 
                 <div className={styles.panelContent}>
                   {/* Autosave */}
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Auto Save</span>
-                      <span className={styles.rowDesc}>Automatically save changes</span>
-                    </div>
-                    <div className={styles.rowControls}>
-                      <Toggle
-                        checked={autosaveEnabled}
-                        onChange={handleChange(setAutosaveEnabled)}
-                        size="sm"
-                      />
-                    </div>
-                  </div>
+                  <SettingsRow
+                    label="Auto Save"
+                    description="Automatically save changes"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
+                    <Toggle
+                      checked={autosaveEnabled}
+                      onChange={handleChange(setAutosaveEnabled)}
+                      size="sm"
+                    />
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow} data-disabled={!autosaveEnabled}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Save Interval</span>
-                      <span className={styles.rowDesc}>Seconds between saves</span>
-                    </div>
+                  <SettingsRow
+                    label="Save Interval"
+                    description="Seconds between saves"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    data-disabled={!autosaveEnabled}
+                    controlsClassName=""
+                  >
                     <div className={styles.inputWithUnit}>
                       <Input
                         type="number"
@@ -452,7 +472,7 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                       />
                       <span className={styles.inputUnit}>sec</span>
                     </div>
-                  </div>
+                  </SettingsRow>
 
                   <div className={styles.divider} />
 
@@ -462,43 +482,57 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                     <span>Version Snapshots</span>
                   </div>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Enable Snapshots</span>
-                      <span className={styles.rowDesc}>Keep version history of project</span>
-                    </div>
+                  <SettingsRow
+                    label="Enable Snapshots"
+                    description="Keep version history of project"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Toggle
                       checked={snapshotEnabled}
                       onChange={handleChange(setSnapshotEnabled)}
                       size="sm"
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow} data-disabled={!snapshotEnabled}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>On Save</span>
-                      <span className={styles.rowDesc}>Create snapshot when saving</span>
-                    </div>
+                  <SettingsRow
+                    label="On Save"
+                    description="Create snapshot when saving"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    data-disabled={!snapshotEnabled}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Toggle
                       checked={snapshotOnSave}
                       onChange={handleChange(setSnapshotOnSave)}
                       size="sm"
                       disabled={!snapshotEnabled}
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow} data-disabled={!snapshotEnabled}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Max Snapshots</span>
-                      <span className={styles.rowDesc}>Number of snapshots to keep</span>
-                    </div>
+                  <SettingsRow
+                    label="Max Snapshots"
+                    description="Number of snapshots to keep"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    data-disabled={!snapshotEnabled}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Select
                       value={snapshotMaxCount}
                       options={SNAPSHOT_COUNT_OPTIONS}
                       onChange={handleChange(setSnapshotMaxCount)}
                       disabled={!snapshotEnabled}
                     />
-                  </div>
+                  </SettingsRow>
                 </div>
               </div>
 
@@ -510,41 +544,53 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                 </div>
 
                 <div className={styles.panelContent}>
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Preview Quality</span>
-                      <span className={styles.rowDesc}>Video preview rendering quality</span>
-                    </div>
+                  <SettingsRow
+                    label="Preview Quality"
+                    description="Video preview rendering quality"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Select
                       value={previewQuality}
                       options={PREVIEW_QUALITY_OPTIONS}
                       onChange={(v) => handleChange(setPreviewQuality)(v as PreviewQuality)}
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Playback Speed</span>
-                      <span className={styles.rowDesc}>Default playback rate</span>
-                    </div>
+                  <SettingsRow
+                    label="Playback Speed"
+                    description="Default playback rate"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Select
                       value={defaultPlaybackRate}
                       options={PLAYBACK_RATE_OPTIONS}
                       onChange={handleChange(setDefaultPlaybackRate)}
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Show Thumbnails</span>
-                      <span className={styles.rowDesc}>Display thumbnails in timeline</span>
-                    </div>
+                  <SettingsRow
+                    label="Show Thumbnails"
+                    description="Display thumbnails in timeline"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Toggle
                       checked={showThumbnails}
                       onChange={handleChange(setShowThumbnails)}
                       size="sm"
                     />
-                  </div>
+                  </SettingsRow>
 
                   <div className={styles.divider} />
 
@@ -553,11 +599,15 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                     <span>Defaults</span>
                   </div>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Cut Duration</span>
-                      <span className={styles.rowDesc}>Default duration for image cuts</span>
-                    </div>
+                  <SettingsRow
+                    label="Cut Duration"
+                    description="Default duration for image cuts"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName=""
+                  >
                     <div className={styles.inputWithUnit}>
                       <Input
                         type="number"
@@ -570,7 +620,7 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                       />
                       <span className={styles.inputUnit}>sec</span>
                     </div>
-                  </div>
+                  </SettingsRow>
                 </div>
               </div>
 
@@ -582,30 +632,39 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                 </div>
 
                 <div className={styles.panelContent}>
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Auto Empty</span>
-                      <span className={styles.rowDesc}>Automatically delete old items</span>
-                    </div>
+                  <SettingsRow
+                    label="Auto Empty"
+                    description="Automatically delete old items"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Toggle
                       checked={autoEmptyTrash}
                       onChange={handleChange(setAutoEmptyTrash)}
                       size="sm"
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow} data-disabled={!autoEmptyTrash}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Retention Period</span>
-                      <span className={styles.rowDesc}>Days before permanent deletion</span>
-                    </div>
+                  <SettingsRow
+                    label="Retention Period"
+                    description="Days before permanent deletion"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    data-disabled={!autoEmptyTrash}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Select
                       value={trashRetention}
                       options={TRASH_RETENTION_OPTIONS}
                       onChange={handleChange(setTrashRetention)}
                       disabled={!autoEmptyTrash}
                     />
-                  </div>
+                  </SettingsRow>
 
                   <div className={styles.actionRow}>
                     <button
@@ -638,11 +697,15 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                     <StatDisplay label="Size" value={currentBytesMb} unit="MB" />
                   </div>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Max Cache Size</span>
-                      <span className={styles.rowDesc}>Maximum memory usage</span>
-                    </div>
+                  <SettingsRow
+                    label="Max Cache Size"
+                    description="Maximum memory usage"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName=""
+                  >
                     <div className={styles.inputWithUnit}>
                       <Input
                         type="number"
@@ -655,13 +718,17 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                       />
                       <span className={styles.inputUnit}>MB</span>
                     </div>
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Max Items</span>
-                      <span className={styles.rowDesc}>Maximum cached thumbnails</span>
-                    </div>
+                  <SettingsRow
+                    label="Max Items"
+                    description="Maximum cached thumbnails"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName=""
+                  >
                     <div className={styles.inputWithUnit}>
                       <Input
                         type="number"
@@ -674,7 +741,7 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                       />
                       <span className={styles.inputUnit}>items</span>
                     </div>
-                  </div>
+                  </SettingsRow>
 
                   <div className={styles.actionRow}>
                     <button
@@ -697,23 +764,31 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                 </div>
 
                 <div className={styles.panelContent}>
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Hardware Acceleration</span>
-                      <span className={styles.rowDesc}>Use GPU for encoding</span>
-                    </div>
+                  <SettingsRow
+                    label="Hardware Acceleration"
+                    description="Use GPU for encoding"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Toggle
                       checked={hardwareAcceleration}
                       onChange={handleChange(setHardwareAcceleration)}
                       size="sm"
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Log Buffer</span>
-                      <span className={styles.rowDesc}>FFmpeg stderr buffer size</span>
-                    </div>
+                  <SettingsRow
+                    label="Log Buffer"
+                    description="FFmpeg stderr buffer size"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName=""
+                  >
                     <div className={styles.inputWithUnit}>
                       <Input
                         type="number"
@@ -726,7 +801,7 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                       />
                       <span className={styles.inputUnit}>KB</span>
                     </div>
-                  </div>
+                  </SettingsRow>
 
                   <div className={styles.divider} />
 
@@ -816,29 +891,37 @@ export default function EnvironmentSettingsModal({ open, onClose }: EnvironmentS
                 </div>
 
                 <div className={styles.panelContent}>
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Debug Mode</span>
-                      <span className={styles.rowDesc}>Show debug information</span>
-                    </div>
+                  <SettingsRow
+                    label="Debug Mode"
+                    description="Show debug information"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Toggle
                       checked={debugMode}
                       onChange={handleChange(setDebugMode)}
                       size="sm"
                     />
-                  </div>
+                  </SettingsRow>
 
-                  <div className={styles.settingsRow}>
-                    <div className={styles.rowInfo}>
-                      <span className={styles.rowLabel}>Verbose Logging</span>
-                      <span className={styles.rowDesc}>Enable detailed logs</span>
-                    </div>
+                  <SettingsRow
+                    label="Verbose Logging"
+                    description="Enable detailed logs"
+                    className={styles.settingsRow}
+                    labelWrapperClassName={styles.rowInfo}
+                    labelClassName={styles.rowLabel}
+                    descriptionClassName={styles.rowDesc}
+                    controlsClassName={styles.rowControls}
+                  >
                     <Toggle
                       checked={verboseLogging}
                       onChange={handleChange(setVerboseLogging)}
                       size="sm"
                     />
-                  </div>
+                  </SettingsRow>
                 </div>
               </div>
 

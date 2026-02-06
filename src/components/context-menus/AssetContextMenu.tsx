@@ -11,7 +11,7 @@ import {
   MenuItem,
   MenuSeparator,
   type ContextMenuPosition,
-} from '../primitives/menu';
+} from '../../ui/primitives/menu';
 
 export interface AssetContextMenuProps {
   position: ContextMenuPosition;

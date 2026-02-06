@@ -20,7 +20,11 @@ import { useStore } from '../store/useStore';
 import type { Asset, Scene, MetadataStore, AssetIndexEntry } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { getCachedThumbnail, getThumbnail, removeThumbnailCache } from '../utils/thumbnailCache';
-import { useToast, CutContextMenu, AssetContextMenu } from '../ui';
+import { useToast } from '../ui';
+import {
+  CutContextMenu,
+  AssetContextMenu,
+} from './context-menus';
 import './AssetPanel.css';
 
 export type SortMode = 'name' | 'type' | 'used' | 'unused';

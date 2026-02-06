@@ -13,7 +13,18 @@ src/ui/
 │   ├── Modal.tsx      # Overlay, Container, Header, Body, Footer, Actions, ActionButton
 │   ├── Tooltip.tsx    # Hover/focus tooltip for explanations
 │   ├── Slider.tsx     # Horizontal range slider with keyboard support
-│   ├── FormControls.tsx # Input, Select, RadioGroup, Checkbox
+│   ├── Input.tsx      # Text input
+│   ├── InputGroup.tsx # Input with unit suffix
+│   ├── Select.tsx     # Select dropdown
+│   ├── RadioGroup.tsx # Radio option group
+│   ├── Checkbox.tsx   # Checkbox control
+│   ├── ReadOnlyValue.tsx # Display-only value
+│   ├── PathField.tsx  # Path display with change button
+│   ├── Toggle.tsx     # Toggle / switch
+│   ├── Tabs.tsx       # Tabs
+│   ├── SettingsSection.tsx # Grouped settings section
+│   ├── SettingsRow.tsx # Label + description + control row
+│   ├── StatDisplay.tsx # Stats display
 │   └── menu/          # Context menu primitives
 │       ├── Menu.tsx           # Menu, MenuHeader, MenuItem, MenuSeparator, MenuCheckboxItem
 │       ├── ContextMenu.tsx    # ContextMenu (Portal-based positioning)
@@ -25,8 +36,6 @@ src/ui/
 │   ├── Field.tsx      # Label + hint + error wrapper
 │   ├── DisabledReason.tsx # Balloon for disabled state reasons
 │   ├── InlineSlider.tsx # Compact slider in popover (volume, opacity)
-│   ├── CutContextMenu.tsx    # Pre-built menu for cut operations
-│   ├── AssetContextMenu.tsx  # Pre-built menu for asset operations
 │   └── *.module.css
 ├── feedback/          # Notification/dialog components
 │   ├── Toast.tsx      # ToastProvider, useToast
@@ -321,6 +330,18 @@ import { Field, Input } from './ui';
 </Field>
 ```
 
+## SettingsRow
+
+For settings-style rows with label, description, and control:
+
+```tsx
+import { SettingsRow, Select } from './ui';
+
+<SettingsRow label="Theme" description="Application color scheme">
+  <Select value={theme} options={THEME_OPTIONS} onChange={setTheme} />
+</SettingsRow>
+```
+
 ## DisabledReason
 
 For explaining why an action is disabled (wraps element to capture hover):
@@ -464,37 +485,10 @@ function MyComponent() {
 | action    | accent-purple | Clip operations, special actions |
 | success   | accent-success | Positive actions |
 
-### Pre-built Patterns
+### SceneDeck Context Menus (Domain UI)
 
-For common use cases, use pre-built patterns from `src/ui/patterns/`:
-
-```tsx
-import { CutContextMenu, AssetContextMenu } from './ui';
-
-// Cut context menu (for Storyline cuts)
-<CutContextMenu
-  position={contextMenu}
-  isMultiSelect={selectedCount > 1}
-  selectedCount={selectedCount}
-  scenes={scenes}
-  currentSceneId={sceneId}
-  canPaste={canPaste}
-  isClip={isClip}
-  isInGroup={isInGroup}
-  onClose={() => setContextMenu(null)}
-  onCopy={handleCopy}
-  onPaste={handlePaste}
-  onDelete={handleDelete}
-  onMoveToScene={handleMoveToScene}
-/>
-
-// Asset context menu (for unused assets)
-<AssetContextMenu
-  position={contextMenu}
-  onClose={() => setContextMenu(null)}
-  onDelete={handleDelete}
-/>
-```
+`CutContextMenu` / `AssetContextMenu` are domain-specific and live in `src/components/context-menus/`.
+They are not exported from `src/ui` to keep primitives/patterns free of domain logic.
 
 ### Keyboard Navigation
 

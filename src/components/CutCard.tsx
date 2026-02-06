@@ -7,7 +7,7 @@ import type { Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import './CutCard.css';
 import { getThumbnail } from '../utils/thumbnailCache';
-import { CutContextMenu } from '../ui/patterns/CutContextMenu';
+import { CutContextMenu } from './context-menus';
 
 interface CutCardProps {
   cut: {

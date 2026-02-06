@@ -1,0 +1,11 @@
+.inputGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.inputUnit {
+  font-size: 12px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}

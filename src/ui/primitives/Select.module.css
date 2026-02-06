@@ -1,0 +1,97 @@
+.selectContainer {
+  position: relative;
+  display: inline-block;
+}
+
+.selectTrigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 120px;
+}
+
+.selectTrigger:hover {
+  background-color: var(--bg-hover);
+  border-color: var(--border-light);
+}
+
+.selectTrigger[data-open="true"] {
+  border-color: var(--accent-primary);
+}
+
+.selectTrigger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.selectValue {
+  flex: 1;
+  text-align: left;
+}
+
+.selectIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.selectTrigger[data-open="true"] .selectIcon {
+  transform: rotate(180deg);
+}
+
+.selectDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  padding: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  animation: dropdownSlideIn 0.15s ease;
+}
+
+@keyframes dropdownSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.selectOption {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 13px;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.selectOption:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.selectOption[data-selected="true"] {
+  background-color: var(--accent-primary);
+  color: white;
+}

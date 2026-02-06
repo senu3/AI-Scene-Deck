@@ -15,6 +15,4 @@ export {
   type PopoverPosition,
 } from './InlineSlider';
 
-// Context menu patterns (SceneDeck-specific compositions)
-export { CutContextMenu, type CutContextMenuProps } from './CutContextMenu';
-export { AssetContextMenu, type AssetContextMenuProps } from './AssetContextMenu';
+// Context menu patterns are domain-specific and live in src/components/context-menus

@@ -36,36 +36,68 @@ export {
 } from './Slider';
 
 export {
-  FormControls,
   Input,
-  InputGroup,
-  Select,
-  RadioGroup,
-  Checkbox,
-  ReadOnlyValue,
-  PathField,
-  Toggle,
-  Tabs,
-  SettingsSection,
-  SettingsRow,
-  StatDisplay,
-  type InputSize,
   type InputProps,
+  type InputSize,
+} from './Input';
+
+export {
+  InputGroup,
   type InputGroupProps,
+} from './InputGroup';
+
+export {
+  Select,
   type SelectOption,
   type SelectProps,
+} from './Select';
+
+export {
+  RadioGroup,
   type RadioOption,
   type RadioGroupProps,
+} from './RadioGroup';
+
+export {
+  Checkbox,
   type CheckboxProps,
+} from './Checkbox';
+
+export {
+  ReadOnlyValue,
   type ReadOnlyValueProps,
+} from './ReadOnlyValue';
+
+export {
+  PathField,
   type PathFieldProps,
+} from './PathField';
+
+export {
+  Toggle,
   type ToggleProps,
+} from './Toggle';
+
+export {
+  Tabs,
   type TabItem,
   type TabsProps,
+} from './Tabs';
+
+export {
+  SettingsSection,
   type SettingsSectionProps,
+} from './SettingsSection';
+
+export {
+  SettingsRow,
   type SettingsRowProps,
+} from './SettingsRow';
+
+export {
+  StatDisplay,
   type StatDisplayProps,
-} from './FormControls';
+} from './StatDisplay';
 
 // Note: Field is now exported from './patterns' with error support
 
