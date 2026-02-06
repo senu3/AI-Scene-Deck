@@ -1,7 +1,7 @@
-/* Cut Card - Sharp frame design */
+/* Cut Card */
 .cut-card {
   position: relative;
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: grab;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -10,7 +10,7 @@
 }
 
 .cut-card:hover {
-  border-color: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.12);
 }
 
 /* Selection - clean border highlight */
@@ -52,33 +52,6 @@
   overflow: hidden;
 }
 
-/* Viewfinder corner marks */
-.cut-thumbnail-container::after {
-  content: '';
-  position: absolute;
-  inset: 5px;
-  pointer-events: none;
-  z-index: 10;
-  background:
-    /* Top-left L */
-    linear-gradient(white, white) 0 0 / 12px 1px no-repeat,
-    linear-gradient(white, white) 0 0 / 1px 12px no-repeat,
-    /* Top-right L */
-    linear-gradient(white, white) 100% 0 / 12px 1px no-repeat,
-    linear-gradient(white, white) 100% 0 / 1px 12px no-repeat,
-    /* Bottom-left L */
-    linear-gradient(white, white) 0 100% / 12px 1px no-repeat,
-    linear-gradient(white, white) 0 100% / 1px 12px no-repeat,
-    /* Bottom-right L */
-    linear-gradient(white, white) 100% 100% / 12px 1px no-repeat,
-    linear-gradient(white, white) 100% 100% / 1px 12px no-repeat;
-  opacity: 0.2;
-  transition: opacity 0.15s ease;
-}
-
-.cut-card:hover .cut-thumbnail-container::after {
-  opacity: 0.45;
-}
 
 .cut-thumbnail {
   width: 100%;
@@ -100,13 +73,13 @@
 /* Asset type badge - compact, top-right */
 .cut-type-badge {
   position: absolute;
-  top: 5px;
-  right: 5px;
+  top: 6px;
+  right: 6px;
   display: flex;
   align-items: center;
   gap: 3px;
   padding: 2px 6px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -136,8 +109,8 @@
   align-items: center;
   gap: 3px;
   padding: 2px 6px;
-  background-color: rgba(0, 0, 0, 0.7);
-  border-radius: 2px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 500;
   color: white;
@@ -154,7 +127,7 @@
   width: 22px;
   height: 22px;
   background-color: rgba(var(--accent-video-rgb), 0.9);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   color: white;
   z-index: 5;
 }
@@ -174,7 +147,7 @@
   width: 22px;
   height: 22px;
   background-color: rgba(var(--accent-audio-rgb), 0.9);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   color: white;
   z-index: 5;
 }
@@ -190,11 +163,12 @@
   position: fixed;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   min-width: 180px;
   z-index: 1000;
   overflow: hidden;
+  padding: 4px;
   animation: fadeIn 0.15s ease-out;
 }
 
@@ -214,10 +188,7 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border-color);
-  background-color: var(--bg-tertiary);
+  letter-spacing: 0.3px;
 }
 
 .cut-context-menu button {
@@ -225,15 +196,17 @@
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px 12px;
-  font-size: 13px;
-  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
   text-align: left;
-  transition: background-color 0.15s ease;
+  border-radius: var(--radius-sm);
+  transition: all 0.1s ease;
 }
 
 .cut-context-menu button:hover {
   background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .cut-context-menu button.danger {
@@ -278,25 +251,28 @@
   top: 0;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 3px;
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   min-width: 150px;
   z-index: 1001;
+  padding: 4px;
   animation: fadeIn 0.1s ease-out;
 }
 
 .context-submenu button {
   display: block;
   width: 100%;
-  padding: 10px 12px;
-  font-size: 13px;
-  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
   text-align: left;
-  transition: background-color 0.15s ease;
+  border-radius: var(--radius-sm);
+  transition: all 0.1s ease;
 }
 
 .context-submenu button:hover {
   background-color: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 /* Loading state */
@@ -359,8 +335,8 @@
   align-items: center;
   gap: 3px;
   padding: 3px 6px;
-  background-color: rgba(0, 0, 0, 0.75);
-  border-radius: 2px;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-sm);
   font-size: 10px;
   font-weight: 500;
   color: white;

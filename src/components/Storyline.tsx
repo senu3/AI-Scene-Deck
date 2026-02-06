@@ -1,7 +1,7 @@
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import { AddSceneCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
@@ -159,9 +159,6 @@ function SceneColumn({
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const cutsContainerRef = useRef<HTMLDivElement>(null);
-  const sceneDuration = useMemo(() => {
-    return cuts.reduce((total, cut) => total + (cut.displayTime || 0), 0);
-  }, [cuts]);
 
   // Droppable for cuts
   const { setNodeRef: setDroppableRef } = useDroppable({
@@ -398,67 +395,59 @@ function SceneColumn({
           onSelect();
         }}
       >
-        <div className="scene-header-row">
-          <span className="scene-number">SC-{String(sceneIndex + 1).padStart(2, '0')}</span>
+        <span className="scene-indicator" />
 
-          {isEditing ? (
-            <input
-              ref={inputRef}
-              type="text"
-              className="scene-name-input"
-              value={editName}
-              onChange={(e) => setEditName(e.target.value)}
-              onBlur={handleRename}
-              onKeyDown={handleKeyDown}
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : (
-            <span className="scene-name">{sceneName.toUpperCase()}</span>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            className="scene-name-input"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={handleRename}
+            onKeyDown={handleKeyDown}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <span className="scene-name">{sceneName}</span>
+        )}
+
+        <div className="scene-menu-container" ref={menuRef}>
+          <button
+            className="scene-menu-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowMenu(!showMenu);
+            }}
+          >
+            <MoreHorizontal size={16} />
+          </button>
+
+          {showMenu && (
+            <div className="scene-menu">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditing(true);
+                  setShowMenu(false);
+                }}
+              >
+                <Edit2 size={14} />
+                Rename
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete();
+                }}
+                className="danger"
+                disabled={scenes.length <= 1}
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+            </div>
           )}
-
-          <div className="scene-menu-container" ref={menuRef}>
-            <button
-              className="scene-menu-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowMenu(!showMenu);
-              }}
-            >
-              <MoreHorizontal size={16} />
-            </button>
-
-            {showMenu && (
-              <div className="scene-menu">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsEditing(true);
-                    setShowMenu(false);
-                  }}
-                >
-                  <Edit2 size={14} />
-                  Rename
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete();
-                  }}
-                  className="danger"
-                  disabled={scenes.length <= 1}
-                >
-                  <Trash2 size={14} />
-                  Delete
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="scene-meta">
-          <span className="scene-meta-time">{sceneDuration.toFixed(1)}s</span>
-          <span className="scene-meta-dot">•</span>
-          <span>{cuts.length} cuts</span>
         </div>
       </div>
 
