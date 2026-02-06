@@ -10,7 +10,7 @@
  *   // render {element} inside your overlay container
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import styles from './MiniToast.module.css';
 
 // ============================================
@@ -45,6 +45,14 @@ export function useMiniToast(options?: UseMiniToastOptions): MiniToastAPI {
   const [toast, setToast] = useState<MiniToastState | null>(null);
   const dismissTimerRef = useRef<number>(0);
   const removeTimerRef = useRef<number>(0);
+
+  // Clear timers on unmount to prevent setState on unmounted component
+  useEffect(() => {
+    return () => {
+      window.clearTimeout(dismissTimerRef.current);
+      window.clearTimeout(removeTimerRef.current);
+    };
+  }, []);
 
   const show = useCallback(
     (message: string, variant: MiniToastVariant = 'info', duration?: number) => {
