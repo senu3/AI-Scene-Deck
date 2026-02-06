@@ -399,7 +399,7 @@ function SceneColumn({
         }}
       >
         <div className="scene-header-row">
-          <div className="scene-indicator" />
+          <span className="scene-number">SC-{String(sceneIndex + 1).padStart(2, '0')}</span>
 
           {isEditing ? (
             <input

@@ -3,6 +3,12 @@
   overflow-x: auto;
   overflow-y: hidden;
   padding: 20px 40px;
+  /* Film editing table surface */
+  background:
+    /* Top guide rail */
+    linear-gradient(rgba(255,255,255,0.04), transparent) 0 0 / 100% 1px no-repeat,
+    /* Bottom guide rail */
+    linear-gradient(transparent, rgba(255,255,255,0.04)) 0 100% / 100% 1px no-repeat;
 }
 
 .storyline-content {
@@ -12,25 +18,65 @@
   min-width: min-content;
 }
 
-/* Scene column - frameless container */
+/* Scene column - film strip container */
 .scene-column {
   display: flex;
   flex-direction: column;
   width: 232px;
   min-width: 232px;
+  position: relative;
 }
 
-/* Scene header - standalone card element */
+/* Film sprocket perforation rail */
+.scene-column::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.06) 0,
+    rgba(255,255,255,0.06) 8px,
+    transparent 8px,
+    transparent 20px
+  );
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+/* Scene header - clapperboard slate */
 .scene-header {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px 14px;
+  padding: 16px 14px 12px;
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Clapperboard diagonal stripes at top edge */
+.scene-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--scene-color, var(--text-muted)),
+    var(--scene-color, var(--text-muted)) 3px,
+    transparent 3px,
+    transparent 7px
+  );
+  opacity: 0.35;
 }
 
 .scene-header:hover {
@@ -53,19 +99,22 @@
   gap: 8px;
 }
 
-.scene-indicator {
+/* Scene number chip (replaces indicator dot) */
+.scene-number {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--scene-color, var(--text-muted));
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--scene-color, var(--border-color));
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  color: var(--scene-color, var(--text-muted));
   flex-shrink: 0;
-}
-
-.scene-indicator svg {
-  display: none;
+  text-transform: uppercase;
 }
 
 .scene-name {
@@ -244,36 +293,61 @@
   display: none;
 }
 
-/* Add scene button - matches header style */
+/* Add scene button - film leader countdown style */
 .add-scene-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  width: 100px;
-  min-width: 100px;
-  height: fit-content;
-  padding: 20px 16px;
-  margin-top: 0;
+  gap: 10px;
+  width: 80px;
+  min-width: 80px;
   align-self: flex-start;
-  background: var(--bg-secondary);
+  padding: 24px 16px;
+  margin-top: 0;
+  background: transparent;
   border-radius: var(--radius-lg);
   border: 1px dashed var(--border-color);
   color: var(--text-muted);
   transition: all 0.2s ease;
+  position: relative;
+}
+
+/* Countdown circle */
+.add-scene-btn::before {
+  content: '';
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--border-color);
+  position: absolute;
+  top: 16px;
+  transition: all 0.2s ease;
+  pointer-events: none;
 }
 
 .add-scene-btn:hover {
   border-color: var(--accent-primary);
   border-style: solid;
   color: var(--accent-primary);
-  background: color-mix(in srgb, var(--accent-primary) 6%, var(--bg-secondary));
+  background: rgba(var(--accent-primary-rgb), 0.04);
+}
+
+.add-scene-btn:hover::before {
+  border-color: var(--accent-primary);
+}
+
+.add-scene-btn svg {
+  position: relative;
+  z-index: 1;
 }
 
 .add-scene-btn span {
-  font-size: 11px;
-  font-weight: 500;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.5px;
+  margin-top: 12px;
 }
 
 @keyframes fadeIn {

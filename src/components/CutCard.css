@@ -52,6 +52,34 @@
   overflow: hidden;
 }
 
+/* Viewfinder corner marks - camera/storyboard feel */
+.cut-thumbnail-container::after {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  pointer-events: none;
+  z-index: 10;
+  background:
+    /* Top-left L */
+    linear-gradient(white, white) 0 0 / 10px 1px no-repeat,
+    linear-gradient(white, white) 0 0 / 1px 10px no-repeat,
+    /* Top-right L */
+    linear-gradient(white, white) 100% 0 / 10px 1px no-repeat,
+    linear-gradient(white, white) 100% 0 / 1px 10px no-repeat,
+    /* Bottom-left L */
+    linear-gradient(white, white) 0 100% / 10px 1px no-repeat,
+    linear-gradient(white, white) 0 100% / 1px 10px no-repeat,
+    /* Bottom-right L */
+    linear-gradient(white, white) 100% 100% / 10px 1px no-repeat,
+    linear-gradient(white, white) 100% 100% / 1px 10px no-repeat;
+  opacity: 0.15;
+  transition: opacity 0.15s ease;
+}
+
+.cut-card:hover .cut-thumbnail-container::after {
+  opacity: 0.35;
+}
+
 .cut-thumbnail {
   width: 100%;
   height: 100%;
