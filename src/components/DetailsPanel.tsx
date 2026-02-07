@@ -84,6 +84,7 @@ export default function DetailsPanel() {
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [pendingLipSyncOpen, setPendingLipSyncOpen] = useState(false);
   const [lipSyncFrames, setLipSyncFrames] = useState<string[]>([]);
+  const [groupThumbnail, setGroupThumbnail] = useState<string | null>(null);
 
   // Attached audio state
   const [attachedAudio, setAttachedAudio] = useState<Asset | undefined>(undefined);
@@ -126,6 +127,44 @@ export default function DetailsPanel() {
 
   // Check if a group is selected
   const selectedGroupData = getSelectedGroup();
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadGroupThumbnail = async () => {
+      setGroupThumbnail(null);
+
+      if (!selectedGroupData) return;
+
+      const firstCutId = selectedGroupData.group.cutIds[0];
+      if (!firstCutId) return;
+
+      const firstCut = selectedGroupData.scene.cuts.find((c) => c.id === firstCutId);
+      if (!firstCut) return;
+
+      const firstAsset = firstCut.asset || (firstCut.assetId ? getAsset(firstCut.assetId) : undefined);
+      if (firstAsset?.thumbnail) {
+        if (isActive) setGroupThumbnail(firstAsset.thumbnail);
+        return;
+      }
+
+      if (firstAsset?.path && (firstAsset.type === "image" || firstAsset.type === "video")) {
+        try {
+          const cached = await getThumbnail(firstAsset.path, firstAsset.type);
+          if (isActive && cached) {
+            setGroupThumbnail(cached);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    void loadGroupThumbnail();
+    return () => {
+      isActive = false;
+    };
+  }, [selectedGroupData, getAsset]);
 
   // State for group name editing
   const [editingGroupName, setEditingGroupName] = useState(false);
@@ -585,13 +624,6 @@ export default function DetailsPanel() {
     return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
   };
 
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return "Unknown";
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -678,6 +710,20 @@ export default function DetailsPanel() {
                 {group.name}
                 <Edit2 size={12} />
               </span>
+            )}
+          </div>
+
+          <div className="details-preview">
+            {groupThumbnail ? (
+              <img
+                src={groupThumbnail}
+                alt={group.name}
+                className="preview-image"
+              />
+            ) : (
+              <div className="preview-placeholder">
+                <Layers size={48} />
+              </div>
             )}
           </div>
 
@@ -984,15 +1030,15 @@ export default function DetailsPanel() {
               {lipSyncThresholds && (
                 <div className="lipsync-thresholds-info">
                   <div className="threshold-row">
-                    <span className="threshold-label">T1</span>
+                    <span className="threshold-label">T1 (Harf1)</span>
                     <span className="threshold-value">{lipSyncThresholds.t1.toFixed(2)}</span>
                   </div>
                   <div className="threshold-row">
-                    <span className="threshold-label">T2</span>
+                    <span className="threshold-label">T2 (Harf3)</span>
                     <span className="threshold-value">{lipSyncThresholds.t2.toFixed(2)}</span>
                   </div>
                   <div className="threshold-row">
-                    <span className="threshold-label">T3</span>
+                    <span className="threshold-label">T3 (Open)</span>
                     <span className="threshold-value">{lipSyncThresholds.t3.toFixed(2)}</span>
                   </div>
                 </div>
@@ -1001,24 +1047,6 @@ export default function DetailsPanel() {
           )}
 
           <div className="details-info">
-            <div className="info-row">
-              <span className="info-label">Resolution:</span>
-              <span className="info-value">
-                {metadata?.width && metadata?.height
-                  ? `${metadata.width}×${metadata.height}`
-                  : "Unknown"}
-              </span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Size:</span>
-              <span className="info-value">
-                {formatFileSize(metadata?.fileSize || asset.fileSize)}
-              </span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Source:</span>
-              <span className="info-value truncate">{asset.name}</span>
-            </div>
             {isLipSyncCut && !lipSyncSettings && (
               <div className="info-row">
                 <span className="info-label">Lip Sync:</span>
