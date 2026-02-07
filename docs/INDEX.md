@@ -18,6 +18,7 @@
 - `docs/guides/media-handling.md`
 - `docs/guides/buffer-guide.md`
 - `docs/guides/vault-guide.md`
+- `docs/guides/autosave-snapshots.md`
 - `docs/guides/lip-sync-requirements.md`
 - `docs/ui/components.md`
 - `docs/ui/color-system.md`
