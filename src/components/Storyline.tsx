@@ -1,7 +1,7 @@
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useStore } from '../store/useStore';
 import { useHistoryStore } from '../store/historyStore';
 import { AddSceneCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
@@ -159,10 +159,6 @@ function SceneColumn({
   const inputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const cutsContainerRef = useRef<HTMLDivElement>(null);
-  const sceneDuration = useMemo(() => {
-    return cuts.reduce((total, cut) => total + (cut.displayTime || 0), 0);
-  }, [cuts]);
-
   // Droppable for cuts
   const { setNodeRef: setDroppableRef } = useDroppable({
     id: `dropzone-${sceneId}`,
@@ -412,10 +408,8 @@ function SceneColumn({
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
-          <span className="scene-name">{sceneName}</span>
+          <span className="scene-name">{sceneName.toUpperCase()}</span>
         )}
-
-        <span className="scene-duration">{sceneDuration.toFixed(1)}s</span>
 
         <div className="scene-menu-container" ref={menuRef}>
           <button

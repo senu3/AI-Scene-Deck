@@ -2,88 +2,64 @@
   flex: 1;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 20px 40px;
+  padding: 16px;
 }
 
 .storyline-content {
   display: flex;
-  gap: 24px;
+  gap: 16px;
   height: 100%;
   min-width: min-content;
 }
 
-/* Scene column - clean vertical strip */
 .scene-column {
   display: flex;
   flex-direction: column;
-  width: 232px;
-  min-width: 232px;
-  position: relative;
+  width: 200px;
+  min-width: 200px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  transition: all 0.15s ease;
 }
 
-/* Scene header */
+.scene-column.selected {
+  border-color: var(--accent-primary);
+}
+
 .scene-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  background: var(--bg-secondary);
-  border-radius: var(--radius-md);
+  padding: 12px;
+  border-bottom: 1px solid var(--border-color);
   cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
 }
 
-.scene-header:hover {
-  background: var(--bg-hover);
-}
-
-.scene-column.selected .scene-header {
-  background: rgba(var(--accent-primary-rgb), 0.1);
-}
-
-/* Scene indicator dot */
 .scene-indicator {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   background: var(--scene-color, var(--text-muted));
   flex-shrink: 0;
-  opacity: 0.6;
-  transition: opacity 0.2s ease;
-}
-
-.scene-column.selected .scene-indicator {
-  opacity: 1;
 }
 
 .scene-name {
   flex: 1;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.5px;
   color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.scene-column.selected .scene-name {
-  color: var(--text-primary);
-}
-
-.scene-duration {
-  flex-shrink: 0;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text-muted);
 }
 
 .scene-name-input {
   flex: 1;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.5px;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
+  text-transform: uppercase;
 }
 
 .scene-menu-container {
@@ -102,7 +78,7 @@
   transition: all 0.15s ease;
 }
 
-.scene-header:hover .scene-menu-btn {
+.scene-column:hover .scene-menu-btn {
   opacity: 1;
 }
 
@@ -116,14 +92,13 @@
   top: 100%;
   right: 0;
   margin-top: 4px;
-  background: var(--bg-secondary);
+  background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   z-index: 100;
   min-width: 120px;
-  padding: 4px;
   animation: fadeIn 0.15s ease-out;
 }
 
@@ -133,16 +108,14 @@
   gap: 8px;
   width: 100%;
   padding: 8px 12px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  border-radius: var(--radius-sm);
-  transition: all 0.1s ease;
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: background-color 0.15s ease;
   text-align: left;
 }
 
 .scene-menu button:hover:not(:disabled) {
   background-color: var(--bg-hover);
-  color: var(--text-primary);
 }
 
 .scene-menu button:disabled {
@@ -161,17 +134,16 @@
 /* Cuts container - open layout without frame */
 .scene-cuts {
   flex: 1;
-  padding: 12px 0;
+  padding: 12px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  min-height: 180px;
+  gap: 8px;
+  min-height: 200px;
 }
 
 .scene-cuts.drop-active {
-  background-color: color-mix(in srgb, var(--accent-primary) 6%, transparent);
-  border-radius: var(--radius-md);
+  background-color: rgba(0, 180, 216, 0.1);
 }
 
 .drop-placeholder {
@@ -179,27 +151,27 @@
   align-items: center;
   justify-content: center;
   min-height: 60px;
+  border: 2px dashed var(--border-color);
   border-radius: var(--radius-md);
-  background: rgba(255,255,255,0.03);
   color: var(--text-muted);
   margin-top: auto;
   transition: all 0.15s ease;
 }
 
 .drop-placeholder:hover {
+  border-color: var(--accent-primary);
   color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.06);
 }
 
 /* Placeholder card for drag and drop */
 .placeholder-card {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border: 1px dashed var(--accent-primary);
+  border: 2px dashed var(--accent-primary);
   border-radius: var(--radius-md);
-  background-color: rgba(var(--accent-primary-rgb), 0.08);
-  opacity: 0.9;
-  animation: placeholderPulse 1.2s ease-in-out infinite;
+  background-color: rgba(0, 180, 216, 0.1);
+  opacity: 0.8;
+  animation: placeholderPulse 1s ease-in-out infinite;
 }
 
 .placeholder-content {
@@ -224,43 +196,28 @@
   display: none;
 }
 
-/* Add scene button */
 .add-scene-btn {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  width: 80px;
-  min-width: 80px;
-  align-self: flex-start;
-  padding: 24px 16px;
-  margin-top: 0;
-  background: rgba(255,255,255,0.03);
-  border-radius: var(--radius-md);
+  width: 120px;
+  min-width: 120px;
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+  border: 2px dashed var(--border-color);
   color: var(--text-muted);
-  transition: all 0.2s ease;
-  position: relative;
+  transition: all 0.15s ease;
 }
 
 .add-scene-btn:hover {
+  border-color: var(--accent-primary);
   color: var(--accent-primary);
-  background: rgba(var(--accent-primary-rgb), 0.06);
+  background-color: rgba(0, 180, 216, 0.1);
 }
 
 .add-scene-btn span {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  font-size: 12px;
+  font-weight: 500;
 }

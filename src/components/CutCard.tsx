@@ -389,23 +389,14 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden }: C
           </div>
         )}
 
-        {/* Asset type badge - icon + text, top-right */}
+        {/* Asset type badge - icon only */}
         <div className={`cut-type-badge ${isLipSync ? 'lipsync' : isVideo ? 'video' : 'image'}`}>
           {isLipSync ? (
-            <>
-              <Mic size={12} />
-              <span>LIP SYNC</span>
-            </>
+            <Mic size={12} />
           ) : isVideo ? (
-            <>
-              <Film size={12} />
-              <span>VIDEO</span>
-            </>
+            <Film size={12} />
           ) : (
-            <>
-              <Image size={12} />
-              <span>IMAGE</span>
-            </>
+            <Image size={12} />
           )}
         </div>
 
