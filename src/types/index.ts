@@ -196,6 +196,7 @@ export interface LipSyncSettings {
   rmsSourceAudioAssetId: string; // Audio asset used for RMS
   thresholds: { t1: number; t2: number; t3: number };
   fps: number;
+  sourceVideoAssetId?: string;  // Source video asset for edit preview
   version?: 1;
 }
 

@@ -18,6 +18,7 @@ import { importDataUrlAssetToVault } from "../utils/lipSyncUtils";
 import { getMediaUrl } from "../utils/videoUtils";
 import { getThumbnail } from "../utils/thumbnailCache";
 import { useLipSyncPreview } from "../hooks/useLipSyncPreview";
+import AssetModal from "./AssetModal";
 import "./LipSyncModal.css";
 
 interface LipSyncModalProps {
@@ -28,6 +29,13 @@ interface LipSyncModalProps {
 }
 
 interface FrameData {
+  closed: string | null;
+  half1: string | null;
+  half2: string | null;
+  open: string | null;
+}
+
+interface FrameAssetData {
   closed: string | null;
   half1: string | null;
   half2: string | null;
@@ -54,7 +62,21 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
     half2: null,
     open: null,
   });
+  const [frameAssetIds, setFrameAssetIds] = useState<FrameAssetData>({
+    closed: null,
+    half1: null,
+    half2: null,
+    open: null,
+  });
+  const [framePreviews, setFramePreviews] = useState<FrameData>({
+    closed: null,
+    half1: null,
+    half2: null,
+    open: null,
+  });
   const [activeFrameSlot, setActiveFrameSlot] = useState<keyof FrameData | null>("closed");
+  const [showFrameAssetModal, setShowFrameAssetModal] = useState(false);
+  const [pendingFrameSlot, setPendingFrameSlot] = useState<keyof FrameData | null>(null);
 
   const [thresholds, setThresholds] = useState({
     t1: 0.05,
@@ -69,6 +91,11 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
 
   const isVideo = asset.type === "video";
   const lipSyncSettings = metadataStore?.metadata[asset.id]?.lipSync;
+  const previewVideoAsset = lipSyncSettings?.sourceVideoAssetId
+    ? getAsset(lipSyncSettings.sourceVideoAssetId)
+    : isVideo
+      ? asset
+      : null;
   const rmsSourceId = lipSyncSettings?.rmsSourceAudioAssetId;
   const rmsAnalysis = rmsSourceId ? metadataStore?.metadata[rmsSourceId]?.audioAnalysis : undefined;
   const audioOffset = metadataStore?.metadata[asset.id]?.attachedAudioOffset ?? 0;
@@ -85,8 +112,15 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
     audioOffsetSec: audioOffset,
   });
 
+  const FRAME_STEP = 1 / 30;
+
+  const getFrameValue = (key: keyof FrameData): string | null => {
+    if (isVideo) return frames[key];
+    return framePreviews[key];
+  };
+
   // Captured frame count
-  const capturedCount = Object.values(frames).filter(Boolean).length;
+  const capturedCount = Object.values(isVideo ? frames : frameAssetIds).filter(Boolean).length;
   const allFramesCaptured = capturedCount === 4;
 
   useEffect(() => {
@@ -98,6 +132,14 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
       if (e.key === " " && activeFrameSlot && isVideo) {
         e.preventDefault();
         captureFrame(activeFrameSlot);
+      }
+      if (!isVideo || !videoRef.current) return;
+      if (e.key === "." || e.key === ",") {
+        e.preventDefault();
+        const direction = e.key === "." ? 1 : -1;
+        const target = Math.max(0, Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + FRAME_STEP * direction));
+        videoRef.current.currentTime = target;
+        setCurrentTime(target);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -233,6 +275,14 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
     }
   };
 
+  const handleFrameSlotClick = (slot: keyof FrameData) => {
+    setActiveFrameSlot(slot);
+    if (!isVideo) {
+      setPendingFrameSlot(slot);
+      setShowFrameAssetModal(true);
+    }
+  };
+
   const handleThresholdChange = (key: "t1" | "t2" | "t3", value: number) => {
     setThresholds((prev) => ({ ...prev, [key]: value }));
   };
@@ -243,7 +293,7 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
       return;
     }
 
-    if (typeof window.electronAPI?.vaultGateway?.importDataUrlAsset !== "function") {
+    if ((isVideo || maskDataUrl) && typeof window.electronAPI?.vaultGateway?.importDataUrlAsset !== "function") {
       toast.error(
         "Lip Sync registration failed",
         "importDataUrlAsset is unavailable. Please restart the app after update."
@@ -264,27 +314,50 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
       { key: "open", label: "Open", dataUrl: frames.open },
     ];
 
-    const missing = frameEntries.find((entry) => !entry.dataUrl);
-    if (missing) {
-      toast.warning("Missing frame", `Please capture the "${missing.label}" frame.`);
-      return;
-    }
+    let baseImageAssetId = "";
+    let variantAssetIds: string[] = [];
+    let maskAssetId: string | undefined;
 
-    const importedAssets: Asset[] = [];
-    for (const entry of frameEntries) {
-      const dataUrl = entry.dataUrl!;
-      const assetId = generateAssetId();
-      const name = `${asset.name}_${entry.label}`;
-      const imported = await importDataUrlAssetToVault(dataUrl, vaultPath, assetId, name);
-      if (!imported) {
-        toast.error("Lip Sync registration failed", `Failed to import "${entry.label}" frame.`);
+    if (isVideo) {
+      const missing = frameEntries.find((entry) => !entry.dataUrl);
+      if (missing) {
+        toast.warning("Missing frame", `Please capture the "${missing.label}" frame.`);
         return;
       }
-      cacheAsset(imported);
-      importedAssets.push(imported);
+
+      const importedAssets: Asset[] = [];
+      for (const entry of frameEntries) {
+        const dataUrl = entry.dataUrl!;
+        const assetId = generateAssetId();
+        const name = `${asset.name}_${entry.label}`;
+        const imported = await importDataUrlAssetToVault(dataUrl, vaultPath, assetId, name);
+        if (!imported) {
+          toast.error("Lip Sync registration failed", `Failed to import "${entry.label}" frame.`);
+          return;
+        }
+        cacheAsset(imported);
+        importedAssets.push(imported);
+      }
+
+      const [baseAsset, ...variantAssets] = importedAssets;
+      baseImageAssetId = baseAsset.id;
+      variantAssetIds = variantAssets.map((item) => item.id);
+    } else {
+      const frameIds = [
+        frameAssetIds.closed,
+        frameAssetIds.half1,
+        frameAssetIds.half2,
+        frameAssetIds.open,
+      ];
+      const missingIndex = frameIds.findIndex((id) => !id);
+      if (missingIndex >= 0) {
+        toast.warning("Missing frame", `Please select the "${FRAME_PHASES[missingIndex].label}" frame.`);
+        return;
+      }
+      baseImageAssetId = frameIds[0]!;
+      variantAssetIds = frameIds.slice(1) as string[];
     }
 
-    let maskAssetId: string | undefined;
     if (maskDataUrl) {
       const maskId = generateAssetId();
       const maskAsset = await importDataUrlAssetToVault(maskDataUrl, vaultPath, maskId, `${asset.name}_Mask`);
@@ -296,14 +369,14 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
       maskAssetId = maskAsset.id;
     }
 
-    const [baseAsset, ...variantAssets] = importedAssets;
     setLipSyncForAsset(asset.id, {
-      baseImageAssetId: baseAsset.id,
-      variantAssetIds: variantAssets.map((item) => item.id),
+      baseImageAssetId,
+      variantAssetIds,
       maskAssetId,
       rmsSourceAudioAssetId: attachedAudioId,
       thresholds,
       fps: 60,
+      sourceVideoAssetId: isVideo ? asset.id : undefined,
       version: 1,
     });
 
@@ -343,6 +416,38 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
     setShowMaskEditor(false);
   };
 
+  const handleFrameAssetConfirm = async (selectedAsset: Asset) => {
+    if (!pendingFrameSlot) return;
+    setShowFrameAssetModal(false);
+
+    const cached = getAsset(selectedAsset.id);
+    const assetToUse = cached ?? selectedAsset;
+    if (!cached) {
+      cacheAsset(selectedAsset);
+    }
+    setFrameAssetIds((prev) => ({ ...prev, [pendingFrameSlot]: assetToUse.id }));
+    if (!assetToUse.thumbnail && assetToUse.path) {
+      try {
+        const thumb = await getThumbnail(assetToUse.path, 'image');
+        if (thumb) {
+          setFramePreviews((prev) => ({ ...prev, [pendingFrameSlot]: thumb }));
+        }
+      } catch {
+        // ignore
+      }
+    } else {
+      setFramePreviews((prev) => ({ ...prev, [pendingFrameSlot]: assetToUse.thumbnail || null }));
+    }
+
+    setActiveFrameSlot(pendingFrameSlot);
+    setPendingFrameSlot(null);
+  };
+
+  const handleFrameAssetClose = () => {
+    setShowFrameAssetModal(false);
+    setPendingFrameSlot(null);
+  };
+
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -355,24 +460,30 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
   if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="lipsync-modal-overlay" onClick={onClose}>
+    <div
+      className="lipsync-modal-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
       <div className="lipsync-modal" onClick={(e) => e.stopPropagation()}>
         {/* Left: Preview Section */}
         <div className="lipsync-preview-section">
           <div className="lipsync-video-container">
-            {isVideo && (
+            {previewVideoAsset?.path && (
               <video
                 ref={videoRef}
-                src={getMediaUrl(asset.path)}
+                src={getMediaUrl(previewVideoAsset.path)}
                 onTimeUpdate={handleVideoTimeUpdate}
                 onLoadedMetadata={handleVideoLoadedMetadata}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 className="lipsync-video"
-                style={{ display: hasLipSyncPreview && isPreviewReady ? "none" : undefined }}
               />
             )}
-            {hasLipSyncPreview && isPreviewReady ? (
+            {!previewVideoAsset?.path && hasLipSyncPreview && isPreviewReady ? (
               <img
                 src={previewSources[previewVariantIndex] || previewSources[0] || asset.thumbnail}
                 alt={asset.name}
@@ -467,11 +578,11 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
                     className={`lipsync-frame-slot ${
                       activeFrameSlot === phase.id ? "active" : ""
                     } ${frames[phase.id] ? "captured" : ""}`}
-                    onClick={() => setActiveFrameSlot(phase.id as keyof FrameData)}
+                    onClick={() => handleFrameSlotClick(phase.id as keyof FrameData)}
                   >
                     <div className="frame-preview">
-                      {frames[phase.id] ? (
-                        <img src={frames[phase.id]!} alt={phase.label} />
+                      {getFrameValue(phase.id as keyof FrameData) ? (
+                        <img src={getFrameValue(phase.id as keyof FrameData)!} alt={phase.label} />
                       ) : (
                         <Camera size={20} className="frame-preview-icon" />
                       )}
@@ -600,6 +711,16 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
           existingMask={maskDataUrl || undefined}
           onSave={handleSaveMask}
           onClose={() => setShowMaskEditor(false)}
+        />
+      )}
+      {showFrameAssetModal && (
+        <AssetModal
+          open={showFrameAssetModal}
+          onClose={handleFrameAssetClose}
+          onConfirm={handleFrameAssetConfirm}
+          title="Select Frame Image"
+          initialFilterType="image"
+          allowImport={true}
         />
       )}
     </div>

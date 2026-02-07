@@ -123,11 +123,6 @@
   position: relative;
   cursor: pointer;
   margin-bottom: 12px;
-  transition: height 0.15s;
-}
-
-.lipsync-progress-bar:hover {
-  height: 10px;
 }
 
 .lipsync-progress-fill {
@@ -354,6 +349,11 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
+}
+
+.lipsync-thresholds .slider {
+  --accent-primary: var(--accent-pink);
+  --accent-primary-rgb: var(--accent-pink-rgb);
 }
 
 .threshold-row {
