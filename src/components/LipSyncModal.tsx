@@ -381,7 +381,8 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
     });
 
     if (cutId) {
-      updateCutLipSync(sceneId, cutId, true, importedAssets.length);
+      const frameCount = 1 + variantAssetIds.length;
+      updateCutLipSync(sceneId, cutId, true, frameCount);
     }
 
     toast.success("Lip Sync registered", "Settings saved to metadata.");
