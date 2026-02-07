@@ -20,6 +20,7 @@
 - Ensures selection changes are reflected in the Storyline view.
 - `Storyline` is the primary inbound drop handler for scene-targeted drops.
 - `App` keeps a workspace-level fallback drop handler for drops outside scene columns (imports to selected/first scene).
+- D&D accepts image/video only; audio is excluded from Timeline D&D.
 
 **Scroll Behavior**
 - `Storyline` owns scene scrolling. It observes `selectedSceneId` and scrolls the matching scene into view.

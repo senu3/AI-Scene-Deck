@@ -103,6 +103,9 @@ export function useStorylineDragController({
       const data = e.dataTransfer.getData('application/json');
       if (data) {
         let asset: Asset = JSON.parse(data);
+        if (asset.type === 'audio') {
+          return;
+        }
         // Ensure the asset has a unique ID
         if (!asset.id) {
           asset.id = uuidv4();

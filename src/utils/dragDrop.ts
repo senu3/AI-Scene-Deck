@@ -1,18 +1,16 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { CutImportSource } from './cutImport';
 
-export type SupportedMediaType = 'image' | 'video' | 'audio';
+export type SupportedMediaType = 'image' | 'video';
 export type DragKind = 'asset' | 'externalFiles' | 'none';
 
 export function getMediaType(filename: string): SupportedMediaType | null {
   const ext = filename.toLowerCase().split('.').pop() || '';
   const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
   const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-  const audioExts = ['mp3', 'wav', 'm4a', 'ogg', 'flac', 'aac'];
 
   if (imageExts.includes(ext)) return 'image';
   if (videoExts.includes(ext)) return 'video';
-  if (audioExts.includes(ext)) return 'audio';
   return null;
 }
 
@@ -38,7 +36,7 @@ export function hasSupportedMediaDrag(dataTransfer: DataTransfer): boolean {
   if (items.length > 0) {
     for (const item of items) {
       if (item.kind !== 'file') continue;
-      if (item.type?.startsWith('image/') || item.type?.startsWith('video/') || item.type?.startsWith('audio/')) {
+      if (item.type?.startsWith('image/') || item.type?.startsWith('video/')) {
         return true;
       }
       const file = item.getAsFile();

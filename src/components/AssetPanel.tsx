@@ -748,7 +748,7 @@ export default function AssetPanel({
 
   // Handle drag start - close drawer when leaving
   const handleDragStart = (e: React.DragEvent, asset: AssetInfo) => {
-    if (!effectiveEnableDragDrop) {
+    if (!effectiveEnableDragDrop || asset.type === 'audio') {
       e.preventDefault();
       return;
     }
@@ -771,6 +771,10 @@ export default function AssetPanel({
 
   // Handle double-click to add to timeline (drawer mode)
   const handleDoubleClick = async (asset: AssetInfo) => {
+    if (asset.type === 'audio') {
+      return;
+    }
+
     if (mode === 'modal') {
       // In modal mode, double-click confirms selection
       setSelectedAsset(asset);
@@ -966,7 +970,7 @@ export default function AssetPanel({
                 onClick={() => handleAssetClick(asset)}
                 onDoubleClick={() => handleDoubleClick(asset)}
                 onContextMenu={effectiveEnableContextMenu ? (e) => handleAssetContextMenu(e, asset) : undefined}
-                draggable={effectiveEnableDragDrop}
+                draggable={effectiveEnableDragDrop && asset.type !== 'audio'}
               />
             ))
           )}
