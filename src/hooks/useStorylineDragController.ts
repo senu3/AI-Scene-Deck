@@ -5,6 +5,7 @@ import { AddCutCommand } from '../store/commands';
 import type { Command } from '../store/historyStore';
 import type { CutImportSource } from '../utils/cutImport';
 import type { Asset, Scene } from '../types';
+import { getDragKind, getSupportedMediaFiles, hasSupportedMediaDrag, queueExternalFilesToScene } from '../utils/dragDrop';
 
 // --- DND: placeholder state ---
 // Placeholder state for external file drops and cross-scene moves
@@ -12,68 +13,6 @@ export interface PlaceholderState {
   sceneId: string;
   insertIndex: number;
   type: 'external' | 'move' | 'asset';
-}
-
-// --- DND: native (external / asset) ---
-type DragKind = 'asset' | 'externalFiles' | 'none';
-
-// Helper to detect media type from filename
-function getMediaType(filename: string): 'image' | 'video' | 'audio' | null {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
-  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-  const audioExts = ['mp3', 'wav', 'm4a', 'ogg', 'flac'];
-  if (imageExts.includes(ext)) return 'image';
-  if (videoExts.includes(ext)) return 'video';
-  if (audioExts.includes(ext)) return 'audio';
-  return null;
-}
-
-function getSupportedMediaFiles(dataTransfer: DataTransfer): File[] {
-  const items = Array.from(dataTransfer.items || []);
-  if (items.length > 0) {
-    return items
-      .filter(item => item.kind === 'file')
-      .map(item => item.getAsFile())
-      .filter((file): file is File => !!file && getMediaType(file.name) !== null);
-  }
-
-  return Array.from(dataTransfer.files || [])
-    .filter(file => getMediaType(file.name) !== null);
-}
-
-function hasSupportedMediaDrag(dataTransfer: DataTransfer): boolean {
-  const items = Array.from(dataTransfer.items || []);
-  if (items.length > 0) {
-    for (const item of items) {
-      if (item.kind !== 'file') continue;
-      if (item.type?.startsWith('image/') || item.type?.startsWith('video/')) {
-        return true;
-      }
-      const file = item.getAsFile();
-      if (file && getMediaType(file.name) !== null) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  return Array.from(dataTransfer.files || []).some(file => getMediaType(file.name) !== null);
-}
-
-function hasAssetPanelDrag(dataTransfer: DataTransfer): boolean {
-  return dataTransfer.types.includes('text/scene-deck-asset')
-    || dataTransfer.types.includes('application/json');
-}
-
-function getDragKind(dataTransfer: DataTransfer): DragKind {
-  if (hasAssetPanelDrag(dataTransfer)) return 'asset';
-  if (dataTransfer.types.includes('Files')) {
-    if (hasSupportedMediaDrag(dataTransfer) || getSupportedMediaFiles(dataTransfer).length > 0) {
-      return 'externalFiles';
-    }
-  }
-  return 'none';
 }
 
 interface UseStorylineDragControllerOptions {
@@ -190,21 +129,13 @@ export function useStorylineDragController({
       }
 
       // Handle external file drop
-      const files = Array.from(e.dataTransfer.files);
-      for (const file of files) {
-        const mediaType = getMediaType(file.name);
-        const filePath = (file as File & { path?: string }).path;
-        if (!filePath || !mediaType) continue;
-
-        const assetId = uuidv4();
-        createCutFromImport(sceneId, {
-          assetId,
-          name: file.name,
-          sourcePath: filePath,
-          type: mediaType,
-          fileSize: file.size,
-        }, insertIndex, vaultPath).catch(() => {});
-      }
+      queueExternalFilesToScene({
+        sceneId,
+        files: Array.from(e.dataTransfer.files),
+        createCutFromImport,
+        insertIndex,
+        vaultPathOverride: vaultPath,
+      });
     } catch (error) {
       console.error('Failed to add cut:', error);
     }

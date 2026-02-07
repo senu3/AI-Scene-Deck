@@ -18,6 +18,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Asset } from './types';
 import { getThumbnail } from './utils/thumbnailCache';
 import { importFileToVault } from './utils/assetPath';
+import { getDragKind, queueExternalFilesToScene } from './utils/dragDrop';
 import './styles/App.css';
 
 function TrashZone({ isActive }: { isActive: boolean }) {
@@ -43,17 +44,6 @@ function DndMonitorShim({ onDragStart }: { onDragStart: () => void }) {
   useDndMonitor({
     onDragStart,
   });
-  return null;
-}
-
-// Helper to detect media type from filename
-function getMediaType(filename: string): 'image' | 'video' | null {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
-  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-
-  if (imageExts.includes(ext)) return 'image';
-  if (videoExts.includes(ext)) return 'video';
   return null;
 }
 
@@ -423,8 +413,7 @@ function App() {
 
   // Handle native file drop from OS (fallback when not dropping on a scene)
   const handleWorkspaceDragOver = useCallback((e: React.DragEvent) => {
-    // Check if files are being dragged
-    if (e.dataTransfer.types.includes('Files')) {
+    if (getDragKind(e.dataTransfer) === 'externalFiles') {
       e.preventDefault();
       e.stopPropagation();
       closeDetailsPanel();
@@ -439,39 +428,18 @@ function App() {
     e.preventDefault();
     e.stopPropagation();
 
-    // Check if this is an internal drag (from Sidebar) - if so, skip file processing
-    // Internal drags use application/json data and are handled by Timeline's drop handler
-    const jsonData = e.dataTransfer.getData('application/json');
-    if (jsonData) {
-      // This is an internal drag from Sidebar, let Timeline handle it
+    if (getDragKind(e.dataTransfer) !== 'externalFiles') {
       return;
     }
 
-    const files = Array.from(e.dataTransfer.files);
     const targetSceneId = selectedSceneId || scenes[0]?.id;
-
     if (!targetSceneId) return;
 
-    for (const file of files) {
-      const mediaType = getMediaType(file.name);
-      // Skip files without a valid path (browser-generated thumbnails, etc.)
-      const filePath = (file as File & { path?: string }).path;
-      if (!filePath) {
-        console.warn('Skipping file without path:', file.name);
-        continue;
-      }
-      if (!mediaType) continue; // Skip non-media files
-      const assetId = uuidv4();
-
-      // Create empty loading cut card immediately
-      createCutFromImport(targetSceneId, {
-        assetId,
-        name: file.name,
-        sourcePath: filePath,
-        type: mediaType,
-        fileSize: file.size,
-      }).catch(() => {});
-    }
+    queueExternalFilesToScene({
+      sceneId: targetSceneId,
+      files: Array.from(e.dataTransfer.files),
+      createCutFromImport,
+    });
   }, [selectedSceneId, scenes, createCutFromImport]);
 
   // Open export modal from controls
