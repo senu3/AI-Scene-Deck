@@ -78,6 +78,10 @@ Renderer code must call `window.electronAPI.vaultGateway.*` for:
 - Index save (ordering + usageRefs update)
 - Trash move (trash file + trash index + index removal)
 
+## Performance Notes
+- Hash calculation for vault import uses streaming SHA-256 in the main process (`createReadStream`), not full-file in-memory reads.
+- `createCutFromImport` does not refresh all source folders per imported item; bulk drop flows should avoid per-file folder rescans.
+
 ## Recovery Priority
 1. `project.sdp` for story order and cuts
 2. `.index.json` for assetId -> file mapping + usageRefs

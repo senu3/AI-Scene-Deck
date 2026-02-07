@@ -18,6 +18,8 @@
 - Manages placeholder state for cross-scene moves and external drops.
 - Creates new cuts for external assets using `createCutFromImport`.
 - Ensures selection changes are reflected in the Storyline view.
+- `Storyline` is the primary inbound drop handler for scene-targeted drops.
+- `App` keeps a workspace-level fallback drop handler for drops outside scene columns (imports to selected/first scene).
 
 **Scroll Behavior**
 - `Storyline` owns scene scrolling. It observes `selectedSceneId` and scrolls the matching scene into view.
@@ -26,6 +28,7 @@
 **Key Data Flow**
 - Selection state is sourced from `useStore()` (`selectedSceneId`, `selectScene`).
 - `useStorylineDragController` receives `executeCommand` for undo/redo integration and `createCutFromImport` for import flows.
+- `createCutFromImport` no longer refreshes all source folders per item; caller-side bulk flows should refresh explicitly only when needed.
 
 ## TimelineBar
 

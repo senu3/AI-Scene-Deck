@@ -19,7 +19,7 @@
 | Metadata Store | `MetadataStore` / `AssetMetadata` / `SceneMetadata`。 | `loadMetadataStore` / `saveMetadataStore`。 | `DetailsPanel`、`PreviewModal` |
 | アセットパネル | `Asset` / `AssetIndexEntry`。 | `loadAssetIndex` / `getFolderContents` / `metadataStore` 集計。 | `AssetPanel` |
 | アセットモーダル | `Asset`（選択結果）。 | `AssetPanel` をモーダルでラップ。 | `AssetModal` |
-| ストーリーライン | （専用TS型なし）Scene/Cut構造。 | D&D・外部投入・vault 取込（Storyline 内部）。 | `Storyline` |
+| ストーリーライン | （専用TS型なし）Scene/Cut構造。 | D&D・外部投入・vault 取込（主処理は `Storyline`、ワークスペース全体に `App` フォールバックあり）。 | `Storyline`、`App` |
 | プレビュー | `PreviewMode`（scene/all）。 | `setPreviewMode`。 | `PreviewModal` |
 | プレビュー制御 | `PlaybackState`。 | `useSequencePlaybackController`。 | `PreviewModal` |
 | メディアソース | `MediaSource`。 | `createVideoMediaSource` / `createImageMediaSource`。 | `PreviewModal` |

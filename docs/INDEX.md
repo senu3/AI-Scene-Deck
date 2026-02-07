@@ -23,7 +23,6 @@
 - `docs/ui/components.md`
 - `docs/ui/color-system.md`
 - `docs/ui/timelinebar.md`
-- `docs/ui/bulk-import-design.md`
 - `docs/notes/autosave-toast-notes.md`
 
 ## 追加時のルール
