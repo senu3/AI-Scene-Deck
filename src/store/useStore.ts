@@ -694,7 +694,6 @@ export const useStore = create<AppState>((set, get) => ({
       const vaultPath = vaultPathOverride ?? get().vaultPath;
       const { asset, displayTime } = await buildAssetForCut(source, vaultPath);
       get().updateCutWithAsset(sceneId, cutId, asset, displayTime);
-      await get().refreshAllSourceFolders();
     } catch (error) {
       console.error('Failed to import file:', error);
       get().removeCut(sceneId, cutId);
