@@ -19,7 +19,7 @@
 - `docs/guides/buffer-guide.md`
 - `docs/guides/vault-guide.md`
 - `docs/guides/autosave-snapshots.md`
-- `docs/guides/lip-sync-requirements.md`
+- `docs/guides/lip-sync.md`
 - `docs/ui/components.md`
 - `docs/ui/color-system.md`
 - `docs/ui/timelinebar.md`

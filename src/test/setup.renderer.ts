@@ -1,5 +1,11 @@
 import { vi } from 'vitest';
 
+// React 18 act() support flag for testing environments (silences warnings).
+// See: https://react.dev/reference/react/act#setting-up-your-testing-environment
+// (URL in comment only; no runtime dependency)
+// Property is used by React to detect test environments.
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 // Minimal window.electronAPI mock for renderer unit tests.
 const electronAPIMock = {
   pathExists: vi.fn(async () => true),
