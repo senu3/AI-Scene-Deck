@@ -18,6 +18,7 @@ import { useStore } from '../store/useStore';
 import type { FileItem, Asset } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { getCachedThumbnail, getThumbnail } from '../utils/thumbnailCache';
+import { getTimelineMediaType } from '../utils/mediaType';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -162,16 +163,6 @@ export default function Sidebar() {
     return null;
   }, []);
 
-  const getMediaType = (filename: string): 'image' | 'video' | null => {
-    const ext = filename.toLowerCase().split('.').pop() || '';
-    const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
-    const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-
-    if (imageExts.includes(ext)) return 'image';
-    if (videoExts.includes(ext)) return 'video';
-    return null;
-  };
-
   const isFavorite = (path: string) => favorites.some(f => f.path === path);
 
   const toggleFavorite = (path: string, name: string) => {
@@ -200,7 +191,7 @@ export default function Sidebar() {
 
   const renderFileItem = (item: FileItem, depth: number = 0) => {
     const isExpanded = expandedFolders.has(item.path);
-    const mediaType = getMediaType(item.name);
+    const mediaType = getTimelineMediaType(item.name);
 
     if (item.isDirectory) {
       return (

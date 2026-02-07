@@ -20,6 +20,7 @@ import { useStore } from '../store/useStore';
 import type { Asset, Scene, MetadataStore, AssetIndexEntry } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { getCachedThumbnail, getThumbnail, removeThumbnailCache } from '../utils/thumbnailCache';
+import { getMediaType as getAnyMediaType } from '../utils/mediaType';
 import { useToast } from '../ui';
 import {
   CutContextMenu,
@@ -103,15 +104,7 @@ export function buildUsedAssetsMap(
 
 // Get media type from filename
 export function getMediaType(filename: string): 'image' | 'video' | 'audio' | null {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
-  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-  const audioExts = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'];
-
-  if (imageExts.includes(ext)) return 'image';
-  if (videoExts.includes(ext)) return 'video';
-  if (audioExts.includes(ext)) return 'audio';
-  return null;
+  return getAnyMediaType(filename);
 }
 
 // Audio placeholder component with animated waveform

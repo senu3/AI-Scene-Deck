@@ -1,17 +1,12 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { CutImportSource } from './cutImport';
+import { getTimelineMediaType } from './mediaType';
 
 export type SupportedMediaType = 'image' | 'video';
 export type DragKind = 'asset' | 'externalFiles' | 'none';
 
 export function getMediaType(filename: string): SupportedMediaType | null {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  const imageExts = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'svg'];
-  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-
-  if (imageExts.includes(ext)) return 'image';
-  if (videoExts.includes(ext)) return 'video';
-  return null;
+  return getTimelineMediaType(filename);
 }
 
 export function getFilePath(file: File): string | undefined {

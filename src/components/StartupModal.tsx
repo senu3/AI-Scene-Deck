@@ -19,14 +19,8 @@ import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from '.
 import { importFileToVault } from '../utils/assetPath';
 import { extractVideoMetadata } from '../utils/videoUtils';
 import { getThumbnail } from '../utils/thumbnailCache';
+import { getTimelineMediaType } from '../utils/mediaType';
 import './StartupModal.css';
-
-// Helper to detect media type from filename
-function getMediaType(filename: string): 'image' | 'video' {
-  const ext = filename.toLowerCase().split('.').pop() || '';
-  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
-  return videoExts.includes(ext) ? 'video' : 'image';
-}
 
 // Resolve asset paths from relative to absolute
 async function resolveAssetPath(asset: Asset, vaultPath: string): Promise<Asset> {
@@ -324,7 +318,7 @@ export default function StartupModal() {
                 if (cut.id === decision.cutId && cut.asset) {
                   const newPath = decision.newPath!;
                   const newName = newPath.split(/[/\\]/).pop() || cut.asset.name;
-                  const newType = getMediaType(newName);
+                  const newType = getTimelineMediaType(newName) || 'image';
 
                   // Get new thumbnail and metadata
                   let thumbnail: string | undefined;
