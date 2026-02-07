@@ -223,6 +223,18 @@ const electronAPI = {
   getVideoMetadata: (filePath: string): Promise<{ path: string; fileSize: number; format: string; duration?: number; width?: number; height?: number } | null> =>
     ipcRenderer.invoke('get-video-metadata', filePath),
 
+  generateThumbnail: (
+    filePath: string,
+    type: 'image' | 'video',
+    options?: { timeOffset?: number; profile?: 'timeline-card' | 'asset-grid' }
+  ): Promise<{ success: boolean; thumbnail?: string; error?: string } | null> =>
+    ipcRenderer.invoke('generate-thumbnail', {
+      filePath,
+      type,
+      timeOffset: options?.timeOffset,
+      profile: options?.profile,
+    }),
+
   generateVideoThumbnail: (filePath: string, timeOffset?: number): Promise<{ success: boolean; thumbnail?: string; error?: string } | null> =>
     ipcRenderer.invoke('generate-video-thumbnail', { filePath, timeOffset }),
 

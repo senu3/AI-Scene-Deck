@@ -153,6 +153,23 @@ export async function extractVideoMetadata(filePath: string): Promise<VideoMetad
  * Generate a thumbnail for a video file
  */
 export async function generateVideoThumbnail(filePath: string, timeOffset: number = 1): Promise<string | null> {
+  if (window.electronAPI?.generateThumbnail) {
+    try {
+      const result = await window.electronAPI.generateThumbnail(filePath, 'video', {
+        timeOffset,
+        profile: 'timeline-card',
+      });
+      if (result?.success && result.thumbnail) {
+        return result.thumbnail;
+      }
+      if (result?.error) {
+        console.warn('Failed to generate thumbnail:', result.error);
+      }
+    } catch {
+      // Fall back to legacy path
+    }
+  }
+
   if (window.electronAPI?.generateVideoThumbnail) {
     try {
       const result = await window.electronAPI.generateVideoThumbnail(filePath, timeOffset);

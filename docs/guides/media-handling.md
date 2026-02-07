@@ -2,7 +2,7 @@
 
 **目的**: media://, ffmpeg, PCM, thumbnail, queue の概要をまとめる。
 **適用範囲**: main/renderer のメディア I/O と preview 再生。
-**関連ファイル**: `electron/main.ts`, `electron/preload.ts`, `src/components/PreviewModal.tsx`, `src/utils/videoUtils.ts`, `src/utils/audioUtils.ts`。
+**関連ファイル**: `electron/main.ts`, `electron/preload.ts`, `electron/services/ffmpegController.ts`, `electron/services/thumbnailService.ts`, `src/components/PreviewModal.tsx`, `src/utils/videoUtils.ts`, `src/utils/thumbnailCache.ts`, `src/utils/audioUtils.ts`。
 **更新頻度**: 中。
 
 > 仮: 実装は進行中のため、詳細はコード参照が正。
@@ -17,9 +17,11 @@
 - Video metadata (duration/width/height) is read in the main process via ffmpeg (`get-video-metadata` IPC).
 - Renderer falls back to shared `<video>` element if needed.
 - Thumbnails
-- Generated in the main process via ffmpeg (`generate-video-thumbnail` IPC).
+- Generated in the main process via ffmpeg (`generate-thumbnail` IPC).
+- Both image/video thumbnails use the same ffmpeg path and profile-based resizing (`timeline-card`, `asset-grid`).
 - Returned to renderer as small JPEG base64 data URLs.
-- Renderer falls back to shared `<video>` + canvas if needed.
+- `generate-video-thumbnail` remains as a backward-compatible alias for video-only callers.
+- Renderer falls back to shared `<video>` + canvas only when the new IPC path is unavailable.
 - Caching
 - Preview caches video URLs by assetId and releases old entries as the preview window moves.
 - Sequence buffer checks use a play safe ahead window to avoid cut-boundary stalls.
@@ -60,6 +62,7 @@
 ## ffmpeg Work Queue
 - Light queue (concurrency 2): metadata, thumbnail, PCM decode.
 - Heavy queue (concurrency 1): export/clip/frame operations.
+- Thumbnail generation also has an on-disk cache (tmp) keyed by `path + size + mtime + type + timeOffset + profile`.
 
 ## Related Docs
 - `docs/guides/preview.md`

@@ -19,11 +19,11 @@
 | 区分 | 生成点 (ファイル) | バッファ種別 | サイズ推定 | 保持場所 / 寿命 | 解放・クリア点 |
 | --- | --- | --- | --- | --- | --- |
 | Media protocol (stream) | `electron/main.ts` | ReadableStream (Range対応) | チャンク単位 | リクエスト処理中のみ | レスポンス完了で自然解放 |
-| Read file → base64 | `electron/main.ts` | Node `Buffer` → base64 string | Buffer=ファイルサイズ / base64≈4/3倍 | base64はRendererへ返却 → 各種State/Cacheに保持 | GC（State/Cacheから消えたタイミング） |
+| Read file → base64 | `electron/main.ts` | Node `Buffer` → base64 string | Buffer=ファイルサイズ / base64≈4/3倍 | 主に legacy 経路で返却 | GC（State/Cacheから消えたタイミング） |
 | Read audio file | `electron/main.ts` | Node `Buffer` | ファイルサイズ | IPC返却の一時 | GC（参照解放） |
 | Decode audio (PCM) | `electron/main.ts` | `Buffer[]` → `Buffer.concat` | PCM = duration * sampleRate * channels * 2 bytes | IPC返却の一時（戻り値で保持） | GC（参照解放） |
 | Image metadata | `electron/main.ts` | Node `Buffer` | ファイルサイズ | 関数内ローカル | GC |
-| Video thumbnail (ffmpeg) | `electron/main.ts` | Node `Buffer` → base64 | JPEGサイズ / base64≈4/3倍 | base64はRendererへ | GC（State/Cacheから消えたタイミング） |
+| Thumbnail (ffmpeg unified) | `electron/services/thumbnailService.ts` | ffmpeg出力JPEG + Node `Buffer` → base64 | 縮小JPEGサイズ / base64≈4/3倍 | tmpキャッシュ + Rendererへ返却 | tmpキャッシュ削除/上書き + GC |
 | Vault import hashing | `electron/vaultGateway.ts` | Node `Buffer` | ファイルサイズ | 関数内ローカル | GC |
 | Audio PCM → WebAudio | `src/utils/audioUtils.ts` | `Uint8Array` → `AudioBuffer` | PCM bytes + AudioBuffer = duration * sampleRate * channels * 4 bytes (Float32) | `AudioManager.audioBuffer` に保持 | `unload()` / `dispose()` で `audioBuffer=null` |
 | RMS analysis | `src/utils/audioUtils.ts` | `Uint8Array` + `number[]` | PCM bytes + rms array (fps * duration) | `AudioAnalysis` を metadata JSON に保持 | metadata更新/削除で消える |
@@ -47,7 +47,7 @@
 
 ### 1) Buffer / ArrayBuffer / Uint8Array
 - Node Buffer（mainプロセス）
-- `read-file-as-base64`, `read-audio-file`, `read-audio-pcm`, `read-image-metadata`, `generate-video-thumbnail`, `vaultGateway` のハッシュ計算などで **ファイル全体読み込み** が発生。
+- `read-file-as-base64`(legacy), `read-audio-file`, `read-audio-pcm`, `read-image-metadata`, `generate-thumbnail`, `vaultGateway` のハッシュ計算などで Buffer 生成が発生。
 - Renderer Uint8Array
 - `readAudioPcm` の戻りを `Uint8Array` 化し `AudioBuffer` を生成。
 - `analyzeAudioRms` でも PCM を `Uint8Array` として保持し、RMS配列を生成。
@@ -58,7 +58,7 @@
 - `videoUtils` の **sharedCanvas** はモジュール全体で使い回し（寿命はアプリ全体）。
 
 ### 3) Base64 / data URL
-- `readFileAsBase64` と `generateVideoThumbnail` の結果が多数のコンポーネントに保持される。
+- `generate-thumbnail` の結果（縮小済み base64）が多数のコンポーネントに保持される。
 - Asset cache / thumbnail cache と UI state の両方に入るため、重複保持が起きやすい。
 
 ### 4) Stream
@@ -117,7 +117,7 @@
 - 該当あり。
 - `PreviewModal` / `CutCard` / `CutGroupCard` / `DetailsPanel` / `AssetPanel` / `Sidebar` / `LipSyncModal`
 - 対策案。
-- base64 をディスクキャッシュ + パス参照へ寄せる。
+- サムネイルは ffmpeg 縮小 + tmpディスクキャッシュを維持する。
 - 大きい画像は base64 ではなく `media://` or Blob URL を検討。
 - base64 を使う場合は縮小済みサムネイルに限定。
 

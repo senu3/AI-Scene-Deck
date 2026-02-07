@@ -203,6 +203,11 @@ interface ElectronAPI {
 
   // Video metadata
     getVideoMetadata: (filePath: string) => Promise<{ path: string; fileSize: number; format: string; duration?: number; width?: number; height?: number } | null>;
+    generateThumbnail: (
+      filePath: string,
+      type: 'image' | 'video',
+      options?: { timeOffset?: number; profile?: 'timeline-card' | 'asset-grid' }
+    ) => Promise<{ success: boolean; thumbnail?: string; error?: string } | null>;
     generateVideoThumbnail: (filePath: string, timeOffset?: number) => Promise<{ success: boolean; thumbnail?: string; error?: string } | null>;
 
   // Vault operations

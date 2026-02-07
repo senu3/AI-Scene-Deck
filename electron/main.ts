@@ -1,14 +1,14 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as crypto from 'crypto';
 import { pathToFileURL } from 'url';
 import { spawn } from 'child_process';
 import ffmpegPath from 'ffmpeg-static';
 import { Readable } from 'stream';
-import * as os from 'os';
 import { calculateFileHashStream, getMediaType, importAssetToVaultInternal, moveToTrashInternal, registerVaultGatewayHandlers, saveAssetIndexInternal, type AssetIndex, type TrashMeta } from './vaultGateway';
 import { createSaveProjectHandler } from './handlers/saveProject';
+import { createFfmpegController } from './services/ffmpegController';
+import { createThumbnailService } from './services/thumbnailService';
 const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
 const IPC_AUTOSAVE_FLUSH_REQUEST = 'autosave-flush-request';
 const IPC_AUTOSAVE_FLUSH_COMPLETE = 'autosave-flush-complete';
@@ -147,6 +147,11 @@ function createFfmpegQueue(name: string, concurrency: number) {
 
 const enqueueFfmpegLight = createFfmpegQueue('light', 2);
 const enqueueFfmpegHeavy = createFfmpegQueue('heavy', 1);
+const ffmpegBinaryPath = ffmpegPath as string | null;
+const ffmpegController = ffmpegBinaryPath ? createFfmpegController(ffmpegBinaryPath) : null;
+const thumbnailService = ffmpegController
+  ? createThumbnailService(ffmpegController, { getStderrMaxBytes: () => ffmpegLimits.stderrMaxBytes })
+  : null;
 
 // Register custom protocol for local file access (with Range support)
 function registerMediaProtocol() {
@@ -277,41 +282,6 @@ function probeVideoWithFfmpeg(ffmpegBinary: string, filePath: string): Promise<{
     });
 
     proc.on('error', () => resolve({}));
-  }));
-}
-
-function runFfmpegThumbnail(ffmpegBinary: string, filePath: string, timeOffset: number, outputPath: string): Promise<{ success: boolean; error?: string }> {
-  return enqueueFfmpegLight(() => new Promise((resolve) => {
-    const safeTime = Math.max(0, timeOffset);
-    const args = [
-      '-hide_banner',
-      '-ss', String(safeTime),
-      '-i', filePath,
-      '-frames:v', '1',
-      '-q:v', '2',
-      '-y',
-      outputPath,
-    ];
-
-    const proc = spawn(ffmpegBinary, args);
-    const stderrRing = createStderrRing();
-
-    proc.stderr.on('data', (data: Buffer) => {
-      appendStderr(stderrRing, data, ffmpegLimits.stderrMaxBytes);
-    });
-
-    proc.on('close', (code: number | null) => {
-      if (code === 0 && fs.existsSync(outputPath)) {
-        resolve({ success: true });
-      } else {
-        const stderr = getStderrText(stderrRing);
-        resolve({ success: false, error: stderr || `ffmpeg exited with code ${code}` });
-      }
-    });
-
-    proc.on('error', (err: Error) => {
-      resolve({ success: false, error: `Failed to start ffmpeg: ${err.message}` });
-    });
   }));
 }
 
@@ -920,33 +890,31 @@ ipcMain.handle('get-video-metadata', async (_, filePath: string) => {
   }
 });
 
-// Generate video thumbnail via ffmpeg and return as base64 data URL
+// Generate thumbnail via ffmpeg (unified image/video path)
+ipcMain.handle('generate-thumbnail', async (_, options: {
+  filePath: string;
+  type: 'image' | 'video';
+  timeOffset?: number;
+  profile?: 'timeline-card' | 'asset-grid';
+}) => {
+  if (!thumbnailService) return { success: false, error: 'ffmpeg not found' };
+  return thumbnailService.generateThumbnail({
+    filePath: options.filePath,
+    type: options.type,
+    timeOffset: options.timeOffset,
+    profile: options.profile,
+  });
+});
+
+// Backward compatible alias (existing renderer callsites)
 ipcMain.handle('generate-video-thumbnail', async (_, options: { filePath: string; timeOffset?: number }) => {
-  const ffmpegBinary = ffmpegPath as string | null;
-  if (!ffmpegBinary) return { success: false, error: 'ffmpeg not found' };
-
-  const timeOffset = options.timeOffset ?? 1;
-  const tempName = `thumb_${Date.now()}_${crypto.randomBytes(4).toString('hex')}.jpg`;
-  const outputPath = path.join(os.tmpdir(), tempName);
-
-  try {
-    const result = await runFfmpegThumbnail(ffmpegBinary, options.filePath, timeOffset, outputPath);
-    if (!result.success) return { success: false, error: result.error || 'thumbnail generation failed' };
-
-    const buffer = fs.readFileSync(outputPath);
-    const base64 = buffer.toString('base64');
-    return { success: true, thumbnail: `data:image/jpeg;base64,${base64}` };
-  } catch {
-    return { success: false, error: 'thumbnail generation failed' };
-  } finally {
-    try {
-      if (fs.existsSync(outputPath)) {
-        fs.unlinkSync(outputPath);
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
-  }
+  if (!thumbnailService) return { success: false, error: 'ffmpeg not found' };
+  return thumbnailService.generateThumbnail({
+    filePath: options.filePath,
+    type: 'video',
+    timeOffset: options.timeOffset ?? 1,
+    profile: 'timeline-card',
+  });
 });
 
 // Create vault folder structure
