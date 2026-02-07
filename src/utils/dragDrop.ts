@@ -73,6 +73,22 @@ interface QueueExternalFilesToSceneOptions {
   vaultPathOverride?: string | null;
 }
 
+let importQueue: Promise<void> = Promise.resolve();
+
+function enqueueImportTask(task: () => Promise<void>): void {
+  importQueue = importQueue
+    .then(async () => {
+      await task();
+      // Yield to the event loop between imports to keep drag UI responsive.
+      await new Promise<void>((resolve) => {
+        setTimeout(resolve, 0);
+      });
+    })
+    .catch(() => {
+      // Keep queue alive even if a task fails.
+    });
+}
+
 export function queueExternalFilesToScene({
   sceneId,
   files,
@@ -80,18 +96,24 @@ export function queueExternalFilesToScene({
   insertIndex,
   vaultPathOverride,
 }: QueueExternalFilesToSceneOptions): void {
+  let offset = 0;
   for (const file of files) {
     const mediaType = getMediaType(file.name);
     const filePath = getFilePath(file);
     if (!filePath || !mediaType) continue;
 
     const assetId = uuidv4();
-    createCutFromImport(sceneId, {
-      assetId,
-      name: file.name,
-      sourcePath: filePath,
-      type: mediaType,
-      fileSize: file.size,
-    }, insertIndex, vaultPathOverride).catch(() => {});
+    const nextInsertIndex = insertIndex !== undefined ? insertIndex + offset : undefined;
+    offset += 1;
+
+    enqueueImportTask(async () => {
+      await createCutFromImport(sceneId, {
+        assetId,
+        name: file.name,
+        sourcePath: filePath,
+        type: mediaType,
+        fileSize: file.size,
+      }, nextInsertIndex, vaultPathOverride);
+    });
   }
 }

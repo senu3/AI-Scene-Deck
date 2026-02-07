@@ -22,6 +22,12 @@
 - `App` keeps a workspace-level fallback drop handler for drops outside scene columns (imports to selected/first scene).
 - D&D accepts image/video only; audio is excluded from Timeline D&D.
 
+**Interaction Performance Notes**
+- During native drag, `closeDetailsPanel()` is triggered once on drag-enter (not every drag-over event) to avoid repeated store updates and re-renders.
+- External file drops are queued sequentially in `queueExternalFilesToScene` so multi-file imports do not burst heavy work at once.
+- Each queued import yields back to the event loop between items (`setTimeout(..., 0)`) to preserve drag/scroll responsiveness.
+- Drop handlers prioritize immediate UI return; long-running import/thumbnail/vault work continues asynchronously via loading cuts.
+
 **Scroll Behavior**
 - `Storyline` owns scene scrolling. It observes `selectedSceneId` and scrolls the matching scene into view.
 - This avoids DOM querying from the Header layer.

@@ -416,9 +416,11 @@ function App() {
     if (getDragKind(e.dataTransfer) === 'externalFiles') {
       e.preventDefault();
       e.stopPropagation();
-      closeDetailsPanel();
+      if (detailsPanelOpen) {
+        closeDetailsPanel();
+      }
     }
-  }, [closeDetailsPanel]);
+  }, [closeDetailsPanel, detailsPanelOpen]);
 
   const handleWorkspaceDragLeave = useCallback((_e: React.DragEvent) => {
     // No-op, kept for consistency

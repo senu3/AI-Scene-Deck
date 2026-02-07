@@ -42,6 +42,7 @@ export function useStorylineDragController({
   const [placeholder, setPlaceholder] = useState<PlaceholderState | null>(null);
   const [externalDragFiles, setExternalDragFiles] = useState<File[] | null>(null);
   const dragDepthRef = useRef(0);
+  const detailsClosedForDragRef = useRef(false);
 
   // Track the source scene for the active drag (for cross-scene detection)
   const activeData = active?.data?.current as { sceneId?: string; type?: string } | undefined;
@@ -87,6 +88,7 @@ export function useStorylineDragController({
     if (!active) {
       setPlaceholder(null);
       setExternalDragFiles(null);
+      detailsClosedForDragRef.current = false;
     }
   }, [active]);
 
@@ -126,7 +128,7 @@ export function useStorylineDragController({
           // Use command for undo/redo support
           // For videos, set displayTime to video duration
           const displayTime = asset.type === 'video' && asset.duration ? asset.duration : undefined;
-          await executeCommand(new AddCutCommand(sceneId, asset, displayTime, insertIndex));
+          executeCommand(new AddCutCommand(sceneId, asset, displayTime, insertIndex)).catch(() => {});
         }
         return;
       }
@@ -176,7 +178,10 @@ export function useStorylineDragController({
     if (dragKind === 'none') return;
     e.preventDefault();
     e.stopPropagation();
-    closeDetailsPanel();
+    if (!detailsClosedForDragRef.current) {
+      closeDetailsPanel();
+      detailsClosedForDragRef.current = true;
+    }
     dragDepthRef.current += 1;
 
     if (dragKind === 'asset') {
@@ -203,8 +208,6 @@ export function useStorylineDragController({
     if (dragKind === 'none') return;
     e.preventDefault();
     e.stopPropagation();
-    closeDetailsPanel();
-
     const sceneTarget = findSceneFromPoint(e.clientX, e.clientY);
     if (!sceneTarget) {
       setPlaceholder(prev => prev === null ? prev : null);
@@ -249,7 +252,7 @@ export function useStorylineDragController({
       });
       return;
     }
-  }, [calculateInsertIndex, externalDragFiles, closeDetailsPanel]);
+  }, [calculateInsertIndex, externalDragFiles]);
 
   const handleStorylineDragLeave = useCallback((e: React.DragEvent) => {
     const dragKind = getDragKind(e.dataTransfer);
@@ -260,6 +263,7 @@ export function useStorylineDragController({
     if (dragDepthRef.current === 0) {
       setPlaceholder(null);
       setExternalDragFiles(null);
+      detailsClosedForDragRef.current = false;
     }
   }, []);
 
@@ -269,6 +273,7 @@ export function useStorylineDragController({
     e.preventDefault();
     e.stopPropagation();
     dragDepthRef.current = 0;
+    detailsClosedForDragRef.current = false;
 
     const sceneTarget = findSceneFromPoint(e.clientX, e.clientY);
     if (!sceneTarget) {
