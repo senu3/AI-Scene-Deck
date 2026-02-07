@@ -4,6 +4,8 @@ import {
   detachAudio,
   updateAudioOffset,
   syncSceneMetadata,
+  updateLipSyncSettings,
+  removeLipSyncSettings,
 } from '../metadataStore';
 
 const baseStore = {
@@ -42,5 +44,23 @@ describe('metadataStore', () => {
     expect(sceneMetadata['scene-1']?.name).toBe('Scene 1');
     expect(sceneMetadata['scene-1']?.notes.length).toBe(1);
     expect(sceneMetadata['scene-2']?.name).toBe('Scene 2');
+  });
+
+  it('sets and removes lip sync settings', () => {
+    const settings = {
+      baseImageAssetId: 'img-closed',
+      variantAssetIds: ['img-half1', 'img-half2', 'img-open'],
+      rmsSourceAudioAssetId: 'aud-1',
+      thresholds: { t1: 0.1, t2: 0.2, t3: 0.3 },
+      fps: 60,
+      version: 1,
+    };
+
+    const withLipSync = updateLipSyncSettings(baseStore, 'asset-1', settings as any);
+    expect(withLipSync.metadata['asset-1']?.lipSync?.baseImageAssetId).toBe('img-closed');
+    expect(withLipSync.metadata['asset-1']?.lipSync?.variantAssetIds.length).toBe(3);
+
+    const removed = removeLipSyncSettings(withLipSync, 'asset-1');
+    expect(removed.metadata['asset-1']).toBeUndefined();
   });
 });

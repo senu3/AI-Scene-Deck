@@ -16,6 +16,8 @@ import { useToast } from "../ui";
 import { generateAssetId } from "../utils/assetPath";
 import { importDataUrlAssetToVault } from "../utils/lipSyncUtils";
 import { getMediaUrl } from "../utils/videoUtils";
+import { getThumbnail } from "../utils/thumbnailCache";
+import { useLipSyncPreview } from "../hooks/useLipSyncPreview";
 import "./LipSyncModal.css";
 
 interface LipSyncModalProps {
@@ -40,7 +42,7 @@ const FRAME_PHASES = [
 ] as const;
 
 export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSyncModalProps) {
-  const { vaultPath, metadataStore, setLipSyncForAsset, cacheAsset, updateCutLipSync } = useStore();
+  const { vaultPath, metadataStore, setLipSyncForAsset, cacheAsset, updateCutLipSync, getAsset } = useStore();
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -66,6 +68,22 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
   const [baseImageSize, setBaseImageSize] = useState({ width: 0, height: 0 });
 
   const isVideo = asset.type === "video";
+  const lipSyncSettings = metadataStore?.metadata[asset.id]?.lipSync;
+  const rmsSourceId = lipSyncSettings?.rmsSourceAudioAssetId;
+  const rmsAnalysis = rmsSourceId ? metadataStore?.metadata[rmsSourceId]?.audioAnalysis : undefined;
+  const audioOffset = metadataStore?.metadata[asset.id]?.attachedAudioOffset ?? 0;
+  const [previewSources, setPreviewSources] = useState<string[]>([]);
+  const [isPreviewReady, setIsPreviewReady] = useState(false);
+  const hasLipSyncPreview = !!lipSyncSettings && !!rmsAnalysis?.rms?.length;
+
+  const previewVariantIndex = useLipSyncPreview({
+    enabled: hasLipSyncPreview,
+    rms: rmsAnalysis?.rms ?? null,
+    fps: rmsAnalysis?.fps ?? 0,
+    thresholds: lipSyncSettings?.thresholds ?? thresholds,
+    getCurrentTime: () => videoRef.current?.currentTime ?? 0,
+    audioOffsetSec: audioOffset,
+  });
 
   // Captured frame count
   const capturedCount = Object.values(frames).filter(Boolean).length;
@@ -85,6 +103,51 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, activeFrameSlot, isVideo]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadPreviewSources = async () => {
+      if (!lipSyncSettings) {
+        setPreviewSources([]);
+        setIsPreviewReady(false);
+        return;
+      }
+
+      const frameAssetIds = [
+        lipSyncSettings.baseImageAssetId,
+        ...lipSyncSettings.variantAssetIds,
+      ];
+      const sources: string[] = [];
+
+      for (const frameAssetId of frameAssetIds) {
+        let src = '';
+        const frameAsset = getAsset(frameAssetId);
+        if (frameAsset?.thumbnail) {
+          src = frameAsset.thumbnail;
+        } else if (frameAsset?.path) {
+          try {
+            const thumb = await getThumbnail(frameAsset.path, 'image');
+            if (thumb) src = thumb;
+          } catch {
+            // ignore
+          }
+        }
+        sources.push(src);
+      }
+
+      if (!isActive) return;
+      const fallback = sources[0] || asset.thumbnail || '';
+      const resolved = sources.map((src) => src || fallback);
+      setPreviewSources(resolved);
+      setIsPreviewReady(true);
+    };
+
+    void loadPreviewSources();
+    return () => {
+      isActive = false;
+    };
+  }, [lipSyncSettings, getAsset, asset.thumbnail]);
 
   const handleVideoTimeUpdate = () => {
     if (videoRef.current) {
@@ -289,7 +352,7 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
         {/* Left: Preview Section */}
         <div className="lipsync-preview-section">
           <div className="lipsync-video-container">
-            {isVideo ? (
+            {isVideo && (
               <video
                 ref={videoRef}
                 src={getMediaUrl(asset.path)}
@@ -298,15 +361,23 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 className="lipsync-video"
+                style={{ display: hasLipSyncPreview && isPreviewReady ? "none" : undefined }}
               />
-            ) : asset.thumbnail ? (
+            )}
+            {hasLipSyncPreview && isPreviewReady ? (
+              <img
+                src={previewSources[previewVariantIndex] || previewSources[0] || asset.thumbnail}
+                alt={asset.name}
+                className="lipsync-image"
+              />
+            ) : !isVideo && asset.thumbnail ? (
               <img src={asset.thumbnail} alt={asset.name} className="lipsync-image" />
-            ) : (
+            ) : !isVideo ? (
               <div className="lipsync-preview-placeholder">
                 <Film size={64} />
                 <span>No preview available</span>
               </div>
-            )}
+            ) : null}
           </div>
 
           {isVideo && (
