@@ -107,13 +107,14 @@ export function useHeaderProjectController() {
     clearProject,
     projectName,
     setProjectLoaded,
+    setProjectPath,
     initializeProject,
     getSourcePanelState,
     initializeSourcePanel,
     loadMetadata,
     loadProject,
   } = useStore();
-  const { alert: dialogAlert } = useDialog();
+  const { alert: dialogAlert, confirm: dialogConfirm } = useDialog();
   const { toast } = useToast();
 
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
@@ -123,7 +124,11 @@ export function useHeaderProjectController() {
   const saveProjectInternal = useCallback(async (options?: { notify?: boolean; updateRecent?: boolean; allowPrompt?: boolean }) => {
     if (!window.electronAPI) {
       if (options?.notify !== false) {
-        window.alert('File system access is only available in the desktop app.');
+        await dialogAlert({
+          title: 'Unavailable',
+          message: 'File system access is only available in the desktop app.',
+          variant: 'warning',
+        });
       }
       return;
     }
@@ -183,8 +188,13 @@ export function useHeaderProjectController() {
 
     const savedPath = await window.electronAPI.saveProject(projectData, vaultPath ? `${vaultPath}/project.sdp` : undefined);
     if (savedPath) {
+      setProjectPath(savedPath);
       if (options?.notify !== false) {
-        alert('Project saved successfully!');
+        await dialogAlert({
+          title: 'Saved',
+          message: 'Project saved successfully.',
+          variant: 'info',
+        });
       }
 
       if (options?.updateRecent !== false) {
@@ -199,7 +209,7 @@ export function useHeaderProjectController() {
         await window.electronAPI.saveRecentProjects([newRecent, ...filtered.slice(0, 9)]);
       }
     }
-  }, [dialogAlert, getSourcePanelState, loadProject, projectName, scenes, vaultPath]);
+  }, [dialogAlert, getSourcePanelState, loadProject, projectName, scenes, setProjectPath, vaultPath]);
 
   const handleSaveProject = useCallback(async () => {
     await saveProjectInternal();
@@ -325,6 +335,7 @@ export function useHeaderProjectController() {
       vaultPath: project.vaultPath,
       scenes: finalScenes,
     });
+    setProjectPath(project.projectPath);
 
     // Load metadata store (audio attachments, etc.)
     await loadMetadata(project.vaultPath);
@@ -346,7 +357,7 @@ export function useHeaderProjectController() {
     setShowRecoveryDialog(false);
     setPendingProject(null);
     setMissingAssets([]);
-  }, [initializeProject, initializeSourcePanel, loadMetadata]);
+  }, [initializeProject, initializeSourcePanel, loadMetadata, setProjectPath]);
 
   const handleRecoveryComplete = useCallback(async (decisions: RecoveryDecision[]) => {
     if (!pendingProject) return;
@@ -361,7 +372,11 @@ export function useHeaderProjectController() {
 
   const handleLoadProject = useCallback(async () => {
     if (!window.electronAPI) {
-      alert('File system access is only available in the desktop app.');
+      await dialogAlert({
+        title: 'Unavailable',
+        message: 'File system access is only available in the desktop app.',
+        variant: 'warning',
+      });
       return;
     }
 
@@ -406,14 +421,32 @@ export function useHeaderProjectController() {
         projectPath: path,
       });
     }
-  }, [finalizeProjectLoad]);
+  }, [dialogAlert, finalizeProjectLoad]);
 
-  const handleCloseProject = useCallback(() => {
-    if (confirm('Close project? Any unsaved changes will be lost.')) {
-      clearProject();
-      setProjectLoaded(false);
-    }
-  }, [clearProject, setProjectLoaded]);
+  const handleCloseProject = useCallback(async () => {
+    const confirmed = await dialogConfirm({
+      title: 'Open Project',
+      message: 'Return to the startup screen? Any unsaved changes will be lost.',
+      variant: 'danger',
+      confirmLabel: 'Open Project',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+    clearProject();
+    setProjectLoaded(false);
+  }, [clearProject, dialogConfirm, setProjectLoaded]);
+
+  const handleCloseApp = useCallback(async () => {
+    const confirmed = await dialogConfirm({
+      title: 'Close App',
+      message: 'Close the app? Any unsaved changes will be lost.',
+      variant: 'danger',
+      confirmLabel: 'Close',
+      cancelLabel: 'Cancel',
+    });
+    if (!confirmed) return;
+    window.close();
+  }, [dialogConfirm]);
 
   const disableAutosave = import.meta.env.VITE_DISABLE_AUTOSAVE === '1';
   const autosaveActive = projectLoaded && !!vaultPath && !disableAutosave;
@@ -453,6 +486,7 @@ export function useHeaderProjectController() {
     handleSaveProject,
     handleLoadProject,
     handleCloseProject,
+    handleCloseApp,
     showRecoveryDialog,
     missingAssets,
     pendingProject,

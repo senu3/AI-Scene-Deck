@@ -166,6 +166,19 @@
   transform: translateY(-1px);
 }
 
+.header-btn-preview {
+  color: white;
+  border: none;
+  background: var(--accent-primary);
+}
+
+.header-btn-preview:hover:not(:disabled) {
+  color: white;
+  background: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(var(--accent-primary-rgb), 0.35);
+}
+
 /* Primary button with gradient */
 .header-btn-primary {
   width: auto;

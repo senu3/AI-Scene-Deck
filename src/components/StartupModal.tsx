@@ -111,7 +111,7 @@ interface PendingProject {
 }
 
 export default function StartupModal() {
-  const { initializeProject, setRootFolder, initializeSourcePanel, loadMetadata } = useStore();
+  const { initializeProject, setRootFolder, initializeSourcePanel, loadMetadata, setProjectPath } = useStore();
   const [step, setStep] = useState<'choice' | 'new-project'>('choice');
   const [projectName, setProjectName] = useState('');
   const [vaultPath, setVaultPath] = useState('');
@@ -215,6 +215,7 @@ export default function StartupModal() {
           vaultPath: vault.path,
           scenes: defaultScenes as any,
         });
+        setProjectPath(projectFilePath);
 
         // Load metadata store (will be empty for new project)
         await loadMetadata(vault.path);
@@ -413,6 +414,7 @@ export default function StartupModal() {
       vaultPath: project.vaultPath,
       scenes: finalScenes as ReturnType<typeof useStore.getState>['scenes'],
     });
+    setProjectPath(project.projectPath);
 
     // Load metadata store (audio attachments, etc.)
     await loadMetadata(project.vaultPath);

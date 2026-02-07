@@ -20,8 +20,8 @@ export default function Header({ onOpenSettings, onPreview, onExport, isExportin
   const { undo, redo, canUndo, canRedo } = useHistoryStore();
   const {
     handleSaveProject,
-    handleLoadProject,
     handleCloseProject,
+    handleCloseApp,
     showRecoveryDialog,
     missingAssets,
     pendingProject,
@@ -128,23 +128,12 @@ export default function Header({ onOpenSettings, onPreview, onExport, isExportin
 
             {/* Preview Button */}
             <button
-              className="header-btn header-btn-pill"
+              className="header-btn header-btn-pill header-btn-preview"
               onClick={onPreview}
               title="Preview (Space)"
             >
               <Play size={16} />
               <span>Preview</span>
-            </button>
-
-            {/* Export Button (Primary) */}
-            <button
-              className="header-btn header-btn-primary"
-              onClick={onExport}
-              disabled={isExporting}
-              title="Export"
-            >
-              <Download size={16} />
-              <span>{isExporting ? 'Exporting...' : 'Export'}</span>
             </button>
 
             {/* More Menu */}
@@ -185,14 +174,15 @@ export default function Header({ onOpenSettings, onPreview, onExport, isExportin
                     <span>Save Project</span>
                     <span className="menu-shortcut">Ctrl+S</span>
                   </button>
-                  <button onClick={() => { handleLoadProject(); setShowMoreMenu(false); }} title="Open Project">
+                  <button onClick={() => { onExport?.(); setShowMoreMenu(false); }} disabled={isExporting} title="Export">
+                    <Download size={16} />
+                    <span>{isExporting ? 'Exporting...' : 'Export'}</span>
+                  </button>
+                  <button onClick={() => { handleCloseProject(); setShowMoreMenu(false); }} title="Open Project">
                     <FolderOpen size={16} />
                     <span>Open Project</span>
-                    <span className="menu-shortcut">Ctrl+O</span>
                   </button>
-
                   <div className="menu-divider" />
-
                   <button onClick={() => { onOpenSettings?.(); setShowMoreMenu(false); }} title="Settings">
                     <Settings size={16} />
                     <span>Environment Settings</span>
@@ -200,9 +190,9 @@ export default function Header({ onOpenSettings, onPreview, onExport, isExportin
 
                   <div className="menu-divider" />
 
-                  <button onClick={() => { handleCloseProject(); setShowMoreMenu(false); }} className="danger" title="Close Project">
+                  <button onClick={() => { handleCloseApp(); setShowMoreMenu(false); }} className="danger" title="Close App">
                     <X size={16} />
-                    <span>Close Project</span>
+                    <span>Close</span>
                   </button>
                 </div>
               )}
