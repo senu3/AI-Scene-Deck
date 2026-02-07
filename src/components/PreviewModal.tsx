@@ -1180,7 +1180,7 @@ export default function PreviewModal({
     }
 
     const currentItem = items[currentIndex];
-    const assetId = currentItem?.cut?.asset?.id;
+    const assetId = currentItem?.cut?.asset?.id ?? currentItem?.cut?.assetId;
     if (!assetId) {
       sequenceAudioManagerRef.current.unload();
       setAudioLoaded(false);
@@ -1364,7 +1364,7 @@ export default function PreviewModal({
           rmsFps: analysis.fps,
           thresholds: lipSyncSettings.thresholds,
           getAbsoluteTime: getSequenceLiveAbsoluteTime,
-          audioOffsetSec: getAudioOffsetForAsset(asset.id),
+          audioOffsetSec: getAudioOffsetForAsset(currentItem.cut.asset?.id ?? currentItem.cut.assetId),
           onTimeUpdate: sequenceTick,
           onEnded: sequenceGoToNext,
         });

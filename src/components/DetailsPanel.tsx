@@ -43,6 +43,7 @@ import LipSyncModal from "./LipSyncModal";
 import AssetModal from "./AssetModal";
 import type { ImageMetadata, Asset } from "../types";
 import { v4 as uuidv4 } from "uuid";
+import { useDialog } from "../ui";
 import "./DetailsPanel.css";
 
 export default function DetailsPanel() {
@@ -71,6 +72,7 @@ export default function DetailsPanel() {
   } = useStore();
 
   const { executeCommand } = useHistoryStore();
+  const { confirm } = useDialog();
 
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [localDisplayTime, setLocalDisplayTime] = useState("2.0");
@@ -355,13 +357,16 @@ export default function DetailsPanel() {
   // Attach audio handler - opens AssetModal with audio filter
   const handleAttachAudio = () => {
     setPendingLipSyncOpen(false);
+    if (attachedAudioMeta?.attachedAudioId) {
+      return;
+    }
     setShowAssetModal(true);
   };
 
   const handleQuickLipSync = () => {
     if (!asset) return;
-    const attached = getAttachedAudio(asset.id);
-    if (!attached) {
+    const attachedAudioId = metadataStore?.metadata[asset.id]?.attachedAudioId;
+    if (!attachedAudioId) {
       setPendingLipSyncOpen(true);
       setShowAssetModal(true);
       return;
@@ -387,8 +392,17 @@ export default function DetailsPanel() {
   };
 
   // Detach audio handler
-  const handleDetachAudio = () => {
+  const handleDetachAudio = async () => {
     if (!asset) return;
+    if (lipSyncSettings) {
+      const confirmed = await confirm({
+        title: "Clear attached audio?",
+        message: "Lip sync is configured for this cut. Clearing audio may disable lip sync playback.",
+        confirmLabel: "Clear Audio",
+        cancelLabel: "Cancel",
+      });
+      if (!confirmed) return;
+    }
     detachAudioFromAsset(asset.id);
   };
 
