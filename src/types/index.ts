@@ -177,6 +177,7 @@ export interface AssetMetadata {
   // Future expansion
   attachedImageIds?: string[];  // Multiple image attachments
   audioAnalysis?: AudioAnalysis; // Precomputed audio analysis data
+  lipSync?: LipSyncSettings;     // Lip sync settings (assetId-based)
 }
 
 export interface AudioAnalysis {
@@ -186,6 +187,16 @@ export interface AudioAnalysis {
   sampleRate: number;
   channels: number;
   hash?: string;
+}
+
+export interface LipSyncSettings {
+  baseImageAssetId: string;     // Closed frame (base)
+  variantAssetIds: string[];    // [half1, half2, open]
+  maskAssetId?: string;         // Optional mouth mask
+  rmsSourceAudioAssetId: string; // Audio asset used for RMS
+  thresholds: { t1: number; t2: number; t3: number };
+  fps: number;
+  version?: 1;
 }
 
 // Metadata store (file structure)

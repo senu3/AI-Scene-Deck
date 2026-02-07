@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import * as os from 'os';
 import type { IpcMain } from 'electron';
 
 export interface TrashOriginRef {
@@ -292,6 +293,53 @@ export async function importAssetToVaultInternal(
   }
 }
 
+export async function importDataUrlToVaultInternal(
+  dataUrl: string,
+  vaultPath: string,
+  assetId: string
+): Promise<VaultImportResult> {
+  try {
+    const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+    if (!match) {
+      return { success: false, error: 'Invalid data URL' };
+    }
+
+    const mimeType = match[1].toLowerCase();
+    const base64Data = match[2];
+    let ext = '.png';
+    if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+      ext = '.jpg';
+    } else if (mimeType === 'image/png') {
+      ext = '.png';
+    } else if (mimeType === 'image/webp') {
+      ext = '.webp';
+    } else {
+      return { success: false, error: `Unsupported image type: ${mimeType}` };
+    }
+
+    const tempDir = path.join(os.tmpdir(), 'ai-scene-deck');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const tempPath = path.join(tempDir, `lipsync_${assetId}${ext}`);
+    const buffer = Buffer.from(base64Data, 'base64');
+    fs.writeFileSync(tempPath, buffer);
+
+    try {
+      return await importAssetToVaultInternal(tempPath, vaultPath, assetId);
+    } finally {
+      try {
+        fs.unlinkSync(tempPath);
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+  } catch (error) {
+    console.error('Failed to import data URL asset to vault:', error);
+    return { success: false, error: String(error) };
+  }
+}
+
 export async function moveToTrashInternal(filePath: string, trashPath: string, meta: TrashMeta | null) {
   try {
     if (!fs.existsSync(trashPath)) {
@@ -373,6 +421,10 @@ export async function moveToTrashInternal(filePath: string, trashPath: string, m
 export function registerVaultGatewayHandlers(ipcMain: IpcMain) {
   ipcMain.handle('vault-gateway-import-asset', async (_, sourcePath: string, vaultPath: string, assetId: string) => {
     return importAssetToVaultInternal(sourcePath, vaultPath, assetId);
+  });
+
+  ipcMain.handle('vault-gateway-import-data-url', async (_, dataUrl: string, vaultPath: string, assetId: string) => {
+    return importDataUrlToVaultInternal(dataUrl, vaultPath, assetId);
   });
 
   ipcMain.handle('vault-gateway-save-asset-index', async (_, vaultPath: string, index: AssetIndex) => {

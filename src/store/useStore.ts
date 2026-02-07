@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore, CutGroup } from '../types';
-import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis, upsertSceneMetadata, removeSceneMetadata, syncSceneMetadata } from '../utils/metadataStore';
+import type { Scene, Cut, Asset, FileItem, FavoriteFolder, PlaybackMode, PreviewMode, SceneNote, SelectionType, Project, SourceViewMode, SourcePanelState, MetadataStore, CutGroup, LipSyncSettings } from '../types';
+import { loadMetadataStore, saveMetadataStore, attachAudio, detachAudio, updateAudioOffset as updateOffsetInStore, updateAudioAnalysis, updateLipSyncSettings, removeLipSyncSettings, upsertSceneMetadata, removeSceneMetadata, syncSceneMetadata } from '../utils/metadataStore';
 import { analyzeAudioRms } from '../utils/audioUtils';
 import { clearThumbnailCache } from '../utils/thumbnailCache';
 import type { CutImportSource } from '../utils/cutImport';
@@ -135,6 +135,7 @@ interface AppState {
   updateCutClipPoints: (sceneId: string, cutId: string, inPoint: number, outPoint: number) => void;
   clearCutClipPoints: (sceneId: string, cutId: string) => void;
   updateCutAsset: (sceneId: string, cutId: string, assetUpdates: Partial<Asset>) => void;
+  updateCutLipSync: (sceneId: string, cutId: string, isLipSync: boolean, frameCount?: number) => void;
 
   // Actions - Selection
   selectScene: (sceneId: string | null) => void;
@@ -193,6 +194,8 @@ interface AppState {
   detachAudioFromAsset: (assetId: string) => void;
   getAttachedAudio: (assetId: string) => Asset | undefined;
   updateAudioOffset: (assetId: string, offset: number) => void;
+  setLipSyncForAsset: (assetId: string, settings: LipSyncSettings) => void;
+  clearLipSyncForAsset: (assetId: string) => void;
   relinkCutAsset: (sceneId: string, cutId: string, newAsset: Asset) => void;
 
   // Group actions
@@ -803,6 +806,25 @@ export const useStore = create<AppState>((set, get) => ({
     ),
   })),
 
+  updateCutLipSync: (sceneId, cutId, isLipSync, frameCount) => set((state) => ({
+    scenes: state.scenes.map((s) =>
+      s.id === sceneId
+        ? {
+            ...s,
+            cuts: s.cuts.map((c) =>
+              c.id === cutId
+                ? {
+                    ...c,
+                    isLipSync,
+                    lipSyncFrameCount: isLipSync ? frameCount : undefined,
+                  }
+                : c
+            ),
+          }
+        : s
+    ),
+  })),
+
   reorderCuts: (sceneId, _cutId, newIndex, _fromSceneId, oldIndex) => set((state) => {
     const scene = state.scenes.find((s) => s.id === sceneId);
     if (!scene) return state;
@@ -1275,6 +1297,26 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     // Save metadata to disk
+    get().saveMetadata();
+  },
+
+  setLipSyncForAsset: (assetId, settings) => {
+    set((state) => {
+      const store = state.metadataStore || { version: 1, metadata: {}, sceneMetadata: {} };
+      const updated = updateLipSyncSettings(store, assetId, settings);
+      return { metadataStore: updated };
+    });
+
+    get().saveMetadata();
+  },
+
+  clearLipSyncForAsset: (assetId) => {
+    set((state) => {
+      if (!state.metadataStore) return state;
+      const updated = removeLipSyncSettings(state.metadataStore, assetId);
+      return { metadataStore: updated };
+    });
+
     get().saveMetadata();
   },
 

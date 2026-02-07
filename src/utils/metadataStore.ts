@@ -181,6 +181,47 @@ export function updateAudioAnalysis(
 }
 
 /**
+ * Update lip sync settings for an asset (immutable)
+ * @param store - Current MetadataStore
+ * @param assetId - Target asset ID
+ * @param lipSync - Lip sync settings
+ * @returns New MetadataStore with updated lip sync settings
+ */
+export function updateLipSyncSettings(
+  store: MetadataStore,
+  assetId: string,
+  lipSync: AssetMetadata['lipSync']
+): MetadataStore {
+  const existing = store.metadata[assetId] || { assetId };
+  return updateAssetMetadata(store, {
+    ...existing,
+    lipSync,
+  });
+}
+
+/**
+ * Remove lip sync settings for an asset (immutable)
+ * @param store - Current MetadataStore
+ * @param assetId - Target asset ID
+ * @returns New MetadataStore with lip sync settings removed
+ */
+export function removeLipSyncSettings(
+  store: MetadataStore,
+  assetId: string
+): MetadataStore {
+  const existing = store.metadata[assetId];
+  if (!existing) return store;
+
+  const { lipSync: _, ...rest } = existing;
+
+  if (Object.keys(rest).length <= 1) {
+    return removeAssetMetadata(store, assetId);
+  }
+
+  return updateAssetMetadata(store, rest as AssetMetadata);
+}
+
+/**
  * Remove metadata for an asset (immutable)
  * @param store - Current MetadataStore
  * @param assetId - Asset ID to remove metadata for

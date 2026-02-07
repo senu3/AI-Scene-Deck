@@ -5,7 +5,7 @@ import type { Asset, Cut } from '../types';
 import { createVideoObjectUrl } from '../utils/videoUtils';
 import { formatTime, cyclePlaybackSpeed } from '../utils/timeUtils';
 import { AudioManager } from '../utils/audioUtils';
-import { createImageMediaSource, createVideoMediaSource } from '../utils/previewMedia';
+import { createImageMediaSource, createLipSyncImageMediaSource, createVideoMediaSource } from '../utils/previewMedia';
 import { useSequencePlaybackController } from '../utils/previewPlaybackController';
 import { getThumbnail } from '../utils/thumbnailCache';
 import {
@@ -123,8 +123,9 @@ export default function PreviewModal({
   );
   const [isExporting, setIsExporting] = useState(false);
   const [showOverlay, setShowOverlay] = useState(true);
-  const miniToast = useMiniToast();
+  const { show: showMiniToast, element: miniToastElement } = useMiniToast();
   const overlayTimeoutRef = useRef<number | null>(null);
+  const lipSyncToastShownRef = useRef<Set<string>>(new Set());
   // NOTE: Known issue (Free resolution only): very tall images can push overlay controls out of view.
   // Using the resolution simulator avoids the disappearance. Keep in mind for future layout tweaks.
 
@@ -210,6 +211,16 @@ export default function PreviewModal({
       return null;
     }
     return displayTime;
+  }, [metadataStore]);
+
+  const getLipSyncSettingsForAsset = useCallback((assetId: string) => {
+    if (!metadataStore) return undefined;
+    return metadataStore.metadata[assetId]?.lipSync;
+  }, [metadataStore]);
+
+  const getAudioAnalysisForAsset = useCallback((assetId: string) => {
+    if (!metadataStore) return undefined;
+    return metadataStore.metadata[assetId]?.audioAnalysis;
   }, [metadataStore]);
 
   // ===== SINGLE MODE LOGIC =====
@@ -616,12 +627,12 @@ export default function PreviewModal({
     try {
       const message = await onFrameCapture(timestamp);
       if (message) {
-        miniToast.show(message, 'success');
+        showMiniToast(message, 'success');
       }
     } catch (error) {
       console.error('Frame capture failed:', error);
       const message = error instanceof Error ? error.message : 'Capture failed';
-      miniToast.show(message, 'error');
+      showMiniToast(message, 'error');
     }
   }, [isSingleModeVideo, onFrameCapture, singleModeCurrentTime]);
 
@@ -858,12 +869,15 @@ export default function PreviewModal({
       const displayTime = getDisplayTimeForAsset(asset.id) ?? 1.0;
       const resolvedDisplayTime = Math.max(0.1, displayTime);
       const thumbnail = singleModeImageData ?? asset.thumbnail ?? null;
+      const lipSyncSettings = getLipSyncSettingsForAsset(asset.id);
       const singleCut: Cut = {
         id: `single-${asset.id}`,
         assetId: asset.id,
         asset,
         displayTime: resolvedDisplayTime,
         order: 0,
+        isLipSync: !!lipSyncSettings,
+        lipSyncFrameCount: lipSyncSettings ? 1 + lipSyncSettings.variantAssetIds.length : undefined,
       };
 
       setItems([{
@@ -930,6 +944,7 @@ export default function PreviewModal({
     selectedSceneId,
     getAsset,
     getDisplayTimeForAsset,
+    getLipSyncSettingsForAsset,
   ]);
 
   useEffect(() => {
@@ -1234,18 +1249,96 @@ export default function PreviewModal({
       return;
     }
 
-    if (asset.type === 'image' && currentItem.thumbnail) {
-      const source = createImageMediaSource({
-        src: currentItem.thumbnail,
-        alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
-        className: 'preview-media',
-        duration: currentItem.cut.displayTime,
-        onTimeUpdate: sequenceTick,
-        onEnded: sequenceGoToNext,
-      });
-      setSequenceSource(source);
-      setSequenceMediaElement(source.element);
-      setSequenceRate(playbackSpeed);
+    if (asset.type === 'image') {
+      const lipSyncSettings = currentItem.cut.isLipSync ? getLipSyncSettingsForAsset(asset.id) : undefined;
+      if (lipSyncSettings) {
+        let isActive = true;
+        const loadLipSyncSources = async () => {
+          const frameAssetIds = [
+            lipSyncSettings.baseImageAssetId,
+            ...lipSyncSettings.variantAssetIds,
+          ];
+
+          const sources: string[] = [];
+          for (const frameAssetId of frameAssetIds) {
+            let src = '';
+            const frameAsset = getAsset(frameAssetId);
+            if (frameAsset?.thumbnail) {
+              src = frameAsset.thumbnail;
+            } else if (frameAsset?.path) {
+              try {
+                const thumb = await getThumbnail(frameAsset.path, 'image');
+                if (thumb) src = thumb;
+              } catch {
+                // ignore
+              }
+            }
+            sources.push(src);
+          }
+
+          const baseFallback = sources[0] || currentItem.thumbnail || '';
+          const resolvedSources = sources.map((src) => src || baseFallback);
+
+          const analysis = getAudioAnalysisForAsset(lipSyncSettings.rmsSourceAudioAssetId);
+          if (!analysis?.rms?.length) {
+            if (!lipSyncToastShownRef.current.has(asset.id)) {
+              lipSyncToastShownRef.current.add(asset.id);
+              showMiniToast('Lip sync RMS not available', 'warning');
+            }
+            const fallbackSource = createImageMediaSource({
+              src: baseFallback,
+              alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
+              className: 'preview-media',
+              duration: currentItem.cut.displayTime,
+              onTimeUpdate: sequenceTick,
+              onEnded: sequenceGoToNext,
+            });
+            if (!isActive) return;
+            setSequenceSource(fallbackSource);
+            setSequenceMediaElement(fallbackSource.element);
+            setSequenceRate(playbackSpeed);
+            return;
+          }
+
+          const lipSyncSource = createLipSyncImageMediaSource({
+            sources: resolvedSources,
+            alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
+            className: 'preview-media',
+            duration: currentItem.cut.displayTime,
+            rms: analysis.rms,
+            rmsFps: analysis.fps,
+            thresholds: lipSyncSettings.thresholds,
+            getAbsoluteTime: getSequenceLiveAbsoluteTime,
+            audioOffsetSec: getAudioOffsetForAsset(asset.id),
+            onTimeUpdate: sequenceTick,
+            onEnded: sequenceGoToNext,
+          });
+
+          if (!isActive) return;
+          setSequenceSource(lipSyncSource);
+          setSequenceMediaElement(lipSyncSource.element);
+          setSequenceRate(playbackSpeed);
+        };
+
+        void loadLipSyncSources();
+        return () => {
+          isActive = false;
+        };
+      }
+
+      if (currentItem.thumbnail) {
+        const source = createImageMediaSource({
+          src: currentItem.thumbnail,
+          alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
+          className: 'preview-media',
+          duration: currentItem.cut.displayTime,
+          onTimeUpdate: sequenceTick,
+          onEnded: sequenceGoToNext,
+        });
+        setSequenceSource(source);
+        setSequenceMediaElement(source.element);
+        setSequenceRate(playbackSpeed);
+      }
     }
   }, [
     usesSequenceController,
@@ -1258,6 +1351,12 @@ export default function PreviewModal({
     sequenceTick,
     sequenceGoToNext,
     setSequenceRate,
+    getLipSyncSettingsForAsset,
+    getAudioAnalysisForAsset,
+    getSequenceLiveAbsoluteTime,
+    getAudioOffsetForAsset,
+    showMiniToast,
+    getAsset,
   ]);
 
   useEffect(() => {
@@ -2041,7 +2140,7 @@ export default function PreviewModal({
                   >
                     <Maximize size={16} />
                   </button>
-                  {miniToast.element}
+                  {miniToastElement}
                 </div>
               </div>
             </div>
@@ -2300,7 +2399,7 @@ export default function PreviewModal({
                 >
                   <Maximize size={16} />
                 </button>
-                {miniToast.element}
+                {miniToastElement}
               </div>
             </div>
           </div>

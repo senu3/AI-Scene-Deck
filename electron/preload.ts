@@ -309,6 +309,8 @@ const electronAPI = {
   vaultGateway: {
     importAndRegisterAsset: (sourcePath: string, vaultPath: string, assetId: string): Promise<VaultImportResult> =>
       ipcRenderer.invoke('vault-gateway-import-asset', sourcePath, vaultPath, assetId),
+    importDataUrlAsset: (dataUrl: string, vaultPath: string, assetId: string): Promise<VaultImportResult> =>
+      ipcRenderer.invoke('vault-gateway-import-data-url', dataUrl, vaultPath, assetId),
     saveAssetIndex: (vaultPath: string, index: AssetIndex): Promise<boolean> =>
       ipcRenderer.invoke('vault-gateway-save-asset-index', vaultPath, index),
     moveToTrashWithMeta: (filePath: string, trashPath: string, meta: TrashMeta): Promise<string | null> =>

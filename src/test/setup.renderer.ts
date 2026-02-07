@@ -19,6 +19,13 @@ const electronAPIMock = {
       hash: 'abc',
       isDuplicate: false,
     })),
+    importDataUrlAsset: vi.fn(async () => ({
+      success: true,
+      vaultPath: 'C:/mock/vault/assets/img_data.png',
+      relativePath: 'assets/img_data.png',
+      hash: 'data',
+      isDuplicate: false,
+    })),
     moveToTrashWithMeta: vi.fn(async () => 'C:/mock/vault/.trash/img_abc.png'),
   },
 };

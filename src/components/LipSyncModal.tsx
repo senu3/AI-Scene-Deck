@@ -11,11 +11,17 @@ import { X, Camera, Play, Pause, Mic, Volume2, Film, Check, Brush } from "lucide
 import type { Asset } from "../types";
 import { Slider } from "../ui/primitives/Slider";
 import MaskPaintModal from "./MaskPaintModal";
+import { useStore } from "../store/useStore";
+import { useToast } from "../ui";
+import { generateAssetId } from "../utils/assetPath";
+import { importDataUrlAssetToVault } from "../utils/lipSyncUtils";
+import { getMediaUrl } from "../utils/videoUtils";
 import "./LipSyncModal.css";
 
 interface LipSyncModalProps {
   asset: Asset;
   sceneId: string;
+  cutId?: string;
   onClose: () => void;
 }
 
@@ -33,7 +39,9 @@ const FRAME_PHASES = [
   { id: "open", label: "Open", desc: "Loud / RMS ≥ T3" },
 ] as const;
 
-export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalProps) {
+export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSyncModalProps) {
+  const { vaultPath, metadataStore, setLipSyncForAsset, cacheAsset, updateCutLipSync } = useStore();
+  const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -94,10 +102,22 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
     if (!videoRef.current) return;
     if (isPlaying) {
       videoRef.current.pause();
-    } else {
-      videoRef.current.play();
+      setIsPlaying(false);
+      return;
     }
-    setIsPlaying(!isPlaying);
+
+    if (!videoRef.current.currentSrc) {
+      setIsPlaying(false);
+      return;
+    }
+
+    const playPromise = videoRef.current.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {
+        setIsPlaying(false);
+      });
+    }
+    setIsPlaying(true);
   };
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -154,9 +174,73 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
     setThresholds((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleRegister = () => {
-    console.log("Register lip sync with:", { frames, thresholds, sceneId, maskDataUrl });
-    alert("Lip Sync registration (UI mock only)");
+  const handleRegister = async () => {
+    if (!vaultPath) {
+      toast.error("Lip Sync registration failed", "Vault path is not set.");
+      return;
+    }
+
+    const attachedAudioId = metadataStore?.metadata[asset.id]?.attachedAudioId;
+    if (!attachedAudioId) {
+      toast.error("Lip Sync registration failed", "Attached audio not found.");
+      return;
+    }
+
+    const frameEntries: Array<{ key: keyof FrameData; label: string; dataUrl: string | null }> = [
+      { key: "closed", label: "Closed", dataUrl: frames.closed },
+      { key: "half1", label: "Half 1", dataUrl: frames.half1 },
+      { key: "half2", label: "Half 2", dataUrl: frames.half2 },
+      { key: "open", label: "Open", dataUrl: frames.open },
+    ];
+
+    const missing = frameEntries.find((entry) => !entry.dataUrl);
+    if (missing) {
+      toast.warning("Missing frame", `Please capture the "${missing.label}" frame.`);
+      return;
+    }
+
+    const importedAssets: Asset[] = [];
+    for (const entry of frameEntries) {
+      const dataUrl = entry.dataUrl!;
+      const assetId = generateAssetId();
+      const name = `${asset.name}_${entry.label}`;
+      const imported = await importDataUrlAssetToVault(dataUrl, vaultPath, assetId, name);
+      if (!imported) {
+        toast.error("Lip Sync registration failed", `Failed to import "${entry.label}" frame.`);
+        return;
+      }
+      cacheAsset(imported);
+      importedAssets.push(imported);
+    }
+
+    let maskAssetId: string | undefined;
+    if (maskDataUrl) {
+      const maskId = generateAssetId();
+      const maskAsset = await importDataUrlAssetToVault(maskDataUrl, vaultPath, maskId, `${asset.name}_Mask`);
+      if (!maskAsset) {
+        toast.error("Lip Sync registration failed", "Failed to import mask image.");
+        return;
+      }
+      cacheAsset(maskAsset);
+      maskAssetId = maskAsset.id;
+    }
+
+    const [baseAsset, ...variantAssets] = importedAssets;
+    setLipSyncForAsset(asset.id, {
+      baseImageAssetId: baseAsset.id,
+      variantAssetIds: variantAssets.map((item) => item.id),
+      maskAssetId,
+      rmsSourceAudioAssetId: attachedAudioId,
+      thresholds,
+      fps: 60,
+      version: 1,
+    });
+
+    if (cutId) {
+      updateCutLipSync(sceneId, cutId, true, importedAssets.length);
+    }
+
+    toast.success("Lip Sync registered", "Settings saved to metadata.");
     onClose();
   };
 
@@ -208,7 +292,7 @@ export default function LipSyncModal({ asset, sceneId, onClose }: LipSyncModalPr
             {isVideo ? (
               <video
                 ref={videoRef}
-                src={`media://${encodeURIComponent(asset.path)}`}
+                src={getMediaUrl(asset.path)}
                 onTimeUpdate={handleVideoTimeUpdate}
                 onLoadedMetadata={handleVideoLoadedMetadata}
                 onPlay={() => setIsPlaying(true)}

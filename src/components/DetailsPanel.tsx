@@ -79,6 +79,7 @@ export default function DetailsPanel() {
   const [showVideoPreview, setShowVideoPreview] = useState(false);
   const [showLipSyncModal, setShowLipSyncModal] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
+  const [pendingLipSyncOpen, setPendingLipSyncOpen] = useState(false);
 
   // Attached audio state
   const [attachedAudio, setAttachedAudio] = useState<Asset | undefined>(undefined);
@@ -293,7 +294,19 @@ export default function DetailsPanel() {
 
   // Attach audio handler - opens AssetModal with audio filter
   const handleAttachAudio = () => {
+    setPendingLipSyncOpen(false);
     setShowAssetModal(true);
+  };
+
+  const handleQuickLipSync = () => {
+    if (!asset) return;
+    const attached = getAttachedAudio(asset.id);
+    if (!attached) {
+      setPendingLipSyncOpen(true);
+      setShowAssetModal(true);
+      return;
+    }
+    setShowLipSyncModal(true);
   };
 
   // Handle audio selection from AssetModal
@@ -302,6 +315,15 @@ export default function DetailsPanel() {
       attachAudioToAsset(asset.id, selectedAsset);
     }
     setShowAssetModal(false);
+    if (pendingLipSyncOpen) {
+      setPendingLipSyncOpen(false);
+      setShowLipSyncModal(true);
+    }
+  };
+
+  const handleAssetModalClose = () => {
+    setShowAssetModal(false);
+    setPendingLipSyncOpen(false);
   };
 
   // Detach audio handler
@@ -1122,7 +1144,7 @@ export default function DetailsPanel() {
           )}
 
           <div className="details-actions">
-            <button className="action-btn lip-sync" onClick={() => setShowLipSyncModal(true)}>
+            <button className="action-btn lip-sync" onClick={handleQuickLipSync}>
               <Mic size={16} />
               <span>QUICK LIPSYNC</span>
             </button>
@@ -1157,6 +1179,7 @@ export default function DetailsPanel() {
           <LipSyncModal
             asset={asset}
             sceneId={cutScene?.id || ""}
+            cutId={cut?.id}
             onClose={() => setShowLipSyncModal(false)}
           />
         )}
@@ -1164,7 +1187,7 @@ export default function DetailsPanel() {
         {/* Asset Modal for attaching audio */}
         <AssetModal
           open={showAssetModal}
-          onClose={() => setShowAssetModal(false)}
+          onClose={handleAssetModalClose}
           onConfirm={handleAssetModalConfirm}
           title="Select Audio"
           initialFilterType="audio"
