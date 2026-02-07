@@ -49,7 +49,13 @@ export async function importDataUrlAssetToVault(
   if (!window.electronAPI?.vaultGateway) return null;
   if (!dataUrl) return null;
 
-  const result = await window.electronAPI.vaultGateway.importDataUrlAsset(dataUrl, vaultPath, assetId);
+  const importDataUrlAsset = window.electronAPI.vaultGateway.importDataUrlAsset;
+  if (typeof importDataUrlAsset !== 'function') {
+    console.error('importDataUrlAsset is unavailable. App restart may be required.');
+    return null;
+  }
+
+  const result = await importDataUrlAsset(dataUrl, vaultPath, assetId);
   if (!result.success) {
     console.error('Failed to import data URL asset:', result.error);
     return null;

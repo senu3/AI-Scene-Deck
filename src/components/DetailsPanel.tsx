@@ -36,6 +36,7 @@ import {
 import { getThumbnail } from "../utils/thumbnailCache";
 import { extractVideoMetadata } from "../utils/videoUtils";
 import { importFileToVault } from "../utils/assetPath";
+import { normalizeThresholds } from "../utils/lipSyncUtils";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
 import LipSyncModal from "./LipSyncModal";
@@ -80,6 +81,7 @@ export default function DetailsPanel() {
   const [showLipSyncModal, setShowLipSyncModal] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [pendingLipSyncOpen, setPendingLipSyncOpen] = useState(false);
+  const [lipSyncFrames, setLipSyncFrames] = useState<string[]>([]);
 
   // Attached audio state
   const [attachedAudio, setAttachedAudio] = useState<Asset | undefined>(undefined);
@@ -112,6 +114,9 @@ export default function DetailsPanel() {
   const attachedAudioSourceName =
     attachedAudioMeta?.attachedAudioSourceName || attachedAudio?.name || "Unknown";
   const hasAttachedAudio = !!attachedAudioMeta?.attachedAudioId;
+  const lipSyncSettings = asset?.id ? metadataStore?.metadata[asset.id]?.lipSync : undefined;
+  const isLipSyncCut = !!cut?.isLipSync;
+  const showLipSyncDetails = isLipSyncCut && !!lipSyncSettings;
 
   // Check for multi-selection
   const isMultiSelection = selectedCutIds.size > 1;
@@ -193,6 +198,61 @@ export default function DetailsPanel() {
 
     loadAssetData();
   }, [asset?.path, asset?.thumbnail, asset?.metadata, asset?.type]);
+
+  // Load lip sync frame thumbnails
+  useEffect(() => {
+    let isActive = true;
+    const loadLipSyncFrames = async () => {
+      setLipSyncFrames([]);
+
+      if (!lipSyncSettings) return;
+
+      const frameAssetIds = [
+        lipSyncSettings.baseImageAssetId,
+        ...lipSyncSettings.variantAssetIds,
+      ];
+
+      const sources: string[] = [];
+      for (const frameAssetId of frameAssetIds) {
+        let src = "";
+        const frameAsset = getAsset(frameAssetId);
+        if (frameAsset?.thumbnail) {
+          src = frameAsset.thumbnail;
+        } else if (frameAsset?.path) {
+          try {
+            const cached = await getThumbnail(frameAsset.path, "image");
+            if (cached) src = cached;
+          } catch {
+            // ignore
+          }
+        }
+        sources.push(src);
+      }
+
+      const baseFallback = sources[0] || thumbnail || "";
+      const resolved = sources.map((src) => src || baseFallback);
+
+      if (isActive) {
+        setLipSyncFrames(resolved);
+      }
+    };
+
+    void loadLipSyncFrames();
+    return () => {
+      isActive = false;
+    };
+  }, [lipSyncSettings, getAsset, thumbnail]);
+
+  const lipSyncFrameLabels = (() => {
+    const count = lipSyncFrames.length || (lipSyncSettings ? 1 + lipSyncSettings.variantAssetIds.length : 0);
+    if (count === 4) return ["Closed", "Half 1", "Half 2", "Open"];
+    if (count <= 0) return [];
+    return Array.from({ length: count }, (_, index) => (index === 0 ? "Base" : `Frame ${index + 1}`));
+  })();
+
+  const lipSyncThresholds = lipSyncSettings
+    ? normalizeThresholds(lipSyncSettings.thresholds)
+    : null;
 
   const handleDisplayTimeChange = (value: string) => {
     setLocalDisplayTime(value);
@@ -752,111 +812,6 @@ export default function DetailsPanel() {
     );
   }
 
-  // === DEMO: Show lip sync cut details ===
-  if (selectionType === "cut" && selectedCutId === "demo-lipsync-1") {
-    return (
-      <aside className="details-panel">
-        <div className="details-header">
-          <Settings size={18} />
-          <span>DETAILS</span>
-        </div>
-
-        <div className="details-content">
-          <div className="selected-info lipsync-info">
-            <span className="selected-label">LIP SYNC CUT</span>
-            <span className="selected-value">Demo Lip Sync</span>
-          </div>
-
-          {/* Lip Sync Preview - shows base frame */}
-          <div className="details-preview lipsync-preview">
-            <div className="lipsync-preview-placeholder">
-              <Mic size={48} />
-              <span>4 Frames Registered</span>
-            </div>
-          </div>
-
-          {/* Lip Sync Frame Grid */}
-          <div className="lipsync-frames-info">
-            <div className="lipsync-frames-header">
-              <Mic size={14} />
-              <span>Registered Frames</span>
-            </div>
-            <div className="lipsync-frames-grid">
-              <div className="lipsync-frame-item">
-                <div className="frame-thumb placeholder"></div>
-                <span>Closed</span>
-              </div>
-              <div className="lipsync-frame-item">
-                <div className="frame-thumb placeholder"></div>
-                <span>Half 1</span>
-              </div>
-              <div className="lipsync-frame-item">
-                <div className="frame-thumb placeholder"></div>
-                <span>Half 2</span>
-              </div>
-              <div className="lipsync-frame-item">
-                <div className="frame-thumb placeholder"></div>
-                <span>Open</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Thresholds Info */}
-          <div className="lipsync-thresholds-info">
-            <div className="threshold-row">
-              <span className="threshold-label">T1 (Half1)</span>
-              <span className="threshold-value">0.05</span>
-            </div>
-            <div className="threshold-row">
-              <span className="threshold-label">T2 (Half2)</span>
-              <span className="threshold-value">0.15</span>
-            </div>
-            <div className="threshold-row">
-              <span className="threshold-label">T3 (Open)</span>
-              <span className="threshold-value">0.30</span>
-            </div>
-          </div>
-
-          <div className="details-info">
-            <div className="info-row">
-              <span className="info-label">
-                <Clock size={14} />
-                Display Time:
-              </span>
-              <div className="time-input-group">
-                <input
-                  type="number"
-                  defaultValue="3.0"
-                  step="0.1"
-                  min="0.1"
-                  max="60"
-                  className="time-input"
-                  readOnly
-                />
-                <span className="time-unit">seconds</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="details-actions">
-            <button className="action-btn primary">
-              <Mic size={16} />
-              <span>EDIT LIP SYNC</span>
-            </button>
-          </div>
-
-          <div className="details-footer">
-            <button className="delete-btn">
-              <Trash2 size={14} />
-              <span>Remove Cut</span>
-            </button>
-          </div>
-        </div>
-      </aside>
-    );
-  }
-  // === END DEMO ===
-
   // Show scene details
   if (selectionType === "scene" && selectedScene) {
     return (
@@ -935,6 +890,7 @@ export default function DetailsPanel() {
   // Show cut details
   if (selectionType === "cut" && cut && asset) {
     const isVideo = asset.type === "video";
+    const previewImage = showLipSyncDetails ? lipSyncFrames[0] || thumbnail : thumbnail;
 
     return (
       <aside className="details-panel">
@@ -944,22 +900,24 @@ export default function DetailsPanel() {
         </div>
 
         <div className="details-content">
-          <div className="selected-info">
-            <span className="selected-label">SELECTED</span>
+          <div className={`selected-info ${showLipSyncDetails ? "lipsync-info" : ""}`}>
+            <span className="selected-label">
+              {showLipSyncDetails ? "LIP SYNC CUT" : "SELECTED"}
+            </span>
             <span className="selected-value">
               {cutScene?.name} / Cut {(cut.order || 0) + 1}
             </span>
           </div>
 
           <div
-            className="details-preview clickable"
+            className={`details-preview clickable ${showLipSyncDetails ? "lipsync-preview" : ""}`}
             onClick={() => setShowVideoPreview(true)}
             title="Click to preview"
           >
-            {thumbnail ? (
+            {previewImage ? (
               <>
                 <img
-                  src={thumbnail}
+                  src={previewImage}
                   alt={asset.name}
                   className="preview-image"
                 />
@@ -970,11 +928,63 @@ export default function DetailsPanel() {
                 )}
               </>
             ) : (
-              <div className="preview-placeholder">
-                {isVideo ? <Film size={48} /> : <FileImage size={48} />}
-              </div>
+              showLipSyncDetails ? (
+                <div className="lipsync-preview-placeholder">
+                  <Mic size={48} />
+                  <span>
+                    {lipSyncFrames.length
+                      ? `${lipSyncFrames.length} Frames Registered`
+                      : "Frames not available"}
+                  </span>
+                </div>
+              ) : (
+                <div className="preview-placeholder">
+                  {isVideo ? <Film size={48} /> : <FileImage size={48} />}
+                </div>
+              )
             )}
           </div>
+
+          {showLipSyncDetails && (
+            <>
+              <div className="lipsync-frames-info">
+                <div className="lipsync-frames-header">
+                  <Mic size={14} />
+                  <span>Registered Frames</span>
+                </div>
+                <div className="lipsync-frames-grid">
+                  {(lipSyncFrames.length ? lipSyncFrames : new Array(4).fill("")).map((src, index) => {
+                    const label = lipSyncFrameLabels[index] || `Frame ${index + 1}`;
+                    return (
+                      <div key={`${label}-${index}`} className="lipsync-frame-item">
+                        <div className={`frame-thumb ${src ? "" : "placeholder"}`}>
+                          {src && <img src={src} alt={label} />}
+                        </div>
+                        <span>{label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {lipSyncThresholds && (
+                <div className="lipsync-thresholds-info">
+                  <div className="threshold-row">
+                    <span className="threshold-label">T1</span>
+                    <span className="threshold-value">{lipSyncThresholds.t1.toFixed(2)}</span>
+                  </div>
+                  <div className="threshold-row">
+                    <span className="threshold-label">T2</span>
+                    <span className="threshold-value">{lipSyncThresholds.t2.toFixed(2)}</span>
+                  </div>
+                  <div className="threshold-row">
+                    <span className="threshold-label">T3</span>
+                    <span className="threshold-value">{lipSyncThresholds.t3.toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           <div className="details-info">
             <div className="info-row">
@@ -995,6 +1005,12 @@ export default function DetailsPanel() {
               <span className="info-label">Source:</span>
               <span className="info-value truncate">{asset.name}</span>
             </div>
+            {isLipSyncCut && !lipSyncSettings && (
+              <div className="info-row">
+                <span className="info-label">Lip Sync:</span>
+                <span className="info-value">Settings missing</span>
+              </div>
+            )}
             <div className="info-row">
               <span className="info-label">
                 <Clock size={14} />
@@ -1146,7 +1162,7 @@ export default function DetailsPanel() {
           <div className="details-actions">
             <button className="action-btn lip-sync" onClick={handleQuickLipSync}>
               <Mic size={16} />
-              <span>QUICK LIPSYNC</span>
+              <span>{showLipSyncDetails ? "EDIT LIPSYNC" : "QUICK LIPSYNC"}</span>
             </button>
             <button className="action-btn secondary" onClick={handleAttachAudio}>
               <Music size={16} />

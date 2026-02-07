@@ -906,6 +906,13 @@
   overflow: hidden;
 }
 
+.lipsync-frame-item .frame-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .lipsync-frame-item .frame-thumb.placeholder {
   background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
 }

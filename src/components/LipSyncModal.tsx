@@ -243,6 +243,14 @@ export default function LipSyncModal({ asset, sceneId, cutId, onClose }: LipSync
       return;
     }
 
+    if (typeof window.electronAPI?.vaultGateway?.importDataUrlAsset !== "function") {
+      toast.error(
+        "Lip Sync registration failed",
+        "importDataUrlAsset is unavailable. Please restart the app after update."
+      );
+      return;
+    }
+
     const attachedAudioId = metadataStore?.metadata[asset.id]?.attachedAudioId;
     if (!attachedAudioId) {
       toast.error("Lip Sync registration failed", "Attached audio not found.");
