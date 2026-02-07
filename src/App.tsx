@@ -88,6 +88,8 @@ function App() {
     clearCutSelection,
     videoPreviewCutId,
     closeVideoPreview,
+    sequencePreviewCutId,
+    closeSequencePreview,
     cacheAsset,
     updateCutAsset,
     createCutFromImport,
@@ -692,6 +694,14 @@ function App() {
             initialOutPoint={previewData.cut.outPoint}
             onClipSave={handleVideoPreviewClipSave}
             onFrameCapture={handleVideoPreviewFrameCapture}
+            exportResolution={exportResolution}
+            onResolutionChange={setExportResolution}
+          />
+        )}
+        {sequencePreviewCutId && (
+          <PreviewModal
+            onClose={closeSequencePreview}
+            focusCutId={sequencePreviewCutId}
             exportResolution={exportResolution}
             onResolutionChange={setExportResolution}
           />

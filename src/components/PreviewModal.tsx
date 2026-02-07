@@ -51,6 +51,7 @@ interface BasePreviewModalProps {
   onClose: () => void;
   exportResolution?: ResolutionPresetType;
   onResolutionChange?: (resolution: ResolutionPresetType) => void;
+  focusCutId?: string;
 }
 
 // PreviewModal can be called in Single Mode (with asset) or Sequence Mode (without asset)
@@ -83,6 +84,7 @@ export default function PreviewModal({
   onClose,
   exportResolution,
   onResolutionChange,
+  focusCutId,
   // Single Mode props
   asset,
   initialInPoint,
@@ -109,6 +111,18 @@ export default function PreviewModal({
   const isSingleModeVideo = isSingleMode && asset?.type === 'video';
   const isSingleModeImage = isSingleMode && asset?.type === 'image';
   const usesSequenceController = !isSingleModeVideo;
+
+  const focusCutData = useMemo(() => {
+    if (!focusCutId) return null;
+    for (let sIdx = 0; sIdx < scenes.length; sIdx++) {
+      const scene = scenes[sIdx];
+      const cutIndex = scene.cuts.findIndex(c => c.id === focusCutId);
+      if (cutIndex >= 0) {
+        return { scene, sceneIndex: sIdx, cut: scene.cuts[cutIndex], cutIndex };
+      }
+    }
+    return null;
+  }, [focusCutId, scenes]);
 
   const [items, setItems] = useState<PreviewItem[]>([]);
   const [singleModeIsPlaying, setSingleModeIsPlaying] = useState(false);
@@ -892,6 +906,60 @@ export default function PreviewModal({
 
     if (isSingleMode) return;
 
+    if (focusCutData) {
+      const buildFocusedItems = async () => {
+        const { scene, sceneIndex, cut, cutIndex } = focusCutData;
+        const cutAsset = cut.asset || getAsset(cut.assetId);
+        if (!cutAsset) {
+          setItems([]);
+          return;
+        }
+
+        const lipSyncSettings = cut.isLipSync && cutAsset.id
+          ? getLipSyncSettingsForAsset(cutAsset.id)
+          : undefined;
+
+        let thumbnail: string | null = cutAsset.thumbnail || null;
+
+        if (lipSyncSettings) {
+          const baseAsset = getAsset(lipSyncSettings.baseImageAssetId);
+          if (baseAsset?.thumbnail) {
+            thumbnail = baseAsset.thumbnail;
+          } else if (baseAsset?.path) {
+            try {
+              const cached = await getThumbnail(baseAsset.path, 'image');
+              if (cached) thumbnail = cached;
+            } catch {
+              // ignore
+            }
+          }
+        }
+
+        if (!thumbnail && cutAsset.path) {
+          try {
+            if (cutAsset.type === 'video') {
+              thumbnail = await getThumbnail(cutAsset.path, 'video');
+            } else {
+              thumbnail = await getThumbnail(cutAsset.path, 'image');
+            }
+          } catch {
+            // Failed to load
+          }
+        }
+
+        setItems([{
+          cut,
+          sceneName: scene.name,
+          sceneIndex,
+          cutIndex,
+          thumbnail,
+        }]);
+      };
+
+      void buildFocusedItems();
+      return;
+    }
+
     const buildItems = async () => {
       const newItems: PreviewItem[] = [];
 
@@ -904,8 +972,25 @@ export default function PreviewModal({
         for (let cIdx = 0; cIdx < scene.cuts.length; cIdx++) {
           const cut = scene.cuts[cIdx];
           const cutAsset = cut.asset || getAsset(cut.assetId);
+          const lipSyncSettings = cut.isLipSync && cutAsset?.id
+            ? getLipSyncSettingsForAsset(cutAsset.id)
+            : undefined;
 
           let thumbnail: string | null = cutAsset?.thumbnail || null;
+
+          if (lipSyncSettings) {
+            const baseAsset = getAsset(lipSyncSettings.baseImageAssetId);
+            if (baseAsset?.thumbnail) {
+              thumbnail = baseAsset.thumbnail;
+            } else if (baseAsset?.path) {
+              try {
+                const cached = await getThumbnail(baseAsset.path, 'image');
+                if (cached) thumbnail = cached;
+              } catch {
+                // ignore
+              }
+            }
+          }
 
           if (!thumbnail && cutAsset?.path) {
             try {
@@ -945,6 +1030,7 @@ export default function PreviewModal({
     getAsset,
     getDisplayTimeForAsset,
     getLipSyncSettingsForAsset,
+    focusCutData,
   ]);
 
   useEffect(() => {
@@ -1219,6 +1305,82 @@ export default function PreviewModal({
     const asset = currentItem?.cut?.asset;
     if (!currentItem || !asset) return;
 
+    const lipSyncSettings = currentItem.cut.isLipSync ? getLipSyncSettingsForAsset(asset.id) : undefined;
+    if (lipSyncSettings) {
+      let isActive = true;
+      const loadLipSyncSources = async () => {
+        const frameAssetIds = [
+          lipSyncSettings.baseImageAssetId,
+          ...lipSyncSettings.variantAssetIds,
+        ];
+
+        const sources: string[] = [];
+        for (const frameAssetId of frameAssetIds) {
+          let src = '';
+          const frameAsset = getAsset(frameAssetId);
+          if (frameAsset?.thumbnail) {
+            src = frameAsset.thumbnail;
+          } else if (frameAsset?.path) {
+            try {
+              const thumb = await getThumbnail(frameAsset.path, 'image');
+              if (thumb) src = thumb;
+            } catch {
+              // ignore
+            }
+          }
+          sources.push(src);
+        }
+
+        const baseFallback = sources[0] || currentItem.thumbnail || '';
+        const resolvedSources = sources.map((src) => src || baseFallback);
+
+        const analysis = getAudioAnalysisForAsset(lipSyncSettings.rmsSourceAudioAssetId);
+        if (!analysis?.rms?.length) {
+          if (!lipSyncToastShownRef.current.has(asset.id)) {
+            lipSyncToastShownRef.current.add(asset.id);
+            showMiniToast('Lip sync RMS not available', 'warning');
+          }
+          const fallbackSource = createImageMediaSource({
+            src: baseFallback,
+            alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
+            className: 'preview-media',
+            duration: currentItem.cut.displayTime,
+            onTimeUpdate: sequenceTick,
+            onEnded: sequenceGoToNext,
+          });
+          if (!isActive) return;
+          setSequenceSource(fallbackSource);
+          setSequenceMediaElement(fallbackSource.element);
+          setSequenceRate(playbackSpeed);
+          return;
+        }
+
+        const lipSyncSource = createLipSyncImageMediaSource({
+          sources: resolvedSources,
+          alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
+          className: 'preview-media',
+          duration: currentItem.cut.displayTime,
+          rms: analysis.rms,
+          rmsFps: analysis.fps,
+          thresholds: lipSyncSettings.thresholds,
+          getAbsoluteTime: getSequenceLiveAbsoluteTime,
+          audioOffsetSec: getAudioOffsetForAsset(asset.id),
+          onTimeUpdate: sequenceTick,
+          onEnded: sequenceGoToNext,
+        });
+
+        if (!isActive) return;
+        setSequenceSource(lipSyncSource);
+        setSequenceMediaElement(lipSyncSource.element);
+        setSequenceRate(playbackSpeed);
+      };
+
+      void loadLipSyncSources();
+      return () => {
+        isActive = false;
+      };
+    }
+
     if (asset.type === 'video') {
       const assetId = currentItem.cut.asset?.id ?? currentItem.cut.assetId ?? null;
       if (!videoObjectUrl || !assetId || videoObjectUrl.assetId !== assetId) {
@@ -1250,82 +1412,6 @@ export default function PreviewModal({
     }
 
     if (asset.type === 'image') {
-      const lipSyncSettings = currentItem.cut.isLipSync ? getLipSyncSettingsForAsset(asset.id) : undefined;
-      if (lipSyncSettings) {
-        let isActive = true;
-        const loadLipSyncSources = async () => {
-          const frameAssetIds = [
-            lipSyncSettings.baseImageAssetId,
-            ...lipSyncSettings.variantAssetIds,
-          ];
-
-          const sources: string[] = [];
-          for (const frameAssetId of frameAssetIds) {
-            let src = '';
-            const frameAsset = getAsset(frameAssetId);
-            if (frameAsset?.thumbnail) {
-              src = frameAsset.thumbnail;
-            } else if (frameAsset?.path) {
-              try {
-                const thumb = await getThumbnail(frameAsset.path, 'image');
-                if (thumb) src = thumb;
-              } catch {
-                // ignore
-              }
-            }
-            sources.push(src);
-          }
-
-          const baseFallback = sources[0] || currentItem.thumbnail || '';
-          const resolvedSources = sources.map((src) => src || baseFallback);
-
-          const analysis = getAudioAnalysisForAsset(lipSyncSettings.rmsSourceAudioAssetId);
-          if (!analysis?.rms?.length) {
-            if (!lipSyncToastShownRef.current.has(asset.id)) {
-              lipSyncToastShownRef.current.add(asset.id);
-              showMiniToast('Lip sync RMS not available', 'warning');
-            }
-            const fallbackSource = createImageMediaSource({
-              src: baseFallback,
-              alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
-              className: 'preview-media',
-              duration: currentItem.cut.displayTime,
-              onTimeUpdate: sequenceTick,
-              onEnded: sequenceGoToNext,
-            });
-            if (!isActive) return;
-            setSequenceSource(fallbackSource);
-            setSequenceMediaElement(fallbackSource.element);
-            setSequenceRate(playbackSpeed);
-            return;
-          }
-
-          const lipSyncSource = createLipSyncImageMediaSource({
-            sources: resolvedSources,
-            alt: `${currentItem.sceneName} - Cut ${currentItem.cutIndex + 1}`,
-            className: 'preview-media',
-            duration: currentItem.cut.displayTime,
-            rms: analysis.rms,
-            rmsFps: analysis.fps,
-            thresholds: lipSyncSettings.thresholds,
-            getAbsoluteTime: getSequenceLiveAbsoluteTime,
-            audioOffsetSec: getAudioOffsetForAsset(asset.id),
-            onTimeUpdate: sequenceTick,
-            onEnded: sequenceGoToNext,
-          });
-
-          if (!isActive) return;
-          setSequenceSource(lipSyncSource);
-          setSequenceMediaElement(lipSyncSource.element);
-          setSequenceRate(playbackSpeed);
-        };
-
-        void loadLipSyncSources();
-        return () => {
-          isActive = false;
-        };
-      }
-
       if (currentItem.thumbnail) {
         const source = createImageMediaSource({
           src: currentItem.thumbnail,

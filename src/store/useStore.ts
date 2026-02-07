@@ -68,6 +68,7 @@ interface AppState {
 
   // Video preview modal state
   videoPreviewCutId: string | null;
+  sequencePreviewCutId: string | null;
 
   // Asset importing state (for progress indicator)
   isImportingAsset: string | null;  // Name of asset being imported, null if not importing
@@ -166,6 +167,8 @@ interface AppState {
   // Actions - Video preview modal
   openVideoPreview: (cutId: string) => void;
   closeVideoPreview: () => void;
+  openSequencePreview: (cutId: string) => void;
+  closeSequencePreview: () => void;
 
   // Actions - Asset importing
   setImportingAsset: (name: string | null) => void;
@@ -248,6 +251,7 @@ export const useStore = create<AppState>((set, get) => ({
   globalVolume: 1,
   globalMuted: false,
   videoPreviewCutId: null,
+  sequencePreviewCutId: null,
   isImportingAsset: null,
   assetDrawerOpen: false,
   sidebarOpen: false,
@@ -1174,6 +1178,8 @@ export const useStore = create<AppState>((set, get) => ({
   // Video preview modal actions
   openVideoPreview: (cutId) => set({ videoPreviewCutId: cutId }),
   closeVideoPreview: () => set({ videoPreviewCutId: null }),
+  openSequencePreview: (cutId) => set({ sequencePreviewCutId: cutId }),
+  closeSequencePreview: () => set({ sequencePreviewCutId: null }),
 
   // Asset importing actions
   setImportingAsset: (name) => set({ isImportingAsset: name }),
