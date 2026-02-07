@@ -70,6 +70,17 @@ interface TrashIndex {
 const TRASH_INDEX_NAME = '.trash.json';
 const DEFAULT_TRASH_RETENTION_DAYS = 30;
 
+export async function calculateFileHashStream(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    const stream = fs.createReadStream(filePath);
+
+    stream.on('data', (chunk) => hash.update(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(hash.digest('hex')));
+  });
+}
+
 export function getMediaType(filename: string): 'image' | 'video' | 'audio' | null {
   const ext = path.extname(filename).toLowerCase();
   const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'];
@@ -198,9 +209,9 @@ export async function importAssetToVaultInternal(
       fs.writeFileSync(indexPath, JSON.stringify(index, null, 2), 'utf-8');
     };
 
-    // Calculate hash first
-    const buffer = fs.readFileSync(sourcePath);
-    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+    const sourceStats = fs.statSync(sourcePath);
+    // Calculate hash without loading the full file into memory.
+    const hash = await calculateFileHashStream(sourcePath);
     const shortHash = hash.substring(0, 12);
 
     // Determine file type and extension
@@ -225,15 +236,14 @@ export async function importAssetToVaultInternal(
       originalName: path.basename(sourcePath),
       originalPath: toVaultRelativePath(vaultPath, sourcePath),
       type: mediaType,
-      fileSize: buffer.length,
+      fileSize: sourceStats.size,
       importedAt: new Date().toISOString(),
     };
 
     // Check if file with same hash already exists
     if (fs.existsSync(destPath)) {
       // Verify it's the same file by comparing hashes
-      const existingBuffer = fs.readFileSync(destPath);
-      const existingHash = crypto.createHash('sha256').update(existingBuffer).digest('hex');
+      const existingHash = await calculateFileHashStream(destPath);
 
       if (existingHash === hash) {
         upsertIndexEntry(index, baseEntry);

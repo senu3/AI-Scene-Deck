@@ -7,7 +7,7 @@ import { spawn } from 'child_process';
 import ffmpegPath from 'ffmpeg-static';
 import { Readable } from 'stream';
 import * as os from 'os';
-import { getMediaType, importAssetToVaultInternal, moveToTrashInternal, registerVaultGatewayHandlers, saveAssetIndexInternal, type AssetIndex, type TrashMeta } from './vaultGateway';
+import { calculateFileHashStream, getMediaType, importAssetToVaultInternal, moveToTrashInternal, registerVaultGatewayHandlers, saveAssetIndexInternal, type AssetIndex, type TrashMeta } from './vaultGateway';
 import { createSaveProjectHandler } from './handlers/saveProject';
 const IPC_TOGGLE_SIDEBAR = 'toggle-sidebar';
 const IPC_AUTOSAVE_FLUSH_REQUEST = 'autosave-flush-request';
@@ -1184,8 +1184,7 @@ ipcMain.handle('load-scene-notes', async (_, scenePath: string) => {
 // Calculate SHA256 hash of a file
 ipcMain.handle('calculate-file-hash', async (_, filePath: string) => {
   try {
-    const buffer = fs.readFileSync(filePath);
-    const hash = crypto.createHash('sha256').update(buffer).digest('hex');
+    const hash = await calculateFileHashStream(filePath);
     return hash;
   } catch (error) {
     console.error('Failed to calculate file hash:', error);
