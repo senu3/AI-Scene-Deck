@@ -322,27 +322,6 @@ function SceneColumn({
       items.push(placeholderElement);
     }
 
-    // === DEMO: Add lip sync cut card at the end of first scene ===
-    if (sceneId === scenes[0]?.id) {
-      items.push(
-        <CutCard
-          key="demo-lipsync"
-          cut={{
-            id: 'demo-lipsync-1',
-            assetId: 'demo-asset',
-            displayTime: 3.0,
-            order: cuts.length,
-            isLipSync: true,
-            lipSyncFrameCount: 4,
-          }}
-          sceneId={sceneId}
-          index={cuts.length}
-          isDragging={false}
-        />
-      );
-    }
-    // === END DEMO ===
-
     return items;
   };
 

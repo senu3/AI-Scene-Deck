@@ -36,7 +36,6 @@ import {
 import { getThumbnail } from "../utils/thumbnailCache";
 import { extractVideoMetadata } from "../utils/videoUtils";
 import { importFileToVault } from "../utils/assetPath";
-import { normalizeThresholds } from "../utils/lipSyncUtils";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
 import LipSyncModal from "./LipSyncModal";
@@ -290,10 +289,6 @@ export default function DetailsPanel() {
     if (count <= 0) return [];
     return Array.from({ length: count }, (_, index) => (index === 0 ? "Base" : `Frame ${index + 1}`));
   })();
-
-  const lipSyncThresholds = lipSyncSettings
-    ? normalizeThresholds(lipSyncSettings.thresholds)
-    : null;
 
   const handleDisplayTimeChange = (value: string) => {
     setLocalDisplayTime(value);
@@ -1027,22 +1022,6 @@ export default function DetailsPanel() {
                 </div>
               </div>
 
-              {lipSyncThresholds && (
-                <div className="lipsync-thresholds-info">
-                  <div className="threshold-row">
-                    <span className="threshold-label">T1 (Harf1)</span>
-                    <span className="threshold-value">{lipSyncThresholds.t1.toFixed(2)}</span>
-                  </div>
-                  <div className="threshold-row">
-                    <span className="threshold-label">T2 (Harf3)</span>
-                    <span className="threshold-value">{lipSyncThresholds.t2.toFixed(2)}</span>
-                  </div>
-                  <div className="threshold-row">
-                    <span className="threshold-label">T3 (Open)</span>
-                    <span className="threshold-value">{lipSyncThresholds.t3.toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
             </>
           )}
 

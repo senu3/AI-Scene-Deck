@@ -892,7 +892,7 @@
 
 .lipsync-frames-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -926,36 +926,6 @@
   font-size: 9px;
   color: var(--text-muted);
   text-align: center;
-}
-
-/* Lip Sync Thresholds */
-.lipsync-thresholds-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  background-color: var(--bg-secondary);
-  border-radius: var(--radius-md);
-}
-
-.threshold-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.threshold-label {
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.threshold-value {
-  font-size: 12px;
-  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
-  color: var(--text-primary);
-  background-color: var(--bg-tertiary);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
 }
 
 /* === Group Info Styles === */
