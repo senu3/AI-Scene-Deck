@@ -10,7 +10,6 @@ interface ThumbnailCacheLimits {
 interface ThumbnailRequestOptions {
   timeOffset?: number;
   key?: string;
-  profile?: 'timeline-card' | 'asset-grid';
 }
 
 interface CacheEntry {
@@ -39,8 +38,7 @@ function estimateStringBytes(value: string): number {
 function makeCacheKey(path: string, options?: ThumbnailRequestOptions): string {
   if (options?.key) return options.key;
   const timeOffset = typeof options?.timeOffset === 'number' ? options.timeOffset : 'default';
-  const profile = options?.profile ?? 'timeline-card';
-  return `${path}|t=${timeOffset}|p=${profile}`;
+  return `${path}|t=${timeOffset}`;
 }
 
 function touch(key: string, entry: CacheEntry): void {
@@ -115,7 +113,7 @@ export async function getThumbnail(
       if (window.electronAPI?.generateThumbnail) {
         const result = await window.electronAPI.generateThumbnail(path, type, {
           timeOffset: options?.timeOffset,
-          profile: options?.profile ?? 'timeline-card',
+          profile: 'timeline-card',
         });
         data = result?.success ? (result.thumbnail ?? null) : null;
       } else if (type === 'video') {
