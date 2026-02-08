@@ -148,11 +148,13 @@ export default function Sidebar() {
   };
 
   const loadThumbnail = useCallback(async (filePath: string, mediaType: 'image' | 'video' | null) => {
-    const cached = getCachedThumbnail(filePath);
+    const cached = getCachedThumbnail(filePath, { profile: sourceViewMode === 'grid' ? 'asset-grid' : 'timeline-card' });
     if (cached) return cached;
     if (!mediaType) return null;
     try {
-      const thumbnail = await getThumbnail(filePath, mediaType);
+      const thumbnail = await getThumbnail(filePath, mediaType, {
+        profile: sourceViewMode === 'grid' ? 'asset-grid' : 'timeline-card',
+      });
       if (thumbnail) {
         setThumbnailVersion((v) => v + 1);
         return thumbnail;
@@ -161,7 +163,7 @@ export default function Sidebar() {
       console.error('Failed to load thumbnail:', error);
     }
     return null;
-  }, []);
+  }, [sourceViewMode]);
 
   const isFavorite = (path: string) => favorites.some(f => f.path === path);
 
@@ -404,14 +406,14 @@ interface FileItemComponentProps {
 function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailVersion, viewMode }: FileItemComponentProps) {
   const { scenes, selectedSceneId, createCutFromImport } = useStore();
   const [thumbnail, setThumbnail] = useState<string | null>(
-    getCachedThumbnail(item.path) || null
+    getCachedThumbnail(item.path, { profile: viewMode === 'grid' ? 'asset-grid' : 'timeline-card' }) || null
   );
   const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
   // Auto-load thumbnail when component mounts (if not already cached)
   useEffect(() => {
-    const cached = getCachedThumbnail(item.path);
+    const cached = getCachedThumbnail(item.path, { profile: viewMode === 'grid' ? 'asset-grid' : 'timeline-card' });
     if (cached) {
       setThumbnail(cached);
       return;
