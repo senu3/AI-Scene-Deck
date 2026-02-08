@@ -65,10 +65,9 @@ function toDataUrl(jpegPath: string): string {
 
 function buildScaleFilter(profile: ThumbnailProfileSpec): string {
   return [
-    `scale=w=${profile.maxWidth}:h=${profile.maxHeight}:force_original_aspect_ratio=decrease`,
-    'force_divisible_by=2',
+    `scale=w=${profile.maxWidth}:h=${profile.maxHeight}:force_original_aspect_ratio=decrease:force_divisible_by=2`,
     `pad=${profile.maxWidth}:${profile.maxHeight}:(ow-iw)/2:(oh-ih)/2:color=black`,
-    'format=yuvj420p',
+    'format=yuv420p',
   ].join(',');
 }
 
