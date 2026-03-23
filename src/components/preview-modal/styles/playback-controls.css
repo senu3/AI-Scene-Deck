@@ -9,6 +9,7 @@
   pointer-events: auto;
   cursor: grab;
   touch-action: none;
+  outline: none;
 }
 
 .timeline-marker-bar {
@@ -44,6 +45,11 @@
 }
 
 .timeline-marker.focused:hover .timeline-marker-bar {
+  transform: translateX(-50%) scaleY(1.15);
+}
+
+.timeline-marker:focus-visible .timeline-marker-bar {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5), 0 0 8px rgba(255, 255, 255, 0.3);
   transform: translateX(-50%) scaleY(1.15);
 }
 

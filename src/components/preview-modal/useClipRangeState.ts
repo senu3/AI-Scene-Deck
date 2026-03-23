@@ -80,12 +80,16 @@ export function useClipRangeState({
     applyRange,
   ]);
 
+  const stepMarker = useCallback((marker: 'in' | 'out', direction: number): number | null => {
+    const currentMarkerTime = marker === 'in' ? inPoint : outPoint;
+    if (currentMarkerTime === null) return null;
+    return setMarkerTime(marker, currentMarkerTime + (direction * frameDuration));
+  }, [frameDuration, inPoint, outPoint, setMarkerTime]);
+
   const stepFocusedMarker = useCallback((direction: number): number | null => {
     if (!focusedMarker) return null;
-    const currentMarkerTime = focusedMarker === 'in' ? inPoint : outPoint;
-    if (currentMarkerTime === null) return null;
-    return setMarkerTime(focusedMarker, currentMarkerTime + (direction * frameDuration));
-  }, [focusedMarker, inPoint, outPoint, setMarkerTime, frameDuration]);
+    return stepMarker(focusedMarker, direction);
+  }, [focusedMarker, stepMarker]);
 
   const handleMarkerFocus = useCallback((marker: FocusedMarker) => {
     setFocusedMarker(marker);
@@ -131,6 +135,7 @@ export function useClipRangeState({
     outPoint,
     notifyRangeChange,
     setMarkerTime,
+    stepMarker,
     stepFocusedMarker,
     handleMarkerFocus,
     handleMarkerDrag,

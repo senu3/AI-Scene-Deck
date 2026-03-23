@@ -40,8 +40,10 @@ interface PreviewModalSingleViewProps {
   singleModePlaybackDuration: number;
   singleModeProgressPercent: number;
   singleModePlaybackTime: number;
+  hoverTime: string | null;
   focusedMarker: FocusedMarker;
   onMarkerFocus: (marker: FocusedMarker) => void;
+  onMarkerStep: (marker: 'in' | 'out', direction: number) => void;
   onMarkerDragStart: (marker: 'in' | 'out') => void;
   onMarkerDrag: (marker: 'in' | 'out', newTime: number) => void;
   onMarkerDragEnd: () => void;
@@ -49,6 +51,8 @@ interface PreviewModalSingleViewProps {
   onSelectionDrag: (baseInPoint: number, baseOutPoint: number, deltaTime: number) => void;
   onSelectionDragEnd: () => void;
   onProgressBarMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onProgressBarHover: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onProgressBarLeave: () => void;
   isPlaying: boolean;
   skipBack: () => void;
   skipForward: () => void;
@@ -110,8 +114,10 @@ export function PreviewModalSingleView({
   singleModePlaybackDuration,
   singleModeProgressPercent,
   singleModePlaybackTime,
+  hoverTime,
   focusedMarker,
   onMarkerFocus,
+  onMarkerStep,
   onMarkerDragStart,
   onMarkerDrag,
   onMarkerDragEnd,
@@ -119,6 +125,8 @@ export function PreviewModalSingleView({
   onSelectionDrag,
   onSelectionDragEnd,
   onProgressBarMouseDown,
+  onProgressBarHover,
+  onProgressBarLeave,
   isPlaying,
   skipBack,
   skipForward,
@@ -268,6 +276,8 @@ export function PreviewModalSingleView({
                     className="preview-progress-bar preview-progress-bar--scrub"
                     ref={progressBarRef}
                     onMouseDown={onProgressBarMouseDown}
+                    onMouseMove={onProgressBarHover}
+                    onMouseLeave={onProgressBarLeave}
                   >
                     <PlaybackRangeMarkers
                       inPoint={inPoint}
@@ -276,6 +286,7 @@ export function PreviewModalSingleView({
                       showMilliseconds={isSingleModeVideo}
                       focusedMarker={focusedMarker}
                       onMarkerFocus={onMarkerFocus}
+                      onMarkerStep={onMarkerStep}
                       onMarkerDragStart={onMarkerDragStart}
                       onMarkerDrag={onMarkerDrag}
                       onMarkerDragEnd={onMarkerDragEnd}
@@ -294,6 +305,11 @@ export function PreviewModalSingleView({
                       className="preview-progress-handle"
                       style={{ left: `${singleModeProgressPercent}%` }}
                     />
+                    {hoverTime && (
+                      <div className="preview-progress-tooltip">
+                        {hoverTime}
+                      </div>
+                    )}
                   </div>
                   <div className="preview-progress-info">
                     <TimeDisplay

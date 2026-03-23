@@ -35,6 +35,7 @@ interface UsePreviewInteractionCommandsInput {
   setSequenceRange: (inPoint: number | null, outPoint: number | null) => void;
   notifyRangeChange: (inPoint: number | null, outPoint: number | null) => void;
   handlePlayPause: () => void;
+  stepMarker: (marker: 'in' | 'out', direction: number) => number | null;
   stepFocusedMarker: (direction: number) => number | null;
   handleSingleModeSetInPoint: () => void;
   handleSingleModeSetOutPoint: () => void;
@@ -73,6 +74,7 @@ export function usePreviewInteractionCommands({
   seekSingleMode,
   getSingleModeCurrentTime,
   handlePlayPause,
+  stepMarker,
   stepFocusedMarker,
   handleSingleModeSetInPoint,
   handleSingleModeSetOutPoint,
@@ -165,6 +167,15 @@ export function usePreviewInteractionCommands({
     handlePlayPause();
   }, [mode, isPlaying, pauseSingleMode, playSingleMode, handlePlayPause]);
 
+  const beginRangeEdit = useCallback(() => {
+    if (!isPlaying) return;
+    if (mode === 'single') {
+      pauseSingleMode();
+      return;
+    }
+    sequencePause();
+  }, [isPlaying, mode, pauseSingleMode, sequencePause]);
+
   const skipBack = useCallback(() => {
     skip(-5);
   }, [skip]);
@@ -175,6 +186,7 @@ export function usePreviewInteractionCommands({
 
   const stepBack = useCallback(() => {
     if (focusedMarker) {
+      beginRangeEdit();
       const markerTime = stepFocusedMarker(-1);
       if (markerTime !== null) {
         seekToAbsolute(markerTime);
@@ -190,10 +202,11 @@ export function usePreviewInteractionCommands({
     if (currentAsset?.type === 'video') {
       stepSequenceFrame(-1);
     }
-  }, [focusedMarker, stepFocusedMarker, seekToAbsolute, mode, stepSingleMode, items, currentIndex, resolveAssetForCut, stepSequenceFrame]);
+  }, [focusedMarker, beginRangeEdit, stepFocusedMarker, seekToAbsolute, mode, stepSingleMode, items, currentIndex, resolveAssetForCut, stepSequenceFrame]);
 
   const stepForward = useCallback(() => {
     if (focusedMarker) {
+      beginRangeEdit();
       const markerTime = stepFocusedMarker(1);
       if (markerTime !== null) {
         seekToAbsolute(markerTime);
@@ -209,7 +222,7 @@ export function usePreviewInteractionCommands({
     if (currentAsset?.type === 'video') {
       stepSequenceFrame(1);
     }
-  }, [focusedMarker, stepFocusedMarker, seekToAbsolute, mode, stepSingleMode, items, currentIndex, resolveAssetForCut, stepSequenceFrame]);
+  }, [focusedMarker, beginRangeEdit, stepFocusedMarker, seekToAbsolute, mode, stepSingleMode, items, currentIndex, resolveAssetForCut, stepSequenceFrame]);
 
   const setInPoint = useCallback(() => {
     if (mode === 'single') {
@@ -280,14 +293,14 @@ export function usePreviewInteractionCommands({
     seekToAbsolute(markerTime);
   }, [handleMarkerDrag, seekToAbsolute]);
 
-  const beginRangeEdit = useCallback(() => {
-    if (!isPlaying) return;
-    if (mode === 'single') {
-      pauseSingleMode();
-      return;
+  const markerStep = useCallback((marker: 'in' | 'out', direction: number) => {
+    handleMarkerFocus(marker);
+    beginRangeEdit();
+    const markerTime = stepMarker(marker, direction);
+    if (markerTime !== null) {
+      seekToAbsolute(markerTime);
     }
-    sequencePause();
-  }, [isPlaying, mode, pauseSingleMode, sequencePause]);
+  }, [handleMarkerFocus, beginRangeEdit, stepMarker, seekToAbsolute]);
 
   const markerDragStart = useCallback((marker: 'in' | 'out') => {
     handleMarkerFocus(marker);
@@ -323,6 +336,7 @@ export function usePreviewInteractionCommands({
     toggleLooping,
     toggleMute: toggleGlobalMute,
     markerFocus: handleMarkerFocus,
+    markerStep,
     markerDragStart,
     markerDrag,
     markerDragEnd,

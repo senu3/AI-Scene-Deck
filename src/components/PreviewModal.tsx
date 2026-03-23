@@ -272,6 +272,7 @@ function PreviewModalSingleRoot({
     outPoint,
     notifyRangeChange,
     setMarkerTime,
+    stepMarker,
     stepFocusedMarker,
     handleMarkerFocus,
     handleContainerMouseDown,
@@ -410,6 +411,7 @@ function PreviewModalSingleRoot({
     setSequenceRange: NOOP_RANGE,
     notifyRangeChange,
     handlePlayPause: NOOP,
+    stepMarker,
     stepFocusedMarker,
     handleSingleModeSetInPoint,
     handleSingleModeSetOutPoint,
@@ -426,7 +428,10 @@ function PreviewModalSingleRoot({
 
   const {
     isDragging,
+    hoverTime,
     handleProgressBarMouseDown,
+    handleProgressBarHover,
+    handleProgressBarLeave,
   } = usePreviewInputs({
     progressBarRef,
     itemsLength: isSingleModeVideo || isSingleModeImage ? 1 : 0,
@@ -562,8 +567,10 @@ function PreviewModalSingleRoot({
         singleModePlaybackDuration={singleModePlaybackDuration}
         singleModeProgressPercent={singleModeProgressPercent}
         singleModePlaybackTime={singleModePlaybackTime}
+        hoverTime={hoverTime}
         focusedMarker={focusedMarker}
         onMarkerFocus={interactionCommands.markerFocus}
+        onMarkerStep={interactionCommands.markerStep}
         onMarkerDragStart={interactionCommands.markerDragStart}
         onMarkerDrag={interactionCommands.markerDrag}
         onMarkerDragEnd={interactionCommands.markerDragEnd}
@@ -571,6 +578,8 @@ function PreviewModalSingleRoot({
         onSelectionDrag={interactionCommands.selectionDrag}
         onSelectionDragEnd={interactionCommands.selectionDragEnd}
         onProgressBarMouseDown={handleProgressBarMouseDown}
+        onProgressBarHover={handleProgressBarHover}
+        onProgressBarLeave={handleProgressBarLeave}
         isPlaying={singleModeIsPlaying}
         skipBack={interactionCommands.skipBack}
         skipForward={interactionCommands.skipForward}
@@ -760,6 +769,7 @@ function PreviewModalSequenceRoot({
     inPoint,
     outPoint,
     notifyRangeChange,
+    stepMarker,
     stepFocusedMarker,
     handleMarkerFocus,
     handleMarkerDrag,
@@ -850,6 +860,7 @@ function PreviewModalSequenceRoot({
     setSequenceRange,
     notifyRangeChange,
     handlePlayPause,
+    stepMarker,
     stepFocusedMarker,
     handleSingleModeSetInPoint: NOOP,
     handleSingleModeSetOutPoint: NOOP,
@@ -973,6 +984,7 @@ function PreviewModalSequenceRoot({
       sequenceTotalDuration={sequenceTotalDuration}
       focusedMarker={focusedMarker}
       onMarkerFocus={interactionCommands.markerFocus}
+      onMarkerStep={interactionCommands.markerStep}
       onMarkerDragStart={interactionCommands.markerDragStart}
       onMarkerDrag={interactionCommands.markerDrag}
       onMarkerDragEnd={interactionCommands.markerDragEnd}

@@ -11,6 +11,7 @@ interface PlaybackRangeMarkersProps {
   showMilliseconds?: boolean;
   focusedMarker?: FocusedMarker;
   onMarkerFocus?: (marker: FocusedMarker) => void;
+  onMarkerStep?: (marker: 'in' | 'out', direction: number) => void;
   onMarkerDragStart?: (marker: 'in' | 'out') => void;
   onMarkerDrag?: (marker: 'in' | 'out', newTime: number) => void;
   onMarkerDragEnd?: () => void;
@@ -27,6 +28,7 @@ export function PlaybackRangeMarkers({
   showMilliseconds = true,
   focusedMarker,
   onMarkerFocus,
+  onMarkerStep,
   onMarkerDragStart,
   onMarkerDrag,
   onMarkerDragEnd,
@@ -60,6 +62,7 @@ export function PlaybackRangeMarkers({
   const handleMarkerPointerDown = useCallback((marker: 'in' | 'out', e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    (e.currentTarget as HTMLDivElement).focus();
 
     dragModeRef.current = marker;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
@@ -101,6 +104,36 @@ export function PlaybackRangeMarkers({
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
   }, [onMarkerFocus, onMarkerDragStart, onMarkerDrag, onMarkerDragEnd, calculateTimeFromPointerEvent]);
+
+  const handleMarkerBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    const nextFocused = e.relatedTarget as HTMLElement | null;
+    if (nextFocused?.closest('.timeline-marker')) return;
+    setHoveredMarker(null);
+    onMarkerFocus?.(null);
+  }, [onMarkerFocus]);
+
+  const handleMarkerKeyDown = useCallback((marker: 'in' | 'out', e: React.KeyboardEvent<HTMLDivElement>) => {
+    switch (e.key) {
+      case 'ArrowLeft':
+      case ',':
+        e.preventDefault();
+        e.stopPropagation();
+        onMarkerStep?.(marker, -1);
+        break;
+      case 'ArrowRight':
+      case '.':
+        e.preventDefault();
+        e.stopPropagation();
+        onMarkerStep?.(marker, 1);
+        break;
+      case 'Escape':
+        e.preventDefault();
+        e.stopPropagation();
+        onMarkerFocus?.(null);
+        e.currentTarget.blur();
+        break;
+    }
+  }, [onMarkerFocus, onMarkerStep]);
 
   const handleSelectionPointerDown = useCallback((e: React.PointerEvent) => {
     if (inPoint === null || outPoint === null) return;
@@ -180,7 +213,18 @@ export function PlaybackRangeMarkers({
         <div
           className={`timeline-marker in-marker ${focusedMarker === 'in' ? 'focused' : ''}`}
           style={{ left: `${inPointPercent}%` }}
+          tabIndex={0}
+          role="slider"
+          aria-label="IN point"
+          aria-orientation="horizontal"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={inPoint!}
+          aria-valuetext={`IN ${formatTime(inPoint!, showMilliseconds)}`}
           onClick={(e) => handleMarkerClick('in', e)}
+          onFocus={() => onMarkerFocus?.('in')}
+          onBlur={handleMarkerBlur}
+          onKeyDown={(e) => handleMarkerKeyDown('in', e)}
           onPointerDown={(e) => handleMarkerPointerDown('in', e)}
           onMouseEnter={() => setHoveredMarker('in')}
           onMouseLeave={() => setHoveredMarker(null)}
@@ -199,7 +243,18 @@ export function PlaybackRangeMarkers({
         <div
           className={`timeline-marker out-marker ${focusedMarker === 'out' ? 'focused' : ''}`}
           style={{ left: `${outPointPercent}%` }}
+          tabIndex={0}
+          role="slider"
+          aria-label="OUT point"
+          aria-orientation="horizontal"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={outPoint!}
+          aria-valuetext={`OUT ${formatTime(outPoint!, showMilliseconds)}`}
           onClick={(e) => handleMarkerClick('out', e)}
+          onFocus={() => onMarkerFocus?.('out')}
+          onBlur={handleMarkerBlur}
+          onKeyDown={(e) => handleMarkerKeyDown('out', e)}
           onPointerDown={(e) => handleMarkerPointerDown('out', e)}
           onMouseEnter={() => setHoveredMarker('out')}
           onMouseLeave={() => setHoveredMarker(null)}

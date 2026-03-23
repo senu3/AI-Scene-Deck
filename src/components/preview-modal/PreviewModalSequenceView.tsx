@@ -40,6 +40,7 @@ interface PreviewModalSequenceViewProps {
   sequenceTotalDuration: number;
   focusedMarker: FocusedMarker;
   onMarkerFocus: (marker: FocusedMarker) => void;
+  onMarkerStep: (marker: 'in' | 'out', direction: number) => void;
   onMarkerDragStart: (marker: 'in' | 'out') => void;
   onMarkerDrag: (marker: 'in' | 'out', newTime: number) => void;
   onMarkerDragEnd: () => void;
@@ -97,6 +98,7 @@ export function PreviewModalSequenceView({
   sequenceTotalDuration,
   focusedMarker,
   onMarkerFocus,
+  onMarkerStep,
   onMarkerDragStart,
   onMarkerDrag,
   onMarkerDragEnd,
@@ -268,6 +270,7 @@ export function PreviewModalSequenceView({
                     showMilliseconds={false}
                     focusedMarker={focusedMarker}
                     onMarkerFocus={onMarkerFocus}
+                    onMarkerStep={onMarkerStep}
                     onMarkerDragStart={onMarkerDragStart}
                     onMarkerDrag={onMarkerDrag}
                     onMarkerDragEnd={onMarkerDragEnd}
