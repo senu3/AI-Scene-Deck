@@ -7,9 +7,8 @@ import { usePreviewSequenceAudio } from './usePreviewSequenceAudio';
 import { usePreviewSequenceBuffering } from './usePreviewSequenceBuffering';
 import { usePreviewSequenceMediaSource } from './usePreviewSequenceMediaSource';
 
-interface UsePreviewSequenceSessionInput {
-  isSingleMode: boolean;
-  usesSequenceController: boolean;
+interface UsePreviewSequenceRuntimeInput {
+  mode: 'single' | 'sequence';
   items: PreviewSequencePlaybackItem[];
   currentIndex: number;
   sequenceCurrentIndex: number;
@@ -35,9 +34,8 @@ interface UsePreviewSequenceSessionInput {
   globalVolume: number;
 }
 
-export function usePreviewSequenceSession({
-  isSingleMode,
-  usesSequenceController,
+export function usePreviewSequenceRuntime({
+  mode,
   items,
   currentIndex,
   sequenceCurrentIndex,
@@ -61,7 +59,10 @@ export function usePreviewSequenceSession({
   previewAudioPlan,
   globalMuted,
   globalVolume,
-}: UsePreviewSequenceSessionInput) {
+}: UsePreviewSequenceRuntimeInput) {
+  const isSingleMode = mode === 'single';
+  const usesSequenceController = mode === 'sequence';
+
   const { checkBufferStatus } = usePreviewSequenceBuffering({
     isSingleMode,
     items,

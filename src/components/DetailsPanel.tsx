@@ -1298,6 +1298,7 @@ export default function DetailsPanel() {
         {/* Single Mode Preview Modal */}
         {showVideoPreview && activeAsset && (
           <PreviewModal
+            mode="single"
             asset={activeAsset}
             focusCutId={cut?.id}
             onClose={() => setShowVideoPreview(false)}

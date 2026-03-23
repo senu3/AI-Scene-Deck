@@ -1038,6 +1038,7 @@ function App() {
           <Suspense fallback={null}>
             {showPreview && (
               <PreviewModal
+                mode="sequence"
                 onClose={() => setShowPreview(false)}
                 exportResolution={exportResolution}
                 onResolutionChange={setExportResolution}
@@ -1046,6 +1047,7 @@ function App() {
             )}
             {previewData && (
               <PreviewModal
+                mode="single"
                 asset={previewData.asset}
                 focusCutId={previewData.cut.id}
                 onClose={closeVideoPreview}
@@ -1061,6 +1063,7 @@ function App() {
             )}
             {sequencePreviewCutId && (
               <PreviewModal
+                mode="sequence"
                 onClose={closeSequencePreview}
                 focusCutId={sequencePreviewCutId}
                 exportResolution={exportResolution}
@@ -1070,6 +1073,7 @@ function App() {
             )}
             {scenePreviewRequest && (
               <PreviewModal
+                mode="sequence"
                 onClose={() => setScenePreviewRequest(null)}
                 sequenceCuts={scenePreviewRequest.cuts}
                 sequenceContext={{ kind: 'scene', sceneId: scenePreviewRequest.sceneId, sceneName: scenePreviewRequest.sceneName }}

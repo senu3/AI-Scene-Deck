@@ -47,18 +47,18 @@ export function computeNextRangeForSetOut({
 }
 
 interface ResolveUiPlayheadTimeInput {
-  isSingleModeVideo: boolean;
-  singleModeCurrentTime: number;
+  mode: 'single' | 'sequence';
+  getSingleModeCurrentTime: () => number;
   getSequenceAbsoluteTime: () => number;
 }
 
 export function resolveUiPlayheadTime({
-  isSingleModeVideo,
-  singleModeCurrentTime,
+  mode,
+  getSingleModeCurrentTime,
   getSequenceAbsoluteTime,
 }: ResolveUiPlayheadTimeInput): number {
-  if (isSingleModeVideo) {
-    return singleModeCurrentTime;
+  if (mode === 'single') {
+    return getSingleModeCurrentTime();
   }
   return getSequenceAbsoluteTime();
 }

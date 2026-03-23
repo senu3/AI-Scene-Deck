@@ -1,6 +1,6 @@
 import type React from 'react';
 import { usePreviewKeyboardShortcuts } from './usePreviewKeyboardShortcuts';
-import { useSequenceProgressInteractions } from './useSequenceProgressInteractions';
+import { usePreviewProgressInteractions } from './usePreviewProgressInteractions';
 
 interface UsePreviewInputsInput {
   progressBarRef: React.RefObject<HTMLDivElement>;
@@ -47,7 +47,7 @@ export function usePreviewInputs({
     handleProgressBarMouseDown,
     handleProgressBarHover,
     handleProgressBarLeave,
-  } = useSequenceProgressInteractions({
+  } = usePreviewProgressInteractions({
     progressBarRef,
     itemsLength,
     totalDuration,

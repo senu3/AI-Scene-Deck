@@ -46,26 +46,32 @@ export function usePreviewSingleAttachedAudio({
   }, [inPoint, outPoint]);
 
   const singleModePreviewTime = useMemo(() => {
-    if (!isSingleModeVideo) {
+    if (!isSingleMode) {
       return Math.max(0, sequenceAbsoluteTime);
     }
+    if (!isSingleModeVideo) {
+      return Math.max(0, singleModeCurrentTime);
+    }
     return Math.max(0, singleModeCurrentTime - clipStartSec);
-  }, [clipStartSec, isSingleModeVideo, sequenceAbsoluteTime, singleModeCurrentTime]);
+  }, [clipStartSec, isSingleMode, isSingleModeVideo, sequenceAbsoluteTime, singleModeCurrentTime]);
 
   const getLiveAbsoluteTime = useCallback(() => {
-    if (!isSingleModeVideo) {
+    if (!isSingleMode) {
       return Math.max(0, sequenceAbsoluteTime);
+    }
+    if (!isSingleModeVideo) {
+      return Math.max(0, singleModeCurrentTime);
     }
     const liveCurrentTime = videoRef.current?.currentTime ?? singleModeCurrentTime;
     return Math.max(0, liveCurrentTime - clipStartSec);
-  }, [clipStartSec, isSingleModeVideo, sequenceAbsoluteTime, singleModeCurrentTime, videoRef]);
+  }, [clipStartSec, isSingleMode, isSingleModeVideo, sequenceAbsoluteTime, singleModeCurrentTime, videoRef]);
 
   usePreviewAudioPlanPlayback({
     enabled: isSingleMode && !!assetId && hasCutContext,
     absoluteTime: singleModePreviewTime,
-    getLiveAbsoluteTime: isSingleModeVideo ? getLiveAbsoluteTime : undefined,
-    isPlaying: isSingleModeVideo ? singleModeIsPlaying : sequenceIsPlaying,
-    isBuffering: isSingleModeVideo ? false : sequenceIsBuffering,
+    getLiveAbsoluteTime: isSingleMode ? getLiveAbsoluteTime : undefined,
+    isPlaying: isSingleMode ? singleModeIsPlaying : sequenceIsPlaying,
+    isBuffering: isSingleMode ? false : sequenceIsBuffering,
     previewAudioPlan,
     globalMuted,
     globalVolume,

@@ -8,10 +8,20 @@ export interface ResolutionPresetType {
   height: number;
 }
 
-export interface SingleModeProps {
+export interface PreviewModalSharedProps {
+  onClose: () => void;
+  exportResolution?: ResolutionPresetType;
+  onResolutionChange?: (resolution: ResolutionPresetType) => void;
+  focusCutId?: string;
+  onExportSequence?: (plan: SequencePlan, resolution: { width: number; height: number }) => Promise<void> | void;
+}
+
+export interface SinglePreviewModalProps extends PreviewModalSharedProps {
+  mode: 'single';
   asset: Asset;
   initialInPoint?: number;
   initialOutPoint?: number;
+  onRangeChange?: (range: { inPoint: number | null; outPoint: number | null }) => void;
   onClipSave?: (
     inPoint: number,
     outPoint: number,
@@ -19,20 +29,24 @@ export interface SingleModeProps {
   ) => Promise<void> | void;
   onClipClear?: () => Promise<void> | void;
   onFrameCapture?: (timestamp: number) => Promise<string | void> | void;
+  sequenceCuts?: never;
+  sequenceContext?: never;
 }
 
-export interface BasePreviewModalProps {
-  onClose: () => void;
-  exportResolution?: ResolutionPresetType;
-  onResolutionChange?: (resolution: ResolutionPresetType) => void;
-  focusCutId?: string;
+export interface SequencePreviewModalProps extends PreviewModalSharedProps {
+  mode: 'sequence';
   sequenceCuts?: Cut[];
   sequenceContext?: { kind: 'scene'; sceneId: string; sceneName?: string };
-  onRangeChange?: (range: { inPoint: number | null; outPoint: number | null }) => void;
-  onExportSequence?: (plan: SequencePlan, resolution: { width: number; height: number }) => Promise<void> | void;
+  asset?: never;
+  initialInPoint?: never;
+  initialOutPoint?: never;
+  onRangeChange?: never;
+  onClipSave?: never;
+  onClipClear?: never;
+  onFrameCapture?: never;
 }
 
-export type PreviewModalProps = BasePreviewModalProps & Partial<SingleModeProps>;
+export type PreviewModalProps = SinglePreviewModalProps | SequencePreviewModalProps;
 
 export interface PreviewItem {
   cut: Cut;

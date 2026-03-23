@@ -27,7 +27,7 @@ interface PreviewModalSingleViewProps {
   isSingleModeVideo: boolean;
   isSingleModeImage: boolean;
   videoObjectUrl: { assetId: string; url: string } | null;
-  sequenceMediaElement: JSX.Element | null;
+  singleMediaElement: JSX.Element | null;
   singleModeImageData: string | null;
   getViewportStyle: () => { width: number; height: number; scale: number } | null;
   currentFraming: React.CSSProperties;
@@ -44,7 +44,7 @@ interface PreviewModalSingleViewProps {
   onMarkerFocus: (marker: FocusedMarker) => void;
   onMarkerDrag: (marker: 'in' | 'out', newTime: number) => void;
   onMarkerDragEnd: () => void;
-  handleSingleModeProgressClick: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onProgressBarMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
   isPlaying: boolean;
   skipBack: () => void;
   skipForward: () => void;
@@ -93,7 +93,7 @@ export function PreviewModalSingleView({
   isSingleModeVideo,
   isSingleModeImage,
   videoObjectUrl,
-  sequenceMediaElement,
+  singleMediaElement,
   singleModeImageData,
   getViewportStyle,
   currentFraming,
@@ -110,7 +110,7 @@ export function PreviewModalSingleView({
   onMarkerFocus,
   onMarkerDrag,
   onMarkerDragEnd,
-  handleSingleModeProgressClick,
+  onProgressBarMouseDown,
   isPlaying,
   skipBack,
   skipForward,
@@ -176,7 +176,7 @@ export function PreviewModalSingleView({
       </>
     );
   } else if (isSingleModeImage && singleModeImageData) {
-    const imageNode = sequenceMediaElement ?? (
+    const imageNode = singleMediaElement ?? (
       <img
         src={singleModeImageData}
         alt={asset.name || 'Preview'}
@@ -259,7 +259,7 @@ export function PreviewModalSingleView({
                   <div
                     className="preview-progress-bar preview-progress-bar--scrub"
                     ref={progressBarRef}
-                    onClick={handleSingleModeProgressClick}
+                    onMouseDown={onProgressBarMouseDown}
                   >
                     <PlaybackRangeMarkers
                       inPoint={inPoint}

@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { formatTime } from '../../utils/timeUtils';
 
-interface UseSequenceProgressInteractionsInput {
+interface UsePreviewProgressInteractionsInput {
   progressBarRef: React.RefObject<HTMLDivElement>;
   itemsLength: number;
   totalDuration: number;
@@ -11,14 +11,14 @@ interface UseSequenceProgressInteractionsInput {
   onSeekPercent: (percent: number) => void;
 }
 
-export function useSequenceProgressInteractions({
+export function usePreviewProgressInteractions({
   progressBarRef,
   itemsLength,
   totalDuration,
   onPauseBeforeSeek,
   onSeekAbsolute,
   onSeekPercent,
-}: UseSequenceProgressInteractionsInput) {
+}: UsePreviewProgressInteractionsInput) {
   const [isDragging, setIsDragging] = useState(false);
   const [hoverTime, setHoverTime] = useState<string | null>(null);
 

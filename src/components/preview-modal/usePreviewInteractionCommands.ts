@@ -12,7 +12,7 @@ import {
 } from './clipRangeOps';
 
 interface UsePreviewInteractionCommandsInput {
-  isSingleModeVideo: boolean;
+  mode: 'single' | 'sequence';
   isPlaying: boolean;
   focusedMarker: FocusedMarker;
   items: PreviewItem[];
@@ -20,12 +20,13 @@ interface UsePreviewInteractionCommandsInput {
   inPoint: number | null;
   outPoint: number | null;
   singleModeDuration: number;
-  singleModeCurrentTime: number;
   sequenceTotalDuration: number;
   videoRef: React.RefObject<HTMLVideoElement>;
   resolveAssetForCut: (cut: PreviewItem['cut']) => Asset | null;
-  setSingleModeCurrentTime: (time: number) => void;
-  setSingleModeIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
+  playSingleMode: () => void;
+  pauseSingleMode: () => void;
+  seekSingleMode: (time: number) => void;
+  getSingleModeCurrentTime: () => number;
   getSequenceAbsoluteTime: () => number;
   seekSequenceAbsolute: (time: number) => void;
   seekSequencePercent: (percent: number) => void;
@@ -33,7 +34,6 @@ interface UsePreviewInteractionCommandsInput {
   skipSequence: (seconds: number) => void;
   setSequenceRange: (inPoint: number | null, outPoint: number | null) => void;
   notifyRangeChange: (inPoint: number | null, outPoint: number | null) => void;
-  toggleSingleModePlay: () => void;
   handlePlayPause: () => void;
   stepFocusedMarker: (direction: number) => number | null;
   handleSingleModeSetInPoint: () => void;
@@ -46,7 +46,7 @@ interface UsePreviewInteractionCommandsInput {
 }
 
 export function usePreviewInteractionCommands({
-  isSingleModeVideo,
+  mode,
   isPlaying,
   focusedMarker,
   items,
@@ -54,12 +54,9 @@ export function usePreviewInteractionCommands({
   inPoint,
   outPoint,
   singleModeDuration,
-  singleModeCurrentTime,
   sequenceTotalDuration,
   videoRef,
   resolveAssetForCut,
-  setSingleModeCurrentTime,
-  setSingleModeIsPlaying,
   getSequenceAbsoluteTime,
   seekSequenceAbsolute,
   seekSequencePercent,
@@ -67,7 +64,10 @@ export function usePreviewInteractionCommands({
   skipSequence,
   setSequenceRange,
   notifyRangeChange,
-  toggleSingleModePlay,
+  playSingleMode,
+  pauseSingleMode,
+  seekSingleMode,
+  getSingleModeCurrentTime,
   handlePlayPause,
   stepFocusedMarker,
   handleSingleModeSetInPoint,
@@ -79,82 +79,83 @@ export function usePreviewInteractionCommands({
   handleMarkerDragEnd,
 }: UsePreviewInteractionCommandsInput) {
   const seekToAbsolute = useCallback((time: number) => {
-    if (isSingleModeVideo) {
-      if (!videoRef.current) return;
-      const nextTime = clampToDuration(time, singleModeDuration);
-      videoRef.current.currentTime = nextTime;
-      setSingleModeCurrentTime(nextTime);
+    if (mode === 'single') {
+      seekSingleMode(clampToDuration(time, singleModeDuration));
       return;
     }
     if (items.length === 0) return;
     seekSequenceAbsolute(clampToDuration(time, sequenceTotalDuration));
   }, [
-    isSingleModeVideo,
-    videoRef,
+    mode,
+    seekSingleMode,
     singleModeDuration,
-    setSingleModeCurrentTime,
     items.length,
     seekSequenceAbsolute,
     sequenceTotalDuration,
   ]);
 
   const seekToPercent = useCallback((percent: number) => {
-    if (isSingleModeVideo) {
+    if (mode === 'single') {
       seekToAbsolute((clampToDuration(percent, 100) / 100) * singleModeDuration);
       return;
     }
     if (items.length === 0) return;
     seekSequencePercent(percent);
-  }, [isSingleModeVideo, seekToAbsolute, singleModeDuration, items.length, seekSequencePercent]);
+  }, [mode, seekToAbsolute, singleModeDuration, items.length, seekSequencePercent]);
 
-  const stepFrame = useCallback((direction: number) => {
+  const stepSingleMode = useCallback((direction: number) => {
+    if (isPlaying) {
+      pauseSingleMode();
+    }
+
+    const newTime = getSingleModeCurrentTime() + (direction * FRAME_DURATION);
+    seekSingleMode(clampToDuration(newTime, singleModeDuration));
+  }, [
+    isPlaying,
+    pauseSingleMode,
+    getSingleModeCurrentTime,
+    seekSingleMode,
+    singleModeDuration,
+  ]);
+
+  const stepSequenceFrame = useCallback((direction: number) => {
     if (!videoRef.current) return;
 
     if (isPlaying) {
       videoRef.current.pause();
-      if (isSingleModeVideo) {
-        setSingleModeIsPlaying(false);
-      } else {
-        sequencePause();
-      }
+      sequencePause();
     }
 
-    const duration = isSingleModeVideo ? singleModeDuration : videoRef.current.duration;
+    const duration = videoRef.current.duration;
     const newTime = videoRef.current.currentTime + (direction * FRAME_DURATION);
     const clampedTime = clampToDuration(newTime, duration);
     videoRef.current.currentTime = clampedTime;
-
-    if (isSingleModeVideo) {
-      setSingleModeCurrentTime(clampedTime);
-    }
   }, [
     videoRef,
     isPlaying,
-    isSingleModeVideo,
-    setSingleModeIsPlaying,
     sequencePause,
-    singleModeDuration,
-    setSingleModeCurrentTime,
   ]);
 
   const skip = useCallback((seconds: number) => {
-    if (isSingleModeVideo) {
-      if (!videoRef.current) return;
-      const nextTime = clampToDuration(videoRef.current.currentTime + seconds, singleModeDuration);
-      videoRef.current.currentTime = nextTime;
-      setSingleModeCurrentTime(nextTime);
+    if (mode === 'single') {
+      const nextTime = clampToDuration(getSingleModeCurrentTime() + seconds, singleModeDuration);
+      seekSingleMode(nextTime);
       return;
     }
     skipSequence(seconds);
-  }, [isSingleModeVideo, videoRef, singleModeDuration, setSingleModeCurrentTime, skipSequence]);
+  }, [mode, getSingleModeCurrentTime, singleModeDuration, seekSingleMode, skipSequence]);
 
   const playPause = useCallback(() => {
-    if (isSingleModeVideo) {
-      toggleSingleModePlay();
+    if (mode === 'single') {
+      if (isPlaying) {
+        pauseSingleMode();
+      } else {
+        playSingleMode();
+      }
       return;
     }
     handlePlayPause();
-  }, [isSingleModeVideo, toggleSingleModePlay, handlePlayPause]);
+  }, [mode, isPlaying, pauseSingleMode, playSingleMode, handlePlayPause]);
 
   const skipBack = useCallback(() => {
     skip(-5);
@@ -172,16 +173,16 @@ export function usePreviewInteractionCommands({
       }
       return;
     }
-    if (isSingleModeVideo) {
-      stepFrame(-1);
+    if (mode === 'single') {
+      stepSingleMode(-1);
       return;
     }
     const currentItem = items[currentIndex];
     const currentAsset = currentItem ? resolveAssetForCut(currentItem.cut) : undefined;
     if (currentAsset?.type === 'video') {
-      stepFrame(-1);
+      stepSequenceFrame(-1);
     }
-  }, [focusedMarker, stepFocusedMarker, seekToAbsolute, isSingleModeVideo, stepFrame, items, currentIndex, resolveAssetForCut]);
+  }, [focusedMarker, stepFocusedMarker, seekToAbsolute, mode, stepSingleMode, items, currentIndex, resolveAssetForCut, stepSequenceFrame]);
 
   const stepForward = useCallback(() => {
     if (focusedMarker) {
@@ -191,26 +192,26 @@ export function usePreviewInteractionCommands({
       }
       return;
     }
-    if (isSingleModeVideo) {
-      stepFrame(1);
+    if (mode === 'single') {
+      stepSingleMode(1);
       return;
     }
     const currentItem = items[currentIndex];
     const currentAsset = currentItem ? resolveAssetForCut(currentItem.cut) : undefined;
     if (currentAsset?.type === 'video') {
-      stepFrame(1);
+      stepSequenceFrame(1);
     }
-  }, [focusedMarker, stepFocusedMarker, seekToAbsolute, isSingleModeVideo, stepFrame, items, currentIndex, resolveAssetForCut]);
+  }, [focusedMarker, stepFocusedMarker, seekToAbsolute, mode, stepSingleMode, items, currentIndex, resolveAssetForCut, stepSequenceFrame]);
 
   const setInPoint = useCallback(() => {
-    if (isSingleModeVideo) {
+    if (mode === 'single') {
       handleSingleModeSetInPoint();
       return;
     }
     if (items.length === 0) return;
     const playheadTime = resolveUiPlayheadTime({
-      isSingleModeVideo,
-      singleModeCurrentTime,
+      mode,
+      getSingleModeCurrentTime,
       getSequenceAbsoluteTime,
     });
     const nextRange = computeNextRangeForSetIn({
@@ -222,10 +223,10 @@ export function usePreviewInteractionCommands({
     setSequenceRange(nextRange.inPoint, nextRange.outPoint);
     notifyRangeChange(nextRange.inPoint, nextRange.outPoint);
   }, [
-    isSingleModeVideo,
+    mode,
     handleSingleModeSetInPoint,
     items.length,
-    singleModeCurrentTime,
+    getSingleModeCurrentTime,
     getSequenceAbsoluteTime,
     sequenceTotalDuration,
     inPoint,
@@ -235,14 +236,14 @@ export function usePreviewInteractionCommands({
   ]);
 
   const setOutPoint = useCallback(() => {
-    if (isSingleModeVideo) {
+    if (mode === 'single') {
       handleSingleModeSetOutPoint();
       return;
     }
     if (items.length === 0) return;
     const playheadTime = resolveUiPlayheadTime({
-      isSingleModeVideo,
-      singleModeCurrentTime,
+      mode,
+      getSingleModeCurrentTime,
       getSequenceAbsoluteTime,
     });
     const nextRange = computeNextRangeForSetOut({
@@ -254,10 +255,10 @@ export function usePreviewInteractionCommands({
     setSequenceRange(nextRange.inPoint, nextRange.outPoint);
     notifyRangeChange(nextRange.inPoint, nextRange.outPoint);
   }, [
-    isSingleModeVideo,
+    mode,
     handleSingleModeSetOutPoint,
     items.length,
-    singleModeCurrentTime,
+    getSingleModeCurrentTime,
     getSequenceAbsoluteTime,
     sequenceTotalDuration,
     inPoint,

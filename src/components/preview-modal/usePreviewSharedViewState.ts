@@ -67,8 +67,8 @@ export function usePreviewSharedViewState({
   const globalProgress = isSingleMode ? 0 : getSequenceGlobalProgress();
   const resolvedSequenceTotalDuration = isSingleMode ? 0 : sequenceTotalDuration;
   const sequenceCurrentTime = isSingleMode ? 0 : getSequenceAbsoluteTime();
-  const singleModePlaybackDuration = isSingleModeVideo ? singleModeDuration : sequenceTotalDuration;
-  const singleModePlaybackTime = isSingleModeVideo ? singleModeCurrentTime : getSequenceAbsoluteTime();
+  const singleModePlaybackDuration = isSingleMode ? singleModeDuration : sequenceTotalDuration;
+  const singleModePlaybackTime = isSingleMode ? singleModeCurrentTime : getSequenceAbsoluteTime();
   const resolutionTargetAsset = isSingleMode ? (asset ?? null) : resolveAssetForCut(currentItem?.cut);
   const { asset: hydratedResolutionAsset } = useAssetMetadataHydration({
     asset: resolutionTargetAsset,

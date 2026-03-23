@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import { useStore } from '../store/useStore';
 import {
   selectScenes,
@@ -46,31 +46,32 @@ import { usePreviewPlaybackControls } from './preview-modal/usePreviewPlaybackCo
 import { usePreviewInteractionCommands } from './preview-modal/usePreviewInteractionCommands';
 import { usePreviewViewShell } from './preview-modal/usePreviewViewShell';
 import { usePreviewInputs } from './preview-modal/usePreviewInputs';
-import { usePreviewSequenceSession } from './preview-modal/usePreviewSequenceSession';
+import { usePreviewSequenceRuntime } from './preview-modal/usePreviewSequenceRuntime';
 import VideoHoldModal from './preview-modal/VideoHoldModal';
 import { resolveCutAudioBinding } from './preview-modal/audioBinding';
-import { usePreviewSingleModeSession } from './preview-modal/usePreviewSingleModeSession';
+import { usePreviewSingleRuntime } from './preview-modal/usePreviewSingleRuntime';
 import { usePreviewItemsState } from './preview-modal/usePreviewItemsState';
 import './PreviewModal.css';
 import './preview-modal/styles/playback-controls.css';
 
-export default function PreviewModal({
-  onClose,
-  exportResolution,
-  onResolutionChange,
-  focusCutId,
-  sequenceCuts,
-  sequenceContext,
-  onExportSequence,
-  // Single Mode props
-  asset,
-  initialInPoint,
-  initialOutPoint,
-  onRangeChange,
-  onClipSave,
-  onClipClear,
-  onFrameCapture,
-}: PreviewModalProps) {
+export default function PreviewModal(props: PreviewModalProps) {
+  const {
+    mode,
+    onClose,
+    exportResolution,
+    onResolutionChange,
+    focusCutId,
+    onExportSequence,
+  } = props;
+  const sequenceCuts = mode === 'sequence' ? props.sequenceCuts : undefined;
+  const sequenceContext = mode === 'sequence' ? props.sequenceContext : undefined;
+  const asset = mode === 'single' ? props.asset : undefined;
+  const initialInPoint = mode === 'single' ? props.initialInPoint : undefined;
+  const initialOutPoint = mode === 'single' ? props.initialOutPoint : undefined;
+  const onRangeChange = mode === 'single' ? props.onRangeChange : undefined;
+  const onClipSave = mode === 'single' ? props.onClipSave : undefined;
+  const onClipClear = mode === 'single' ? props.onClipClear : undefined;
+  const onFrameCapture = mode === 'single' ? props.onFrameCapture : undefined;
   const scenes = useStore(selectScenes);
   const sceneOrder = useStore(selectSceneOrder);
   const orderedScenes = useMemo(() => getScenesInOrder(scenes, sceneOrder), [scenes, sceneOrder]);
@@ -86,11 +87,10 @@ export default function PreviewModal({
   const setCutRuntimeHold = useStore(selectSetCutRuntimeHold);
   const clearCutRuntimeHold = useStore(selectClearCutRuntimeHold);
 
-  // Mode detection: Single Mode if asset prop is provided
-  const isSingleMode = !!asset;
+  const isSingleMode = mode === 'single';
   const isSingleModeVideo = isSingleMode && asset?.type === 'video';
   const isSingleModeImage = isSingleMode && asset?.type === 'image';
-  const usesSequenceController = !isSingleModeVideo;
+  const usesSequenceController = mode === 'sequence';
 
   const focusCutData = useMemo(() => {
     if (!focusCutId) return null;
@@ -134,7 +134,7 @@ export default function PreviewModal({
     isSingleModeVideo,
     isSingleModeImage,
     asset,
-    singleModeImageData: null,
+    singleModeImageData,
     orderedScenes,
     previewMode,
     selectedSceneId,
@@ -145,6 +145,9 @@ export default function PreviewModal({
     sequenceCuts,
     sequenceContext,
   });
+  const singleModeImageDuration = isSingleModeImage
+    ? Number(items[0]?.normalizedDisplayTime ?? 0)
+    : 0;
   const {
     previewSequenceItems,
     previewSequencePlaybackItems,
@@ -277,11 +280,15 @@ export default function PreviewModal({
   });
 
   const {
+    singleMediaElement,
     singleModeIsPlaying,
     setSingleModeIsPlaying,
     isSingleModeClipEnabled,
     isSingleModeClipPending,
-    toggleSingleModePlay,
+    playSingleMode,
+    pauseSingleMode,
+    seekSingleMode,
+    getSingleModeCurrentTime,
     handleSingleModeSetInPoint,
     handleSingleModeSetOutPoint,
     handleSingleModeClearClip,
@@ -290,13 +297,12 @@ export default function PreviewModal({
     handleSingleModeTimeUpdate,
     handleSingleModeLoadedMetadata,
     handleSingleModeVideoEnded,
-    handleSingleModeProgressClick,
     handleMarkerDrag,
     handleMarkerDragEnd,
-  } = usePreviewSingleModeSession({
-    isSingleMode,
+  } = usePreviewSingleRuntime({
     isSingleModeVideo,
-    usesSequenceController,
+    isSingleModeImage,
+    assetName: asset?.name,
     focusCut: focusCutData?.cut ?? null,
     focusCutId: focusCutData?.cut?.id,
     focusCutIsClip: !!focusCutData?.cut?.isClip,
@@ -314,15 +320,14 @@ export default function PreviewModal({
     setSingleModeOutPoint,
     notifyRangeChange,
     setMarkerTime,
-    seekSequenceAbsolute,
-    sequenceTotalDuration: sequenceState.totalDuration,
-    progressBarRef,
     videoRef,
     onClipSave,
     onClipClear,
     onFrameCapture,
     showMiniToast,
     playbackSpeed,
+    singleModeImageData,
+    singleModeImageDuration,
     singleModeDuration,
     setSingleModeDuration,
     singleModeCurrentTime,
@@ -370,29 +375,9 @@ export default function PreviewModal({
     globalVolume,
   });
 
-  // ===== SEQUENCE MODE LOGIC =====
-
-  useEffect(() => {
-    if (!isSingleModeImage || sequenceItems.length === 0) return;
-    if (initialInPoint === undefined && initialOutPoint === undefined) return;
-
-    setSequenceRange(initialInPoint ?? null, initialOutPoint ?? null);
-    if (typeof initialInPoint === 'number') {
-      seekSequenceAbsolute(initialInPoint);
-    }
-  }, [
-    isSingleModeImage,
-    sequenceItems.length,
-    initialInPoint,
-    initialOutPoint,
-    setSequenceRange,
-    seekSequenceAbsolute,
-  ]);
-
-  // ===== SEQUENCE MODE SESSION =====
-  const { checkBufferStatus, sequenceMediaElement } = usePreviewSequenceSession({
-    isSingleMode,
-    usesSequenceController,
+  // ===== SEQUENCE MODE RUNTIME =====
+  const { checkBufferStatus, sequenceMediaElement } = usePreviewSequenceRuntime({
+    mode,
     items: previewSequencePlaybackItems,
     currentIndex,
     sequenceCurrentIndex: sequenceState.currentIndex,
@@ -447,7 +432,7 @@ export default function PreviewModal({
   }, []);
 
   const interactionCommands = usePreviewInteractionCommands({
-    isSingleModeVideo,
+    mode,
     isPlaying,
     focusedMarker,
     items: sequenceItems,
@@ -455,12 +440,13 @@ export default function PreviewModal({
     inPoint,
     outPoint,
     singleModeDuration,
-    singleModeCurrentTime,
     sequenceTotalDuration: sequenceState.totalDuration,
     videoRef,
     resolveAssetForCut,
-    setSingleModeCurrentTime,
-    setSingleModeIsPlaying,
+    playSingleMode,
+    pauseSingleMode,
+    seekSingleMode,
+    getSingleModeCurrentTime,
     getSequenceAbsoluteTime: sequenceSelectors.getAbsoluteTime,
     seekSequenceAbsolute,
     seekSequencePercent,
@@ -468,7 +454,6 @@ export default function PreviewModal({
     skipSequence,
     setSequenceRange,
     notifyRangeChange,
-    toggleSingleModePlay,
     handlePlayPause,
     stepFocusedMarker,
     handleSingleModeSetInPoint,
@@ -489,8 +474,8 @@ export default function PreviewModal({
   } = usePreviewInputs({
     progressBarRef,
     itemsLength: sequenceItems.length,
-    totalDuration: sequenceState.totalDuration,
-    onPauseBeforeSeek: sequencePause,
+    totalDuration: mode === 'single' ? singleModeDuration : sequenceState.totalDuration,
+    onPauseBeforeSeek: mode === 'single' ? pauseSingleMode : sequencePause,
     onSeekAbsolute: interactionCommands.seekToAbsolute,
     onSeekPercent: interactionCommands.seekToPercent,
     onClose,
@@ -617,13 +602,13 @@ export default function PreviewModal({
           previewDisplayClassName={previewDisplayClassName}
           showOverlayNow={showOverlayNow}
           scheduleHideOverlay={scheduleHideOverlay}
-          asset={asset}
+          asset={asset!}
           isAssetOnlyPreview={isAssetOnlyPreview}
           isLoading={isLoading}
           isSingleModeVideo={isSingleModeVideo}
           isSingleModeImage={isSingleModeImage}
           videoObjectUrl={videoObjectUrl}
-          sequenceMediaElement={sequenceMediaElement}
+          singleMediaElement={singleMediaElement}
           singleModeImageData={singleModeImageData}
           getViewportStyle={getViewportStyle}
           currentFraming={currentFraming}
@@ -643,7 +628,7 @@ export default function PreviewModal({
           onMarkerFocus={interactionCommands.markerFocus}
           onMarkerDrag={interactionCommands.markerDrag}
           onMarkerDragEnd={interactionCommands.markerDragEnd}
-          handleSingleModeProgressClick={handleSingleModeProgressClick}
+          onProgressBarMouseDown={handleProgressBarMouseDown}
           isPlaying={isPlaying}
           skipBack={interactionCommands.skipBack}
           skipForward={interactionCommands.skipForward}

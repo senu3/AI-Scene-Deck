@@ -1,16 +1,17 @@
 import type React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Cut } from '../../types';
+import { createImageMediaSource, type MediaSource } from '../../utils/previewMedia';
 import { clampToDuration } from './helpers';
 import { computeNextRangeForSetIn, computeNextRangeForSetOut } from './clipRangeOps';
 import type { FocusedMarker } from './parts/PlaybackRangeMarkers';
 
 const CLIP_POINT_EPSILON = 0.0001;
 
-interface UsePreviewSingleModeSessionInput {
-  isSingleMode: boolean;
+interface UsePreviewSingleRuntimeInput {
   isSingleModeVideo: boolean;
-  usesSequenceController: boolean;
+  isSingleModeImage: boolean;
+  assetName?: string;
   focusCut: Cut | null;
   focusCutId?: string;
   focusCutIsClip?: boolean;
@@ -28,9 +29,6 @@ interface UsePreviewSingleModeSessionInput {
   setSingleModeOutPoint: (value: number | null) => void;
   notifyRangeChange: (inPoint: number | null, outPoint: number | null) => void;
   setMarkerTime: (marker: 'in' | 'out', newTime: number) => number;
-  seekSequenceAbsolute: (time: number) => void;
-  sequenceTotalDuration: number;
-  progressBarRef: React.RefObject<HTMLDivElement>;
   videoRef: React.RefObject<HTMLVideoElement>;
   onClipSave?: (
     inPoint: number,
@@ -41,6 +39,8 @@ interface UsePreviewSingleModeSessionInput {
   onFrameCapture?: (timestamp: number) => Promise<string | void> | void;
   showMiniToast: (message: string, variant?: 'success' | 'info' | 'warning' | 'error') => void;
   playbackSpeed: number;
+  singleModeImageData: string | null;
+  singleModeImageDuration: number;
   singleModeDuration: number;
   setSingleModeDuration: (value: number) => void;
   singleModeCurrentTime: number;
@@ -48,10 +48,10 @@ interface UsePreviewSingleModeSessionInput {
   getCurrentClipRevision?: () => number;
 }
 
-export function usePreviewSingleModeSession({
-  isSingleMode,
+export function usePreviewSingleRuntime({
   isSingleModeVideo,
-  usesSequenceController,
+  isSingleModeImage,
+  assetName,
   focusCut: _focusCut,
   focusCutId,
   focusCutIsClip,
@@ -69,24 +69,24 @@ export function usePreviewSingleModeSession({
   setSingleModeOutPoint,
   notifyRangeChange,
   setMarkerTime,
-  seekSequenceAbsolute,
-  sequenceTotalDuration,
-  progressBarRef,
   videoRef,
   onClipSave,
   onClipClear,
   onFrameCapture,
   showMiniToast,
   playbackSpeed,
+  singleModeImageData,
+  singleModeImageDuration,
   singleModeDuration,
   setSingleModeDuration,
   singleModeCurrentTime,
   setSingleModeCurrentTime,
   getCurrentClipRevision,
-}: UsePreviewSingleModeSessionInput) {
+}: UsePreviewSingleRuntimeInput) {
   const [singleModeIsPlaying, setSingleModeIsPlaying] = useState(false);
   const [isSingleModeClipEnabled, setIsSingleModeClipEnabled] = useState(false);
   const [isSingleModeClipPending, setIsSingleModeClipPending] = useState(false);
+  const [singleMediaElement, setSingleMediaElement] = useState<JSX.Element | null>(null);
 
   const lastCommittedClipPointsRef = useRef<{ start: number; end: number } | null>(null);
   const singleModeClipDragDirtyRef = useRef(false);
@@ -97,6 +97,13 @@ export function usePreviewSingleModeSession({
   });
   const isDraggingRef = useRef(false);
   const pendingSyncRef = useRef(false);
+  const singleImageSourceRef = useRef<MediaSource | null>(null);
+  const isPlayingRef = useRef(false);
+  const isLoopingRef = useRef(singleModeIsLooping);
+  const rangeRef = useRef<{ inPoint: number | null; outPoint: number | null }>({
+    inPoint,
+    outPoint,
+  });
   const latestExternalRef = useRef<{
     cutId: string | null;
     isClip: boolean;
@@ -108,6 +115,18 @@ export function usePreviewSingleModeSession({
     inPoint: null,
     outPoint: null,
   });
+
+  useEffect(() => {
+    isPlayingRef.current = singleModeIsPlaying;
+  }, [singleModeIsPlaying]);
+
+  useEffect(() => {
+    isLoopingRef.current = singleModeIsLooping;
+  }, [singleModeIsLooping]);
+
+  useEffect(() => {
+    rangeRef.current = { inPoint, outPoint };
+  }, [inPoint, outPoint]);
   const lastSyncedExternalRef = useRef<{
     cutId: string | null;
     isClip: boolean;
@@ -228,6 +247,174 @@ export function usePreviewSingleModeSession({
     syncLocalRangeFromExternal,
   ]);
 
+  useEffect(() => {
+    if (!isSingleModeImage) {
+      singleImageSourceRef.current?.dispose();
+      singleImageSourceRef.current = null;
+      setSingleMediaElement(null);
+      return;
+    }
+
+    setSingleModeDuration(singleModeImageDuration);
+    const nextCurrentTime = clampToDuration(
+      typeof initialInPoint === 'number' ? initialInPoint : 0,
+      singleModeImageDuration,
+    );
+    setSingleModeCurrentTime(nextCurrentTime);
+
+    if (!singleModeImageData || singleModeImageDuration <= 0) {
+      singleImageSourceRef.current?.dispose();
+      singleImageSourceRef.current = null;
+      setSingleMediaElement(null);
+      return;
+    }
+
+    singleImageSourceRef.current?.dispose();
+    const source = createImageMediaSource({
+      src: singleModeImageData,
+      alt: assetName || 'Preview',
+      className: 'preview-media',
+      duration: singleModeImageDuration,
+      onTimeUpdate: (localTimeSec) => {
+        setSingleModeCurrentTime(localTimeSec);
+
+        const currentRange = rangeRef.current;
+        if (!isPlayingRef.current || currentRange.inPoint === null || currentRange.outPoint === null) {
+          return;
+        }
+
+        const clipStart = Math.min(currentRange.inPoint, currentRange.outPoint);
+        const clipEnd = Math.max(currentRange.inPoint, currentRange.outPoint);
+        if (localTimeSec < clipEnd) return;
+
+        if (isLoopingRef.current) {
+          source.seek(clipStart);
+          setSingleModeCurrentTime(clipStart);
+          return;
+        }
+
+        source.pause();
+        isPlayingRef.current = false;
+        setSingleModeIsPlaying(false);
+        source.seek(clipEnd);
+        setSingleModeCurrentTime(clipEnd);
+      },
+      onEnded: () => {
+        const currentRange = rangeRef.current;
+        const loopStart = currentRange.inPoint !== null
+          ? Math.min(currentRange.inPoint, currentRange.outPoint ?? currentRange.inPoint)
+          : 0;
+        if (isLoopingRef.current) {
+          source.seek(loopStart);
+          source.play();
+          setSingleModeCurrentTime(loopStart);
+          return;
+        }
+        isPlayingRef.current = false;
+        setSingleModeIsPlaying(false);
+      },
+    });
+    singleImageSourceRef.current = source;
+    source.seek(nextCurrentTime);
+    setSingleMediaElement(source.element);
+
+    return () => {
+      if (singleImageSourceRef.current === source) {
+        singleImageSourceRef.current = null;
+      }
+      source.dispose();
+    };
+  }, [
+    assetName,
+    initialInPoint,
+    isSingleModeImage,
+    setSingleModeCurrentTime,
+    setSingleModeDuration,
+    singleModeImageData,
+    singleModeImageDuration,
+  ]);
+
+  const seekSingleMode = useCallback((time: number) => {
+    const nextTime = clampToDuration(time, singleModeDuration);
+    if (isSingleModeVideo) {
+      if (!videoRef.current) return;
+      videoRef.current.currentTime = nextTime;
+      setSingleModeCurrentTime(nextTime);
+      return;
+    }
+
+    if (!isSingleModeImage) return;
+    singleImageSourceRef.current?.seek(nextTime);
+    setSingleModeCurrentTime(nextTime);
+  }, [
+    isSingleModeVideo,
+    isSingleModeImage,
+    singleModeDuration,
+    videoRef,
+    setSingleModeCurrentTime,
+  ]);
+
+  const getSingleModeCurrentTime = useCallback(() => {
+    if (isSingleModeVideo) {
+      return videoRef.current?.currentTime ?? singleModeCurrentTime;
+    }
+    if (isSingleModeImage) {
+      return singleImageSourceRef.current?.getCurrentTime() ?? singleModeCurrentTime;
+    }
+    return singleModeCurrentTime;
+  }, [isSingleModeVideo, isSingleModeImage, singleModeCurrentTime, videoRef]);
+
+  const playSingleMode = useCallback(() => {
+    if (isSingleModeVideo) {
+      if (!videoRef.current) return;
+      if (inPoint !== null && outPoint !== null) {
+        const clipStart = Math.min(inPoint, outPoint);
+        const clipEnd = Math.max(inPoint, outPoint);
+        if (videoRef.current.currentTime < clipStart || videoRef.current.currentTime >= clipEnd) {
+          videoRef.current.currentTime = clipStart;
+          setSingleModeCurrentTime(clipStart);
+        }
+      }
+      void videoRef.current.play();
+      isPlayingRef.current = true;
+      setSingleModeIsPlaying(true);
+      return;
+    }
+
+    if (!isSingleModeImage) return;
+    const source = singleImageSourceRef.current;
+    if (!source) return;
+    if (inPoint !== null && outPoint !== null) {
+      const clipStart = Math.min(inPoint, outPoint);
+      const clipEnd = Math.max(inPoint, outPoint);
+      const currentTime = source.getCurrentTime();
+      if (currentTime < clipStart || currentTime >= clipEnd) {
+        source.seek(clipStart);
+        setSingleModeCurrentTime(clipStart);
+      }
+    }
+    source.play();
+    isPlayingRef.current = true;
+    setSingleModeIsPlaying(true);
+  }, [
+    inPoint,
+    isSingleModeImage,
+    isSingleModeVideo,
+    outPoint,
+    setSingleModeCurrentTime,
+    videoRef,
+  ]);
+
+  const pauseSingleMode = useCallback(() => {
+    if (isSingleModeVideo) {
+      videoRef.current?.pause();
+    } else if (isSingleModeImage) {
+      singleImageSourceRef.current?.pause();
+    }
+    isPlayingRef.current = false;
+    setSingleModeIsPlaying(false);
+  }, [isSingleModeImage, isSingleModeVideo, videoRef]);
+
   const handleSingleModeSetInPoint = useCallback(() => {
     if (!isSingleModeVideo) return;
     const nextRange = computeNextRangeForSetIn({
@@ -343,25 +530,6 @@ export function usePreviewSingleModeSession({
     }
   }, [isSingleModeVideo, onFrameCapture, singleModeCurrentTime, videoRef, showMiniToast]);
 
-  const toggleSingleModePlay = useCallback(() => {
-    if (!videoRef.current || !isSingleModeVideo) return;
-
-    if (singleModeIsPlaying) {
-      videoRef.current.pause();
-    } else {
-      if (inPoint !== null && outPoint !== null) {
-        const clipStart = Math.min(inPoint, outPoint);
-        const clipEnd = Math.max(inPoint, outPoint);
-        if (videoRef.current.currentTime < clipStart || videoRef.current.currentTime >= clipEnd) {
-          videoRef.current.currentTime = clipStart;
-          setSingleModeCurrentTime(clipStart);
-        }
-      }
-      videoRef.current.play();
-    }
-    setSingleModeIsPlaying(prev => !prev);
-  }, [isSingleModeVideo, singleModeIsPlaying, inPoint, outPoint, videoRef]);
-
   const handleSingleModeTimeUpdate = useCallback(() => {
     if (!videoRef.current || !isSingleModeVideo) return;
 
@@ -374,14 +542,13 @@ export function usePreviewSingleModeSession({
         if (singleModeIsLooping) {
           videoRef.current.currentTime = clipStart;
         } else {
-          videoRef.current.pause();
-          setSingleModeIsPlaying(false);
+          pauseSingleMode();
           videoRef.current.currentTime = clipEnd;
           setSingleModeCurrentTime(clipEnd);
         }
       }
     }
-  }, [isSingleModeVideo, inPoint, outPoint, singleModeIsLooping, singleModeIsPlaying, videoRef]);
+  }, [isSingleModeVideo, inPoint, outPoint, singleModeIsLooping, singleModeIsPlaying, videoRef, pauseSingleMode]);
 
   const handleSingleModeLoadedMetadata = useCallback(() => {
     if (!videoRef.current || !isSingleModeVideo) return;
@@ -402,36 +569,9 @@ export function usePreviewSingleModeSession({
       videoRef.current.currentTime = loopStart;
       void videoRef.current.play();
     } else {
-      setSingleModeIsPlaying(false);
+      pauseSingleMode();
     }
-  }, [isSingleModeVideo, singleModeIsLooping, inPoint, outPoint, videoRef]);
-
-  const handleSingleModeProgressClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!progressBarRef.current || !isSingleMode) return;
-
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const percent = (e.clientX - rect.left) / rect.width;
-
-    if (!usesSequenceController) {
-      if (!videoRef.current) return;
-      const newTime = clampToDuration(percent * singleModeDuration, singleModeDuration);
-      videoRef.current.currentTime = newTime;
-      setSingleModeCurrentTime(newTime);
-      return;
-    }
-
-    const duration = sequenceTotalDuration;
-    if (duration <= 0) return;
-    seekSequenceAbsolute(clampToDuration(percent * duration, duration));
-  }, [
-    progressBarRef,
-    isSingleMode,
-    usesSequenceController,
-    videoRef,
-    singleModeDuration,
-    sequenceTotalDuration,
-    seekSequenceAbsolute,
-  ]);
+  }, [isSingleModeVideo, singleModeIsLooping, inPoint, outPoint, videoRef, pauseSingleMode]);
 
   const handleMarkerDrag = useCallback((marker: 'in' | 'out', newTime: number): number => {
     if (isSingleModeVideo) {
@@ -458,17 +598,20 @@ export function usePreviewSingleModeSession({
   }, [isSingleModeVideo, commitSingleModeClipPoints, setFocusedMarker, syncLocalRangeFromExternal]);
 
   useEffect(() => {
-    if (isSingleModeVideo && videoRef.current) {
-      videoRef.current.playbackRate = playbackSpeed;
-    }
+    if (!isSingleModeVideo || !videoRef.current) return;
+    videoRef.current.playbackRate = playbackSpeed;
   }, [isSingleModeVideo, videoRef, playbackSpeed]);
 
   return {
+    singleMediaElement,
     singleModeIsPlaying,
     setSingleModeIsPlaying,
     isSingleModeClipEnabled,
     isSingleModeClipPending,
-    toggleSingleModePlay,
+    playSingleMode,
+    pauseSingleMode,
+    seekSingleMode,
+    getSingleModeCurrentTime,
     handleSingleModeSetInPoint,
     handleSingleModeSetOutPoint,
     handleSingleModeClearClip,
@@ -477,7 +620,6 @@ export function usePreviewSingleModeSession({
     handleSingleModeTimeUpdate,
     handleSingleModeLoadedMetadata,
     handleSingleModeVideoEnded,
-    handleSingleModeProgressClick,
     handleMarkerDrag,
     handleMarkerDragEnd,
   };
