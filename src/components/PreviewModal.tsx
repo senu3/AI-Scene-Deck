@@ -15,7 +15,7 @@ import {
   selectSetCutRuntimeHold,
   selectClearCutRuntimeHold,
 } from '../store/selectors';
-import type { Cut } from '../types';
+import type { Cut, Scene } from '../types';
 import { useSequencePlaybackController } from '../utils/previewPlaybackController';
 import { getScenesInOrder } from '../utils/sceneOrder';
 import { buildSequencePlan } from '../utils/sequencePlan';
@@ -23,7 +23,12 @@ import { cyclePlaybackSpeed } from '../utils/timeUtils';
 import { slicePreviewAudioPlan } from '../utils/previewAudioPlanSlice';
 import { EXPORT_FRAMING_DEFAULTS } from '../constants/framing';
 import { useMiniToast } from '../ui';
-import type { PreviewModalProps, ResolutionPreset } from './preview-modal/types';
+import type {
+  PreviewModalProps,
+  ResolutionPreset,
+  SequencePreviewModalProps,
+  SinglePreviewModalProps,
+} from './preview-modal/types';
 import {
   FRAME_DURATION,
   INITIAL_PRELOAD_ITEMS,
@@ -31,9 +36,7 @@ import {
   PRELOAD_AHEAD,
   RESOLUTION_PRESETS,
 } from './preview-modal/constants';
-import {
-  revokeIfBlob,
-} from './preview-modal/helpers';
+import { revokeIfBlob } from './preview-modal/helpers';
 import { PreviewModalSequenceView } from './preview-modal/PreviewModalSequenceView';
 import { PreviewModalSingleView } from './preview-modal/PreviewModalSingleView';
 import { useClipRangeState } from './preview-modal/useClipRangeState';
@@ -54,24 +57,20 @@ import { usePreviewItemsState } from './preview-modal/usePreviewItemsState';
 import './PreviewModal.css';
 import './preview-modal/styles/playback-controls.css';
 
-export default function PreviewModal(props: PreviewModalProps) {
-  const {
-    mode,
-    onClose,
-    exportResolution,
-    onResolutionChange,
-    focusCutId,
-    onExportSequence,
-  } = props;
-  const sequenceCuts = mode === 'sequence' ? props.sequenceCuts : undefined;
-  const sequenceContext = mode === 'sequence' ? props.sequenceContext : undefined;
-  const asset = mode === 'single' ? props.asset : undefined;
-  const initialInPoint = mode === 'single' ? props.initialInPoint : undefined;
-  const initialOutPoint = mode === 'single' ? props.initialOutPoint : undefined;
-  const onRangeChange = mode === 'single' ? props.onRangeChange : undefined;
-  const onClipSave = mode === 'single' ? props.onClipSave : undefined;
-  const onClipClear = mode === 'single' ? props.onClipClear : undefined;
-  const onFrameCapture = mode === 'single' ? props.onFrameCapture : undefined;
+interface FocusCutData {
+  scene: Scene;
+  sceneIndex: number;
+  cut: Cut;
+  cutIndex: number;
+}
+
+const NOOP = () => {};
+const NOOP_NUMBER = () => 0;
+const NOOP_SKIP = (_seconds: number) => {};
+const NOOP_RANGE = (_inPoint: number | null, _outPoint: number | null) => {};
+const NOOP_MUTE_EMBEDDED = () => false;
+
+function usePreviewModalProjectState(focusCutId?: string) {
   const scenes = useStore(selectScenes);
   const sceneOrder = useStore(selectSceneOrder);
   const orderedScenes = useMemo(() => getScenesInOrder(scenes, sceneOrder), [scenes, sceneOrder]);
@@ -87,25 +86,84 @@ export default function PreviewModal(props: PreviewModalProps) {
   const setCutRuntimeHold = useStore(selectSetCutRuntimeHold);
   const clearCutRuntimeHold = useStore(selectClearCutRuntimeHold);
 
-  const isSingleMode = mode === 'single';
-  const isSingleModeVideo = isSingleMode && asset?.type === 'video';
-  const isSingleModeImage = isSingleMode && asset?.type === 'image';
-  const usesSequenceController = mode === 'sequence';
-
-  const focusCutData = useMemo(() => {
+  const focusCutData = useMemo<FocusCutData | null>(() => {
     if (!focusCutId) return null;
-    for (let sIdx = 0; sIdx < orderedScenes.length; sIdx++) {
-      const scene = orderedScenes[sIdx];
-      const cutIndex = scene.cuts.findIndex(c => c.id === focusCutId);
+    for (let sceneIndex = 0; sceneIndex < orderedScenes.length; sceneIndex++) {
+      const scene = orderedScenes[sceneIndex];
+      const cutIndex = scene.cuts.findIndex((cut) => cut.id === focusCutId);
       if (cutIndex >= 0) {
-        return { scene, sceneIndex: sIdx, cut: scene.cuts[cutIndex], cutIndex };
+        return {
+          scene,
+          sceneIndex,
+          cut: scene.cuts[cutIndex],
+          cutIndex,
+        };
       }
     }
     return null;
   }, [focusCutId, orderedScenes]);
+
+  return {
+    scenes,
+    sceneOrder,
+    orderedScenes,
+    previewMode,
+    selectedSceneId,
+    cacheAsset,
+    getAsset,
+    globalVolume,
+    globalMuted,
+    toggleGlobalMute,
+    metadataStore,
+    getCutRuntime,
+    setCutRuntimeHold,
+    clearCutRuntimeHold,
+    focusCutData,
+  };
+}
+
+export default function PreviewModal(props: PreviewModalProps) {
+  if (props.mode === 'single') {
+    return <PreviewModalSingleRoot {...props} />;
+  }
+
+  return <PreviewModalSequenceRoot {...props} />;
+}
+
+function PreviewModalSingleRoot({
+  onClose,
+  exportResolution,
+  onResolutionChange,
+  focusCutId,
+  asset,
+  initialInPoint,
+  initialOutPoint,
+  onRangeChange,
+  onClipSave,
+  onClipClear,
+  onFrameCapture,
+}: SinglePreviewModalProps) {
+  const {
+    scenes,
+    sceneOrder,
+    orderedScenes,
+    previewMode,
+    selectedSceneId,
+    cacheAsset,
+    getAsset,
+    globalVolume,
+    globalMuted,
+    toggleGlobalMute,
+    metadataStore,
+    getCutRuntime,
+    setCutRuntimeHold,
+    clearCutRuntimeHold,
+    focusCutData,
+  } = usePreviewModalProjectState(focusCutId);
+  const isSingleModeVideo = asset.type === 'video';
+  const isSingleModeImage = asset.type === 'image';
   const hasCutContext = !!focusCutData?.cut;
-  const isAssetOnlyPreview = isSingleMode && !hasCutContext;
-  const missingFocusedCut = !isSingleMode && !!focusCutId && !focusCutData;
+  const isAssetOnlyPreview = !hasCutContext;
 
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [videoObjectUrl, setVideoObjectUrl] = useState<{ assetId: string; url: string } | null>(null);
@@ -117,122 +175,6 @@ export default function PreviewModal(props: PreviewModalProps) {
   const [singleModeDuration, setSingleModeDuration] = useState(0);
   const [singleModeCurrentTime, setSingleModeCurrentTime] = useState(0);
   const [showHoldModal, setShowHoldModal] = useState(false);
-
-  const { isLoading, singleModeImageData } = usePreviewSingleMediaAsset({
-    isSingleMode,
-    asset,
-    videoObjectUrl,
-    setVideoObjectUrl,
-    revokeIfBlob,
-  });
-
-  const {
-    items,
-    resolveAssetForCut,
-  } = usePreviewItemsState({
-    isSingleMode,
-    isSingleModeVideo,
-    isSingleModeImage,
-    asset,
-    singleModeImageData,
-    orderedScenes,
-    previewMode,
-    selectedSceneId,
-    getAsset,
-    metadataStore: metadataStore ?? null,
-    focusCutData,
-    missingFocusedCut,
-    sequenceCuts,
-    sequenceContext,
-  });
-  const singleModeImageDuration = isSingleModeImage
-    ? Number(items[0]?.normalizedDisplayTime ?? 0)
-    : 0;
-  const {
-    previewSequenceItems,
-    previewSequencePlaybackItems,
-    previewSequenceItemByCutId,
-    previewSequenceItemByIndex,
-    previewAudioPlan,
-  } = usePreviewSequenceDerived({
-    items,
-    metadataStore: metadataStore ?? null,
-    getAsset,
-    getCutRuntime,
-  });
-  const focusedPreviewBasePlan = useMemo(() => {
-    if (!focusCutData?.cut?.id) return null;
-    return buildSequencePlan({
-      scenes,
-      sceneOrder,
-    }, {
-      metadataStore: metadataStore ?? null,
-      getAssetById: getAsset,
-      resolveCutRuntimeById: getCutRuntime,
-      framingDefaults: EXPORT_FRAMING_DEFAULTS,
-    });
-  }, [focusCutData?.cut?.id, scenes, sceneOrder, metadataStore, getAsset, getCutRuntime]);
-  const focusedPreviewWindow = useMemo(() => {
-    const cutId = focusCutData?.cut?.id;
-    if (!cutId || !focusedPreviewBasePlan) return null;
-    const matchingItems = focusedPreviewBasePlan.videoItems.filter((item) => item.cutId === cutId);
-    if (matchingItems.length === 0) return null;
-    const primaryItem = matchingItems.find((item) => !item.flags.isHold) ?? matchingItems[0];
-    const windowStartSec = primaryItem?.dstInSec ?? 0;
-    const windowEndSec = isSingleMode
-      ? (primaryItem?.dstOutSec ?? windowStartSec)
-      : matchingItems.reduce((max, item) => Math.max(max, item.dstOutSec), primaryItem?.dstOutSec ?? windowStartSec);
-    if (windowEndSec <= windowStartSec) return null;
-    return {
-      startSec: windowStartSec,
-      endSec: windowEndSec,
-    };
-  }, [focusCutData?.cut?.id, focusedPreviewBasePlan, isSingleMode]);
-  const focusedPreviewAudioPlan = useMemo(() => {
-    if (!focusedPreviewBasePlan || !focusedPreviewWindow) return null;
-    return slicePreviewAudioPlan(focusedPreviewBasePlan.audioPlan, focusedPreviewWindow);
-  }, [focusedPreviewBasePlan, focusedPreviewWindow]);
-  const focusedAttachAudioPlan = useMemo(() => {
-    if (!focusedPreviewBasePlan || !focusedPreviewWindow) return null;
-    return slicePreviewAudioPlan(focusedPreviewBasePlan.audioPlan, focusedPreviewWindow, {
-      excludeSourceTypes: ['video'],
-    });
-  }, [focusedPreviewBasePlan, focusedPreviewWindow]);
-  const effectiveSequenceAudioPlan = useMemo(() => {
-    if (!focusCutData?.cut?.id || sequenceCuts || items.length !== 1) {
-      return previewAudioPlan;
-    }
-    return focusedPreviewAudioPlan ?? previewAudioPlan;
-  }, [focusCutData?.cut?.id, sequenceCuts, items.length, focusedPreviewAudioPlan, previewAudioPlan]);
-  const sequenceItems = usesSequenceController ? previewSequenceItems : items;
-  const sequenceDurations = useMemo(
-    () => usesSequenceController
-      ? previewSequencePlaybackItems.map((item) => item.normalizedDisplayTime)
-      : items.map((item) => item.normalizedDisplayTime),
-    [usesSequenceController, previewSequencePlaybackItems, items]
-  );
-  const sequencePlayback = useSequencePlaybackController(sequenceDurations);
-  const {
-    state: sequenceState,
-    setSource: setSequenceSource,
-    tick: sequenceTick,
-    goToNext: sequenceGoToNext,
-    goToPrev: sequenceGoToPrev,
-    toggle: sequenceToggle,
-    pause: sequencePause,
-    setLooping: setSequenceLooping,
-    setRange: setSequenceRange,
-    setBuffering: setSequenceBuffering,
-    seekAbsolute: seekSequenceAbsolute,
-    seekPercent: seekSequencePercent,
-    skip: skipSequence,
-    selectors: sequenceSelectors,
-    getLiveAbsoluteTime: getSequenceLiveAbsoluteTime,
-  } = sequencePlayback;
-
-  const currentIndex = usesSequenceController ? sequenceState.currentIndex : 0;
-  const isBuffering = usesSequenceController ? sequenceState.isBuffering : false;
-  const sequenceAbsoluteTime = usesSequenceController ? sequenceSelectors.getAbsoluteTime() : 0;
 
   const modalRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -252,6 +194,72 @@ export default function PreviewModal(props: PreviewModalProps) {
     selectedResolution,
     overlayHideDelayMs: 300,
   });
+
+  const { isLoading, singleModeImageData } = usePreviewSingleMediaAsset({
+    isSingleMode: true,
+    asset,
+    videoObjectUrl,
+    setVideoObjectUrl,
+    revokeIfBlob,
+  });
+
+  const { items, resolveAssetForCut } = usePreviewItemsState({
+    isSingleMode: true,
+    isSingleModeVideo,
+    isSingleModeImage,
+    asset,
+    singleModeImageData,
+    orderedScenes,
+    previewMode,
+    selectedSceneId,
+    getAsset,
+    metadataStore: metadataStore ?? null,
+    focusCutData,
+    missingFocusedCut: false,
+  });
+  const singleModeImageDuration = isSingleModeImage
+    ? Number(items[0]?.normalizedDisplayTime ?? 0)
+    : 0;
+  const { previewSequenceItemByCutId } = usePreviewSequenceDerived({
+    items,
+    metadataStore: metadataStore ?? null,
+    getAsset,
+    getCutRuntime,
+  });
+
+  const focusedPreviewBasePlan = useMemo(() => {
+    if (!focusCutData?.cut?.id) return null;
+    return buildSequencePlan({
+      scenes,
+      sceneOrder,
+    }, {
+      metadataStore: metadataStore ?? null,
+      getAssetById: getAsset,
+      resolveCutRuntimeById: getCutRuntime,
+      framingDefaults: EXPORT_FRAMING_DEFAULTS,
+    });
+  }, [focusCutData?.cut?.id, scenes, sceneOrder, metadataStore, getAsset, getCutRuntime]);
+  const focusedPreviewWindow = useMemo(() => {
+    const cutId = focusCutData?.cut?.id;
+    if (!cutId || !focusedPreviewBasePlan) return null;
+    const matchingItems = focusedPreviewBasePlan.videoItems.filter((item) => item.cutId === cutId);
+    if (matchingItems.length === 0) return null;
+    const primaryItem = matchingItems.find((item) => !item.flags.isHold) ?? matchingItems[0];
+    const windowStartSec = primaryItem?.dstInSec ?? 0;
+    const windowEndSec = primaryItem?.dstOutSec ?? windowStartSec;
+    if (windowEndSec <= windowStartSec) return null;
+    return {
+      startSec: windowStartSec,
+      endSec: windowEndSec,
+    };
+  }, [focusCutData?.cut?.id, focusedPreviewBasePlan]);
+  const focusedAttachAudioPlan = useMemo(() => {
+    if (!focusedPreviewBasePlan || !focusedPreviewWindow) return null;
+    return slicePreviewAudioPlan(focusedPreviewBasePlan.audioPlan, focusedPreviewWindow, {
+      excludeSourceTypes: ['video'],
+    });
+  }, [focusedPreviewBasePlan, focusedPreviewWindow]);
+
   const {
     singleModeInPoint,
     setSingleModeInPoint,
@@ -267,15 +275,15 @@ export default function PreviewModal(props: PreviewModalProps) {
     handleMarkerFocus,
     handleContainerMouseDown,
   } = useClipRangeState({
-    usesSequenceController,
-    sequenceInPoint: sequenceState.inPoint,
-    sequenceOutPoint: sequenceState.outPoint,
-    sequenceTotalDuration: sequenceState.totalDuration,
+    usesSequenceController: false,
+    sequenceInPoint: null,
+    sequenceOutPoint: null,
+    sequenceTotalDuration: 0,
     singleModeDuration,
     initialInPoint,
     initialOutPoint,
     onRangeChange,
-    setSequenceRange,
+    setSequenceRange: NOOP_RANGE,
     frameDuration: FRAME_DURATION,
   });
 
@@ -302,7 +310,7 @@ export default function PreviewModal(props: PreviewModalProps) {
   } = usePreviewSingleRuntime({
     isSingleModeVideo,
     isSingleModeImage,
-    assetName: asset?.name,
+    assetName: asset.name,
     focusCut: focusCutData?.cut ?? null,
     focusCutId: focusCutData?.cut?.id,
     focusCutIsClip: !!focusCutData?.cut?.isClip,
@@ -338,10 +346,6 @@ export default function PreviewModal(props: PreviewModalProps) {
       return getCutRuntime(cutId)?.clipRevision ?? 0;
     },
   });
-  const isPlaying = usesSequenceController ? sequenceState.isPlaying : singleModeIsPlaying;
-  const isLooping = usesSequenceController ? sequenceState.isLooping : singleModeIsLooping;
-
-  // ===== ATTACHED AUDIO HELPER =====
 
   const resolveAudioBindingForCut = useCallback((cut: Cut | null | undefined) => {
     return resolveCutAudioBinding({
@@ -350,111 +354,59 @@ export default function PreviewModal(props: PreviewModalProps) {
       globalMuted,
     });
   }, [getAsset, globalMuted]);
-
   const shouldMuteEmbeddedAudio = useCallback((cut: Cut | null | undefined): boolean => {
     return resolveAudioBindingForCut(cut).muteEmbedded;
   }, [resolveAudioBindingForCut]);
 
-  // ===== SINGLE MODE LOGIC =====
-
   usePreviewSingleAttachedAudio({
-    isSingleMode,
+    isSingleMode: true,
     isSingleModeVideo,
     hasCutContext,
-    assetId: asset?.id,
+    assetId: asset.id,
     previewAudioPlan: focusedAttachAudioPlan ?? { totalDurationSec: 0, events: [] },
     inPoint,
     outPoint,
     singleModeIsPlaying,
     singleModeCurrentTime,
     videoRef,
-    sequenceIsPlaying: sequenceState.isPlaying,
-    sequenceIsBuffering: sequenceState.isBuffering,
-    sequenceAbsoluteTime,
+    sequenceIsPlaying: false,
+    sequenceIsBuffering: false,
+    sequenceAbsoluteTime: 0,
     globalMuted,
     globalVolume,
   });
 
-  // ===== SEQUENCE MODE RUNTIME =====
-  const { checkBufferStatus, sequenceMediaElement } = usePreviewSequenceRuntime({
-    mode,
-    items: previewSequencePlaybackItems,
-    currentIndex,
-    sequenceCurrentIndex: sequenceState.currentIndex,
-    videoObjectUrl,
-    setVideoObjectUrl,
-    setSequenceBuffering,
-    sequenceIsPlaying: sequenceState.isPlaying,
-    sequenceIsBuffering: sequenceState.isBuffering,
-    initialPreloadItems: INITIAL_PRELOAD_ITEMS,
-    playSafeAhead: PLAY_SAFE_AHEAD,
-    preloadAhead: PRELOAD_AHEAD,
-    revokeIfBlob,
-    setSequenceSource,
-    sequenceTick,
-    sequenceGoToNext,
-    previewSequenceItemByIndex,
-    getSequenceLiveAbsoluteTime,
-    showMiniToast,
-    videoRef,
-    sequenceAbsoluteTime,
-    previewAudioPlan: effectiveSequenceAudioPlan,
-    globalMuted,
-    globalVolume,
-  });
-
-  const {
-    goToNext,
-    goToPrev,
-    handlePlayPause,
-    toggleLooping,
-    pauseBeforeExport,
-  } = usePreviewPlaybackControls({
-    isSingleMode,
-    usesSequenceController,
-    itemsLength: sequenceItems.length,
-    sequenceState,
-    getSequenceAbsoluteTime: sequenceSelectors.getAbsoluteTime,
-    sequenceGoToNext,
-    sequenceGoToPrev,
-    sequenceToggle,
-    sequencePause,
-    setSequenceLooping,
-    seekSequenceAbsolute,
-    setSequenceBuffering,
-    checkBufferStatus,
-    setSingleModeIsPlaying,
-    setSingleModeIsLooping,
-  });
-
+  const toggleLooping = useCallback(() => {
+    setSingleModeIsLooping((prev) => !prev);
+  }, []);
   const cycleSingleModeSpeed = useCallback(() => {
-    setPlaybackSpeed(current => cyclePlaybackSpeed(current, 'up'));
+    setPlaybackSpeed((current) => cyclePlaybackSpeed(current, 'up'));
   }, []);
 
   const interactionCommands = usePreviewInteractionCommands({
-    mode,
-    isPlaying,
+    mode: 'single',
+    isPlaying: singleModeIsPlaying,
     focusedMarker,
-    items: sequenceItems,
-    currentIndex,
+    items,
+    currentIndex: 0,
     inPoint,
     outPoint,
     singleModeDuration,
-    sequenceTotalDuration: sequenceState.totalDuration,
+    sequenceTotalDuration: 0,
     videoRef,
     resolveAssetForCut,
     playSingleMode,
     pauseSingleMode,
     seekSingleMode,
     getSingleModeCurrentTime,
-    getSequenceAbsoluteTime: sequenceSelectors.getAbsoluteTime,
-    seekSequenceAbsolute,
-    seekSequencePercent,
-    sequencePause,
-    skipSequence,
-    setSequenceRange,
+    getSequenceAbsoluteTime: NOOP_NUMBER,
+    seekSequenceAbsolute: NOOP,
+    seekSequencePercent: NOOP,
+    sequencePause: NOOP,
+    skipSequence: NOOP_SKIP,
+    setSequenceRange: NOOP_RANGE,
     notifyRangeChange,
-    handlePlayPause,
+    handlePlayPause: NOOP,
     stepFocusedMarker,
     handleSingleModeSetInPoint,
     handleSingleModeSetOutPoint,
@@ -467,15 +419,12 @@ export default function PreviewModal(props: PreviewModalProps) {
 
   const {
     isDragging,
-    hoverTime,
     handleProgressBarMouseDown,
-    handleProgressBarHover,
-    handleProgressBarLeave,
   } = usePreviewInputs({
     progressBarRef,
-    itemsLength: sequenceItems.length,
-    totalDuration: mode === 'single' ? singleModeDuration : sequenceState.totalDuration,
-    onPauseBeforeSeek: mode === 'single' ? pauseSingleMode : sequencePause,
+    itemsLength: isSingleModeVideo || isSingleModeImage ? 1 : 0,
+    totalDuration: singleModeDuration,
+    onPauseBeforeSeek: pauseSingleMode,
     onSeekAbsolute: interactionCommands.seekToAbsolute,
     onSeekPercent: interactionCommands.seekToPercent,
     onClose,
@@ -491,21 +440,7 @@ export default function PreviewModal(props: PreviewModalProps) {
     onToggleMute: interactionCommands.toggleMute,
   });
 
-  const { isExporting, handleExportFull } = usePreviewExportActions({
-    items,
-    selectedResolution,
-    metadataStore: metadataStore ?? null,
-    getAsset,
-    getCutRuntime,
-    onExportSequence,
-    pauseBeforeExport,
-  });
-
-  // ===== SHARED COMPUTED VALUES =====
   const {
-    currentItem,
-    sequenceTotalDuration,
-    sequenceCurrentTime,
     singleModePlaybackDuration,
     singleModePlaybackTime,
     previewResolutionLabel,
@@ -513,18 +448,18 @@ export default function PreviewModal(props: PreviewModalProps) {
     singleModeProgressPercent,
     previewDisplayClassName,
   } = usePreviewSharedViewState({
-    isSingleMode,
+    isSingleMode: true,
     isSingleModeVideo,
-    usesSequenceController,
+    usesSequenceController: false,
     isDragging,
-    items: sequenceItems,
-    currentIndex,
-    sequenceCurrentIndex: sequenceState.currentIndex,
-    sequenceTotalDuration: sequenceState.totalDuration,
-    getSequenceGlobalProgress: sequenceSelectors.getGlobalProgress,
-    getSequenceAbsoluteTime: sequenceSelectors.getAbsoluteTime,
-    getSequenceLiveAbsoluteTime,
-    sequenceIsPlaying: sequenceState.isPlaying,
+    items,
+    currentIndex: 0,
+    sequenceCurrentIndex: 0,
+    sequenceTotalDuration: 0,
+    getSequenceGlobalProgress: NOOP_NUMBER,
+    getSequenceAbsoluteTime: NOOP_NUMBER,
+    getSequenceLiveAbsoluteTime: NOOP_NUMBER,
+    sequenceIsPlaying: false,
     singleModeIsPlaying,
     singleModeDuration,
     singleModeCurrentTime,
@@ -541,7 +476,6 @@ export default function PreviewModal(props: PreviewModalProps) {
     progressHandleRef,
   });
 
-  // Single Mode: show Save button only when both IN/OUT are set
   const hasSingleModeRange = isSingleModeVideo && inPoint !== null && outPoint !== null;
   const showSingleModeClipButton = isSingleModeVideo && hasSingleModeRange && !!(onClipSave || onClipClear);
   const currentFocusHold = focusCutData?.cut?.id ? getCutRuntime(focusCutData.cut.id)?.hold : undefined;
@@ -580,113 +514,30 @@ export default function PreviewModal(props: PreviewModalProps) {
     });
     setShowHoldModal(false);
     showMiniToast(`VIDEO Hold enabled (${seconds.toFixed(2)}s)`, 'success');
-  }, [
-    focusCutData?.cut?.id,
-    setCutRuntimeHold,
-    showMiniToast,
-  ]);
-
-  // ===== SINGLE MODE RENDER =====
-  if (isSingleMode) {
-    return (
-      <>
-        <PreviewModalSingleView
-          modalRef={modalRef}
-          displayContainerRef={displayContainerRef}
-          progressBarRef={progressBarRef}
-          progressFillRef={progressFillRef}
-          progressHandleRef={progressHandleRef}
-          videoRef={videoRef}
-          onClose={onClose}
-          onContainerMouseDown={handleContainerMouseDown}
-          previewDisplayClassName={previewDisplayClassName}
-          showOverlayNow={showOverlayNow}
-          scheduleHideOverlay={scheduleHideOverlay}
-          asset={asset!}
-          isAssetOnlyPreview={isAssetOnlyPreview}
-          isLoading={isLoading}
-          isSingleModeVideo={isSingleModeVideo}
-          isSingleModeImage={isSingleModeImage}
-          videoObjectUrl={videoObjectUrl}
-          singleMediaElement={singleMediaElement}
-          singleModeImageData={singleModeImageData}
-          getViewportStyle={getViewportStyle}
-          currentFraming={currentFraming}
-          selectedResolution={selectedResolution}
-          onResolutionSelect={(preset) => {
-            setSelectedResolution(preset);
-            onResolutionChange?.(preset);
-          }}
-          previewResolutionLabel={previewResolutionLabel}
-          showOverlay={showOverlay}
-          inPoint={inPoint}
-          outPoint={outPoint}
-          singleModePlaybackDuration={singleModePlaybackDuration}
-          singleModeProgressPercent={singleModeProgressPercent}
-          singleModePlaybackTime={singleModePlaybackTime}
-          focusedMarker={focusedMarker}
-          onMarkerFocus={interactionCommands.markerFocus}
-          onMarkerDrag={interactionCommands.markerDrag}
-          onMarkerDragEnd={interactionCommands.markerDragEnd}
-          onProgressBarMouseDown={handleProgressBarMouseDown}
-          isPlaying={isPlaying}
-          skipBack={interactionCommands.skipBack}
-          skipForward={interactionCommands.skipForward}
-          togglePlay={interactionCommands.playPause}
-          handleSetInPoint={interactionCommands.setInPoint}
-          handleSetOutPoint={interactionCommands.setOutPoint}
-          showSingleModeClipButton={showSingleModeClipButton}
-          isSingleModeClipEnabled={isSingleModeClipEnabled}
-          onClipPrimaryAction={isSingleModeClipEnabled ? handleSingleModeClearClip : handleSingleModeSave}
-          isSingleModeClipPending={isSingleModeClipPending}
-          onFrameCapture={onFrameCapture ? handleSingleModeCaptureFrame : undefined}
-          showHoldButton={isSingleModeVideo && !!focusCutData?.cut?.id}
-          isHoldEnabled={isHoldEnabled}
-          onHoldToggle={handleSingleModeHoldToggle}
-          isLooping={isLooping}
-          toggleLooping={interactionCommands.toggleLooping}
-          globalMuted={globalMuted}
-          toggleGlobalMute={interactionCommands.toggleMute}
-          playbackSpeed={playbackSpeed}
-          cycleSpeedUp={cycleSingleModeSpeed}
-          isFullscreen={isFullscreen}
-          toggleFullscreen={toggleFullscreen}
-          miniToastElement={miniToastElement}
-          handleSingleModeTimeUpdate={handleSingleModeTimeUpdate}
-          handleSingleModeLoadedMetadata={handleSingleModeLoadedMetadata}
-          onSingleModeVideoPlay={() => setSingleModeIsPlaying(true)}
-          onSingleModeVideoPause={() => setSingleModeIsPlaying(false)}
-          handleSingleModeVideoEnded={handleSingleModeVideoEnded}
-        />
-        <VideoHoldModal
-          open={showHoldModal}
-          initialDurationSec={currentFocusHold?.durationMs ? currentFocusHold.durationMs / 1000 : 1}
-          onClose={() => setShowHoldModal(false)}
-          onConfirm={handleSingleModeHoldApply}
-        />
-      </>
-    );
-  }
+  }, [focusCutData?.cut?.id, setCutRuntimeHold, showMiniToast]);
 
   return (
     <>
-      <PreviewModalSequenceView
+      <PreviewModalSingleView
         modalRef={modalRef}
         displayContainerRef={displayContainerRef}
         progressBarRef={progressBarRef}
         progressFillRef={progressFillRef}
         progressHandleRef={progressHandleRef}
+        videoRef={videoRef}
         onClose={onClose}
         onContainerMouseDown={handleContainerMouseDown}
+        previewDisplayClassName={previewDisplayClassName}
         showOverlayNow={showOverlayNow}
         scheduleHideOverlay={scheduleHideOverlay}
-        previewDisplayClassName={previewDisplayClassName}
-        items={sequenceItems}
-        missingFocusedCut={missingFocusedCut}
-        currentIndex={currentIndex}
-        currentItem={currentItem}
-        sequenceMediaElement={sequenceMediaElement}
-        resolveAssetForCut={resolveAssetForCut}
+        asset={asset}
+        isAssetOnlyPreview={isAssetOnlyPreview}
+        isLoading={isLoading}
+        isSingleModeVideo={isSingleModeVideo}
+        isSingleModeImage={isSingleModeImage}
+        videoObjectUrl={videoObjectUrl}
+        singleMediaElement={singleMediaElement}
+        singleModeImageData={singleModeImageData}
         getViewportStyle={getViewportStyle}
         currentFraming={currentFraming}
         selectedResolution={selectedResolution}
@@ -695,38 +546,434 @@ export default function PreviewModal(props: PreviewModalProps) {
           onResolutionChange?.(preset);
         }}
         previewResolutionLabel={previewResolutionLabel}
-        onExportFull={() => {
-          void handleExportFull();
-        }}
-        isExporting={isExporting}
-        isBuffering={isBuffering}
         showOverlay={showOverlay}
         inPoint={inPoint}
         outPoint={outPoint}
-        sequenceTotalDuration={sequenceTotalDuration}
+        singleModePlaybackDuration={singleModePlaybackDuration}
+        singleModeProgressPercent={singleModeProgressPercent}
+        singleModePlaybackTime={singleModePlaybackTime}
         focusedMarker={focusedMarker}
         onMarkerFocus={interactionCommands.markerFocus}
         onMarkerDrag={interactionCommands.markerDrag}
         onMarkerDragEnd={interactionCommands.markerDragEnd}
         onProgressBarMouseDown={handleProgressBarMouseDown}
-        onProgressBarHover={handleProgressBarHover}
-        onProgressBarLeave={handleProgressBarLeave}
-        hoverTime={hoverTime}
-        sequenceCurrentTime={sequenceCurrentTime}
-        goToPrev={goToPrev}
-        handlePlayPause={interactionCommands.playPause}
-        isPlaying={isPlaying}
-        goToNext={goToNext}
+        isPlaying={singleModeIsPlaying}
+        skipBack={interactionCommands.skipBack}
+        skipForward={interactionCommands.skipForward}
+        togglePlay={interactionCommands.playPause}
         handleSetInPoint={interactionCommands.setInPoint}
         handleSetOutPoint={interactionCommands.setOutPoint}
-        isLooping={isLooping}
+        showSingleModeClipButton={showSingleModeClipButton}
+        isSingleModeClipEnabled={isSingleModeClipEnabled}
+        onClipPrimaryAction={isSingleModeClipEnabled ? handleSingleModeClearClip : handleSingleModeSave}
+        isSingleModeClipPending={isSingleModeClipPending}
+        onFrameCapture={onFrameCapture ? handleSingleModeCaptureFrame : undefined}
+        showHoldButton={isSingleModeVideo && !!focusCutData?.cut?.id}
+        isHoldEnabled={isHoldEnabled}
+        onHoldToggle={handleSingleModeHoldToggle}
+        isLooping={singleModeIsLooping}
         toggleLooping={interactionCommands.toggleLooping}
         globalMuted={globalMuted}
         toggleGlobalMute={interactionCommands.toggleMute}
+        playbackSpeed={playbackSpeed}
+        cycleSpeedUp={cycleSingleModeSpeed}
         isFullscreen={isFullscreen}
         toggleFullscreen={toggleFullscreen}
         miniToastElement={miniToastElement}
+        handleSingleModeTimeUpdate={handleSingleModeTimeUpdate}
+        handleSingleModeLoadedMetadata={handleSingleModeLoadedMetadata}
+        onSingleModeVideoPlay={() => setSingleModeIsPlaying(true)}
+        onSingleModeVideoPause={() => setSingleModeIsPlaying(false)}
+        handleSingleModeVideoEnded={handleSingleModeVideoEnded}
+      />
+      <VideoHoldModal
+        open={showHoldModal}
+        initialDurationSec={currentFocusHold?.durationMs ? currentFocusHold.durationMs / 1000 : 1}
+        onClose={() => setShowHoldModal(false)}
+        onConfirm={handleSingleModeHoldApply}
       />
     </>
+  );
+}
+
+function PreviewModalSequenceRoot({
+  onClose,
+  exportResolution,
+  onResolutionChange,
+  focusCutId,
+  sequenceCuts,
+  sequenceContext,
+  onExportSequence,
+}: SequencePreviewModalProps) {
+  const {
+    scenes,
+    sceneOrder,
+    orderedScenes,
+    previewMode,
+    selectedSceneId,
+    cacheAsset,
+    getAsset,
+    globalVolume,
+    globalMuted,
+    toggleGlobalMute,
+    metadataStore,
+    getCutRuntime,
+    focusCutData,
+  } = usePreviewModalProjectState(focusCutId);
+  const missingFocusedCut = !!focusCutId && !focusCutData;
+
+  const [videoObjectUrl, setVideoObjectUrl] = useState<{ assetId: string; url: string } | null>(null);
+  const [selectedResolution, setSelectedResolution] = useState<ResolutionPreset>(
+    exportResolution ? { ...exportResolution } : RESOLUTION_PRESETS[0]
+  );
+  const { show: showMiniToast, element: miniToastElement } = useMiniToast();
+
+  const modalRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressFillRef = useRef<HTMLDivElement>(null);
+  const progressHandleRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const {
+    showOverlay,
+    showOverlayNow,
+    scheduleHideOverlay,
+    displayContainerRef,
+    getViewportStyle,
+    isFullscreen,
+    toggleFullscreen,
+  } = usePreviewViewShell({
+    modalRef,
+    selectedResolution,
+    overlayHideDelayMs: 300,
+  });
+
+  const { items, resolveAssetForCut } = usePreviewItemsState({
+    isSingleMode: false,
+    isSingleModeVideo: false,
+    isSingleModeImage: false,
+    asset: undefined,
+    singleModeImageData: null,
+    orderedScenes,
+    previewMode,
+    selectedSceneId,
+    getAsset,
+    metadataStore: metadataStore ?? null,
+    focusCutData,
+    missingFocusedCut,
+    sequenceCuts,
+    sequenceContext,
+  });
+  const {
+    previewSequenceItems,
+    previewSequencePlaybackItems,
+    previewSequenceItemByCutId,
+    previewSequenceItemByIndex,
+    previewAudioPlan,
+  } = usePreviewSequenceDerived({
+    items,
+    metadataStore: metadataStore ?? null,
+    getAsset,
+    getCutRuntime,
+  });
+
+  const focusedPreviewBasePlan = useMemo(() => {
+    if (!focusCutData?.cut?.id) return null;
+    return buildSequencePlan({
+      scenes,
+      sceneOrder,
+    }, {
+      metadataStore: metadataStore ?? null,
+      getAssetById: getAsset,
+      resolveCutRuntimeById: getCutRuntime,
+      framingDefaults: EXPORT_FRAMING_DEFAULTS,
+    });
+  }, [focusCutData?.cut?.id, scenes, sceneOrder, metadataStore, getAsset, getCutRuntime]);
+  const focusedPreviewWindow = useMemo(() => {
+    const cutId = focusCutData?.cut?.id;
+    if (!cutId || !focusedPreviewBasePlan) return null;
+    const matchingItems = focusedPreviewBasePlan.videoItems.filter((item) => item.cutId === cutId);
+    if (matchingItems.length === 0) return null;
+    const primaryItem = matchingItems.find((item) => !item.flags.isHold) ?? matchingItems[0];
+    const windowStartSec = primaryItem?.dstInSec ?? 0;
+    const windowEndSec = matchingItems.reduce(
+      (max, item) => Math.max(max, item.dstOutSec),
+      primaryItem?.dstOutSec ?? windowStartSec
+    );
+    if (windowEndSec <= windowStartSec) return null;
+    return {
+      startSec: windowStartSec,
+      endSec: windowEndSec,
+    };
+  }, [focusCutData?.cut?.id, focusedPreviewBasePlan]);
+  const focusedPreviewAudioPlan = useMemo(() => {
+    if (!focusedPreviewBasePlan || !focusedPreviewWindow) return null;
+    return slicePreviewAudioPlan(focusedPreviewBasePlan.audioPlan, focusedPreviewWindow);
+  }, [focusedPreviewBasePlan, focusedPreviewWindow]);
+  const effectiveSequenceAudioPlan = useMemo(() => {
+    if (!focusCutData?.cut?.id || sequenceCuts || items.length !== 1) {
+      return previewAudioPlan;
+    }
+    return focusedPreviewAudioPlan ?? previewAudioPlan;
+  }, [focusCutData?.cut?.id, sequenceCuts, items.length, focusedPreviewAudioPlan, previewAudioPlan]);
+
+  const sequenceDurations = useMemo(
+    () => previewSequencePlaybackItems.map((item) => item.normalizedDisplayTime),
+    [previewSequencePlaybackItems]
+  );
+  const sequencePlayback = useSequencePlaybackController(sequenceDurations);
+  const {
+    state: sequenceState,
+    setSource: setSequenceSource,
+    tick: sequenceTick,
+    goToNext: sequenceGoToNext,
+    goToPrev: sequenceGoToPrev,
+    toggle: sequenceToggle,
+    pause: sequencePause,
+    setLooping: setSequenceLooping,
+    setRange: setSequenceRange,
+    setBuffering: setSequenceBuffering,
+    seekAbsolute: seekSequenceAbsolute,
+    seekPercent: seekSequencePercent,
+    skip: skipSequence,
+    selectors: sequenceSelectors,
+    getLiveAbsoluteTime: getSequenceLiveAbsoluteTime,
+  } = sequencePlayback;
+  const currentIndex = sequenceState.currentIndex;
+  const sequenceAbsoluteTime = sequenceSelectors.getAbsoluteTime();
+
+  const {
+    focusedMarker,
+    inPoint,
+    outPoint,
+    notifyRangeChange,
+    stepFocusedMarker,
+    handleMarkerFocus,
+    handleMarkerDrag,
+    handleMarkerDragEnd,
+    handleContainerMouseDown,
+  } = useClipRangeState({
+    usesSequenceController: true,
+    sequenceInPoint: sequenceState.inPoint,
+    sequenceOutPoint: sequenceState.outPoint,
+    sequenceTotalDuration: sequenceState.totalDuration,
+    singleModeDuration: 0,
+    setSequenceRange,
+    frameDuration: FRAME_DURATION,
+  });
+
+  const { checkBufferStatus, sequenceMediaElement } = usePreviewSequenceRuntime({
+    items: previewSequencePlaybackItems,
+    currentIndex,
+    sequenceCurrentIndex: sequenceState.currentIndex,
+    videoObjectUrl,
+    setVideoObjectUrl,
+    setSequenceBuffering,
+    sequenceIsPlaying: sequenceState.isPlaying,
+    sequenceIsBuffering: sequenceState.isBuffering,
+    initialPreloadItems: INITIAL_PRELOAD_ITEMS,
+    playSafeAhead: PLAY_SAFE_AHEAD,
+    preloadAhead: PRELOAD_AHEAD,
+    revokeIfBlob,
+    setSequenceSource,
+    sequenceTick,
+    sequenceGoToNext,
+    previewSequenceItemByIndex,
+    getSequenceLiveAbsoluteTime,
+    showMiniToast,
+    videoRef,
+    sequenceAbsoluteTime,
+    previewAudioPlan: effectiveSequenceAudioPlan,
+    globalMuted,
+    globalVolume,
+  });
+
+  const {
+    goToNext,
+    goToPrev,
+    handlePlayPause,
+    toggleLooping,
+    pauseBeforeExport,
+  } = usePreviewPlaybackControls({
+    itemsLength: previewSequenceItems.length,
+    sequenceState,
+    getSequenceAbsoluteTime: sequenceSelectors.getAbsoluteTime,
+    sequenceGoToNext,
+    sequenceGoToPrev,
+    sequenceToggle,
+    sequencePause,
+    setSequenceLooping,
+    seekSequenceAbsolute,
+    setSequenceBuffering,
+    checkBufferStatus,
+  });
+
+  const handleSequenceMarkerDragEnd = useCallback(async () => {
+    handleMarkerDragEnd();
+  }, [handleMarkerDragEnd]);
+
+  const interactionCommands = usePreviewInteractionCommands({
+    mode: 'sequence',
+    isPlaying: sequenceState.isPlaying,
+    focusedMarker,
+    items: previewSequenceItems,
+    currentIndex,
+    inPoint,
+    outPoint,
+    singleModeDuration: 0,
+    sequenceTotalDuration: sequenceState.totalDuration,
+    videoRef,
+    resolveAssetForCut,
+    playSingleMode: NOOP,
+    pauseSingleMode: NOOP,
+    seekSingleMode: NOOP,
+    getSingleModeCurrentTime: NOOP_NUMBER,
+    getSequenceAbsoluteTime: sequenceSelectors.getAbsoluteTime,
+    seekSequenceAbsolute,
+    seekSequencePercent,
+    sequencePause,
+    skipSequence,
+    setSequenceRange,
+    notifyRangeChange,
+    handlePlayPause,
+    stepFocusedMarker,
+    handleSingleModeSetInPoint: NOOP,
+    handleSingleModeSetOutPoint: NOOP,
+    toggleLooping,
+    toggleGlobalMute,
+    handleMarkerFocus,
+    handleMarkerDrag,
+    handleMarkerDragEnd: handleSequenceMarkerDragEnd,
+  });
+
+  const {
+    isDragging,
+    hoverTime,
+    handleProgressBarMouseDown,
+    handleProgressBarHover,
+    handleProgressBarLeave,
+  } = usePreviewInputs({
+    progressBarRef,
+    itemsLength: previewSequenceItems.length,
+    totalDuration: sequenceState.totalDuration,
+    onPauseBeforeSeek: sequencePause,
+    onSeekAbsolute: interactionCommands.seekToAbsolute,
+    onSeekPercent: interactionCommands.seekToPercent,
+    onClose,
+    onPlayPause: interactionCommands.playPause,
+    onSkipBack: interactionCommands.skipBack,
+    onSkipForward: interactionCommands.skipForward,
+    onStepBack: interactionCommands.stepBack,
+    onStepForward: interactionCommands.stepForward,
+    onToggleFullscreen: toggleFullscreen,
+    onToggleLooping: interactionCommands.toggleLooping,
+    onSetInPoint: interactionCommands.setInPoint,
+    onSetOutPoint: interactionCommands.setOutPoint,
+    onToggleMute: interactionCommands.toggleMute,
+  });
+
+  const { isExporting, handleExportFull } = usePreviewExportActions({
+    items,
+    selectedResolution,
+    metadataStore: metadataStore ?? null,
+    getAsset,
+    getCutRuntime,
+    onExportSequence,
+    pauseBeforeExport,
+  });
+
+  const {
+    currentItem,
+    sequenceTotalDuration,
+    sequenceCurrentTime,
+    previewResolutionLabel,
+    currentFraming,
+    previewDisplayClassName,
+  } = usePreviewSharedViewState({
+    isSingleMode: false,
+    isSingleModeVideo: false,
+    usesSequenceController: true,
+    isDragging,
+    items: previewSequenceItems,
+    currentIndex,
+    sequenceCurrentIndex: sequenceState.currentIndex,
+    sequenceTotalDuration: sequenceState.totalDuration,
+    getSequenceGlobalProgress: sequenceSelectors.getGlobalProgress,
+    getSequenceAbsoluteTime: sequenceSelectors.getAbsoluteTime,
+    getSequenceLiveAbsoluteTime,
+    sequenceIsPlaying: sequenceState.isPlaying,
+    singleModeIsPlaying: false,
+    singleModeDuration: 0,
+    singleModeCurrentTime: 0,
+    asset: undefined,
+    cacheAsset,
+    focusCut: null,
+    previewSequenceItemByCutId,
+    resolveAssetForCut,
+    selectedResolution,
+    globalVolume,
+    shouldMuteEmbeddedAudio: NOOP_MUTE_EMBEDDED,
+    videoRef,
+    progressFillRef,
+    progressHandleRef,
+  });
+
+  return (
+    <PreviewModalSequenceView
+      modalRef={modalRef}
+      displayContainerRef={displayContainerRef}
+      progressBarRef={progressBarRef}
+      progressFillRef={progressFillRef}
+      progressHandleRef={progressHandleRef}
+      onClose={onClose}
+      onContainerMouseDown={handleContainerMouseDown}
+      showOverlayNow={showOverlayNow}
+      scheduleHideOverlay={scheduleHideOverlay}
+      previewDisplayClassName={previewDisplayClassName}
+      items={previewSequenceItems}
+      missingFocusedCut={missingFocusedCut}
+      currentIndex={currentIndex}
+      currentItem={currentItem}
+      sequenceMediaElement={sequenceMediaElement}
+      resolveAssetForCut={resolveAssetForCut}
+      getViewportStyle={getViewportStyle}
+      currentFraming={currentFraming}
+      selectedResolution={selectedResolution}
+      onResolutionSelect={(preset) => {
+        setSelectedResolution(preset);
+        onResolutionChange?.(preset);
+      }}
+      previewResolutionLabel={previewResolutionLabel}
+      onExportFull={() => {
+        void handleExportFull();
+      }}
+      isExporting={isExporting}
+      isBuffering={sequenceState.isBuffering}
+      showOverlay={showOverlay}
+      inPoint={inPoint}
+      outPoint={outPoint}
+      sequenceTotalDuration={sequenceTotalDuration}
+      focusedMarker={focusedMarker}
+      onMarkerFocus={interactionCommands.markerFocus}
+      onMarkerDrag={interactionCommands.markerDrag}
+      onMarkerDragEnd={interactionCommands.markerDragEnd}
+      onProgressBarMouseDown={handleProgressBarMouseDown}
+      onProgressBarHover={handleProgressBarHover}
+      onProgressBarLeave={handleProgressBarLeave}
+      hoverTime={hoverTime}
+      sequenceCurrentTime={sequenceCurrentTime}
+      goToPrev={goToPrev}
+      handlePlayPause={interactionCommands.playPause}
+      isPlaying={sequenceState.isPlaying}
+      goToNext={goToNext}
+      handleSetInPoint={interactionCommands.setInPoint}
+      handleSetOutPoint={interactionCommands.setOutPoint}
+      isLooping={sequenceState.isLooping}
+      toggleLooping={interactionCommands.toggleLooping}
+      globalMuted={globalMuted}
+      toggleGlobalMute={interactionCommands.toggleMute}
+      isFullscreen={isFullscreen}
+      toggleFullscreen={toggleFullscreen}
+      miniToastElement={miniToastElement}
+    />
   );
 }

@@ -10,7 +10,6 @@ import {
 import type { PreviewSequencePlaybackItem } from './types';
 
 interface UsePreviewSequenceMediaSourceInput {
-  usesSequenceController: boolean;
   items: PreviewSequencePlaybackItem[];
   currentIndex: number;
   videoObjectUrl: { assetId: string; url: string } | null;
@@ -24,7 +23,6 @@ interface UsePreviewSequenceMediaSourceInput {
 }
 
 export function usePreviewSequenceMediaSource({
-  usesSequenceController,
   items,
   currentIndex,
   videoObjectUrl,
@@ -39,12 +37,6 @@ export function usePreviewSequenceMediaSource({
   const [sequenceMediaElement, setSequenceMediaElement] = useState<JSX.Element | null>(null);
 
   useEffect(() => {
-    if (!usesSequenceController) {
-      setSequenceSource(null);
-      setSequenceMediaElement(null);
-      return;
-    }
-
     setSequenceSource(null);
     setSequenceMediaElement(null);
 
@@ -106,7 +98,6 @@ export function usePreviewSequenceMediaSource({
       setSequenceMediaElement(source.element);
     }
   }, [
-    usesSequenceController,
     items,
     currentIndex,
     videoObjectUrl,

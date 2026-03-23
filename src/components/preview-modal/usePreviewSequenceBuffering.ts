@@ -8,7 +8,6 @@ interface VideoObjectUrlState {
 }
 
 interface UsePreviewSequenceBufferingInput {
-  isSingleMode: boolean;
   items: PreviewSequencePlaybackItem[];
   currentIndex: number;
   videoObjectUrl: VideoObjectUrlState | null;
@@ -23,7 +22,6 @@ interface UsePreviewSequenceBufferingInput {
 }
 
 export function usePreviewSequenceBuffering({
-  isSingleMode,
   items,
   currentIndex,
   videoObjectUrl,
@@ -137,8 +135,6 @@ export function usePreviewSequenceBuffering({
   }, [items, getVideoAssetId, revokeIfBlob]);
 
   useEffect(() => {
-    if (isSingleMode) return;
-
     const activeAssetIds = new Set<string>();
     for (let i = 0; i < items.length; i++) {
       const assetId = getVideoAssetId(i);
@@ -155,10 +151,10 @@ export function usePreviewSequenceBuffering({
         preloadingRef.current.delete(assetId);
       }
     }
-  }, [isSingleMode, items, getVideoAssetId, revokeIfBlob]);
+  }, [items, getVideoAssetId, revokeIfBlob]);
 
   useEffect(() => {
-    if (isSingleMode || items.length === 0) return;
+    if (items.length === 0) return;
 
     const initialPreload = async () => {
       const initialItems: number[] = [];
@@ -172,10 +168,10 @@ export function usePreviewSequenceBuffering({
     };
 
     void initialPreload();
-  }, [isSingleMode, items, initialPreloadItems, preloadAhead, preloadItems, getItemsInTimeWindow]);
+  }, [items, initialPreloadItems, preloadAhead, preloadItems, getItemsInTimeWindow]);
 
   useEffect(() => {
-    if (isSingleMode || items.length === 0) return;
+    if (items.length === 0) return;
 
     const manageBuffer = async () => {
       const itemsToPreload = getItemsInTimeWindow(currentIndex, preloadAhead);
@@ -215,7 +211,6 @@ export function usePreviewSequenceBuffering({
 
     void manageBuffer();
   }, [
-    isSingleMode,
     items,
     currentIndex,
     videoObjectUrl,
@@ -233,15 +228,13 @@ export function usePreviewSequenceBuffering({
   ]);
 
   useEffect(() => {
-    if (isSingleMode) return;
-
     return () => {
       for (const url of videoUrlCacheRef.current.values()) {
         revokeIfBlob(url);
       }
       videoUrlCacheRef.current.clear();
     };
-  }, [isSingleMode, revokeIfBlob]);
+  }, [revokeIfBlob]);
 
   return { checkBufferStatus };
 }

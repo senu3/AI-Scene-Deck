@@ -20,7 +20,6 @@ interface HarnessProps {
 
 function Harness({ items, setVideoObjectUrl }: HarnessProps) {
   usePreviewSequenceBuffering({
-    isSingleMode: false,
     items,
     currentIndex: 0,
     videoObjectUrl: null,

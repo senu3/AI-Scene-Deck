@@ -12,8 +12,6 @@ interface SequenceStateSnapshot {
 }
 
 interface UsePreviewPlaybackControlsInput {
-  isSingleMode: boolean;
-  usesSequenceController: boolean;
   itemsLength: number;
   sequenceState: SequenceStateSnapshot;
   getSequenceAbsoluteTime: () => number;
@@ -25,13 +23,9 @@ interface UsePreviewPlaybackControlsInput {
   seekSequenceAbsolute: (time: number) => void;
   setSequenceBuffering: (isBuffering: boolean) => void;
   checkBufferStatus: () => { ready: boolean; neededItems: number[] };
-  setSingleModeIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
-  setSingleModeIsLooping: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export function usePreviewPlaybackControls({
-  isSingleMode,
-  usesSequenceController,
   itemsLength,
   sequenceState,
   getSequenceAbsoluteTime,
@@ -43,21 +37,17 @@ export function usePreviewPlaybackControls({
   seekSequenceAbsolute,
   setSequenceBuffering,
   checkBufferStatus,
-  setSingleModeIsPlaying,
-  setSingleModeIsLooping,
 }: UsePreviewPlaybackControlsInput) {
   const goToNext = useCallback(() => {
-    if (isSingleMode) return;
     sequenceGoToNext();
-  }, [isSingleMode, sequenceGoToNext]);
+  }, [sequenceGoToNext]);
 
   const goToPrev = useCallback(() => {
-    if (isSingleMode) return;
     sequenceGoToPrev();
-  }, [isSingleMode, sequenceGoToPrev]);
+  }, [sequenceGoToPrev]);
 
   const handlePlayPause = useCallback(() => {
-    if (!usesSequenceController || itemsLength === 0) return;
+    if (itemsLength === 0) return;
 
     if (!sequenceState.isPlaying) {
       const currentAbsTime = getSequenceAbsoluteTime();
@@ -73,10 +63,10 @@ export function usePreviewPlaybackControls({
     }
 
     sequenceToggle();
-  }, [usesSequenceController, itemsLength, sequenceState, getSequenceAbsoluteTime, seekSequenceAbsolute, sequenceToggle]);
+  }, [itemsLength, sequenceState, getSequenceAbsoluteTime, seekSequenceAbsolute, sequenceToggle]);
 
   useEffect(() => {
-    if (isSingleMode || itemsLength === 0) return;
+    if (itemsLength === 0) return;
 
     const { ready } = checkBufferStatus();
     if (sequenceState.isPlaying && !ready && !sequenceState.isBuffering) {
@@ -84,23 +74,15 @@ export function usePreviewPlaybackControls({
     } else if (sequenceState.isPlaying && ready && sequenceState.isBuffering) {
       setSequenceBuffering(false);
     }
-  }, [isSingleMode, itemsLength, sequenceState.isPlaying, sequenceState.isBuffering, checkBufferStatus, setSequenceBuffering]);
+  }, [itemsLength, sequenceState.isPlaying, sequenceState.isBuffering, checkBufferStatus, setSequenceBuffering]);
 
   const toggleLooping = useCallback(() => {
-    if (!usesSequenceController) {
-      setSingleModeIsLooping(prev => !prev);
-    } else {
-      setSequenceLooping(!sequenceState.isLooping);
-    }
-  }, [usesSequenceController, sequenceState.isLooping, setSequenceLooping, setSingleModeIsLooping]);
+    setSequenceLooping(!sequenceState.isLooping);
+  }, [sequenceState.isLooping, setSequenceLooping]);
 
   const pauseBeforeExport = useCallback(() => {
-    if (!usesSequenceController) {
-      setSingleModeIsPlaying(false);
-      return;
-    }
     sequencePause();
-  }, [usesSequenceController, sequencePause, setSingleModeIsPlaying]);
+  }, [sequencePause]);
 
   return {
     goToNext,

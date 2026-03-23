@@ -40,7 +40,6 @@ function Harness({ items, previewSequenceItemByIndex }: HarnessProps) {
   const getSequenceLiveAbsoluteTime = useCallback(() => 0, []);
 
   usePreviewSequenceMediaSource({
-    usesSequenceController: true,
     items,
     currentIndex: 0,
     videoObjectUrl,

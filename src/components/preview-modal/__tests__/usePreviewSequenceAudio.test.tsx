@@ -111,7 +111,6 @@ function Harness({
   isBuffering = false,
 }: HarnessProps) {
   usePreviewSequenceAudio({
-    isSingleMode: false,
     itemsLength: 2,
     absoluteTime,
     isPlaying,

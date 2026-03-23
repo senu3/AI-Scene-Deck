@@ -2,7 +2,6 @@ import type { ExportAudioPlan } from '../../utils/exportAudioPlan';
 import { usePreviewAudioPlanPlayback } from './usePreviewAudioPlanPlayback';
 
 interface UsePreviewSequenceAudioInput {
-  isSingleMode: boolean;
   itemsLength: number;
   absoluteTime: number;
   isPlaying: boolean;
@@ -13,7 +12,6 @@ interface UsePreviewSequenceAudioInput {
 }
 
 export function usePreviewSequenceAudio({
-  isSingleMode,
   itemsLength,
   absoluteTime,
   isPlaying,
@@ -23,7 +21,7 @@ export function usePreviewSequenceAudio({
   globalVolume,
 }: UsePreviewSequenceAudioInput) {
   usePreviewAudioPlanPlayback({
-    enabled: !isSingleMode && itemsLength > 0,
+    enabled: itemsLength > 0,
     absoluteTime,
     isPlaying,
     isBuffering,

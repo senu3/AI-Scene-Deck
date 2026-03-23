@@ -8,7 +8,6 @@ import { usePreviewSequenceBuffering } from './usePreviewSequenceBuffering';
 import { usePreviewSequenceMediaSource } from './usePreviewSequenceMediaSource';
 
 interface UsePreviewSequenceRuntimeInput {
-  mode: 'single' | 'sequence';
   items: PreviewSequencePlaybackItem[];
   currentIndex: number;
   sequenceCurrentIndex: number;
@@ -35,7 +34,6 @@ interface UsePreviewSequenceRuntimeInput {
 }
 
 export function usePreviewSequenceRuntime({
-  mode,
   items,
   currentIndex,
   sequenceCurrentIndex,
@@ -60,11 +58,7 @@ export function usePreviewSequenceRuntime({
   globalMuted,
   globalVolume,
 }: UsePreviewSequenceRuntimeInput) {
-  const isSingleMode = mode === 'single';
-  const usesSequenceController = mode === 'sequence';
-
   const { checkBufferStatus } = usePreviewSequenceBuffering({
-    isSingleMode,
     items,
     currentIndex,
     videoObjectUrl,
@@ -79,7 +73,6 @@ export function usePreviewSequenceRuntime({
   });
 
   const { sequenceMediaElement } = usePreviewSequenceMediaSource({
-    usesSequenceController,
     items,
     currentIndex: sequenceCurrentIndex,
     videoObjectUrl,
@@ -93,7 +86,6 @@ export function usePreviewSequenceRuntime({
   });
 
   usePreviewSequenceAudio({
-    isSingleMode,
     itemsLength: items.length,
     absoluteTime: sequenceAbsoluteTime,
     isPlaying: sequenceIsPlaying,
