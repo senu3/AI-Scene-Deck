@@ -268,6 +268,10 @@ function App() {
 
       // Tab key to toggle asset drawer
       if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
+        const target = e.target as HTMLElement | null;
+        if (target?.closest('.preview-modal')) {
+          return;
+        }
         e.preventDefault();
         toggleAssetDrawer();
         return;

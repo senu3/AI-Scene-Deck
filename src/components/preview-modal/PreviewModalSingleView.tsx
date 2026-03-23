@@ -283,7 +283,7 @@ export function PreviewModalSingleView({
                       inPoint={inPoint}
                       outPoint={outPoint}
                       duration={singleModePlaybackDuration}
-                      showMilliseconds={isSingleModeVideo}
+                      showMilliseconds={false}
                       focusedMarker={focusedMarker}
                       onMarkerFocus={onMarkerFocus}
                       onMarkerStep={onMarkerStep}
