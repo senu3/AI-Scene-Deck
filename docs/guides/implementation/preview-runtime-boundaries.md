@@ -56,6 +56,9 @@
   - 正本は domain 正規化後の canonical cut timing とし、Preview 側の独自再計算や Preview/Export の時間定義分岐を禁止する。
 - IN/OUT（Clip Range）:
   - 更新入力は playhead、基準は canonical timing。
+  - 最小 range span は 1 frame とし、I/O ボタン・marker drag・keyboard nudge の全経路で同じ clamp を使う。
+  - marker focus は drag end で落とさず、handle は keyboard focus 可能にする。
+  - IN/OUT が両方ある場合、selection は固定長 window として平行移動できる。
   - clamp/normalize/swap/reject は `clipRangeOps` の純関数に集約し、`PreviewModal.tsx` に戻さない。
   - clip 保存/clear 後のサムネイル更新は command 外の非同期 queue（`features/cut`）で追随させる。
 - Sequence Playback Spec:
