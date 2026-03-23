@@ -3,7 +3,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Cut } from '../../types';
 import { createImageMediaSource, type MediaSource } from '../../utils/previewMedia';
 import { clampToDuration } from './helpers';
-import { computeNextRangeForSetIn, computeNextRangeForSetOut } from './clipRangeOps';
+import {
+  computeNextRangeForSetIn,
+  computeNextRangeForSetOut,
+  hasValidRangeSpan,
+  moveRangeWindow,
+} from './clipRangeOps';
 import type { FocusedMarker } from './parts/PlaybackRangeMarkers';
 
 const CLIP_POINT_EPSILON = 0.0001;
@@ -23,7 +28,6 @@ interface UsePreviewSingleRuntimeInput {
   singleModeInPoint: number | null;
   singleModeOutPoint: number | null;
   singleModeIsLooping: boolean;
-  focusedMarker: FocusedMarker;
   setFocusedMarker: (marker: FocusedMarker) => void;
   setSingleModeInPoint: (value: number | null) => void;
   setSingleModeOutPoint: (value: number | null) => void;
@@ -63,7 +67,6 @@ export function usePreviewSingleRuntime({
   singleModeInPoint,
   singleModeOutPoint,
   singleModeIsLooping,
-  focusedMarker,
   setFocusedMarker,
   setSingleModeInPoint,
   setSingleModeOutPoint,
@@ -170,6 +173,7 @@ export function usePreviewSingleRuntime({
   const commitSingleModeClipPoints = useCallback(async (nextInPoint: number | null, nextOutPoint: number | null) => {
     if (!isSingleModeVideo || !onClipSave) return;
     if (nextInPoint === null || nextOutPoint === null) return;
+    if (!hasValidRangeSpan(nextInPoint, nextOutPoint, singleModeDuration)) return;
     if (isSingleModeClipPending) {
       queuedClipCommitRef.current = { inPoint: nextInPoint, outPoint: nextOutPoint };
       return;
@@ -197,7 +201,7 @@ export function usePreviewSingleRuntime({
     } finally {
       setIsSingleModeClipPending(false);
     }
-  }, [isSingleModeVideo, onClipSave, isSingleModeClipPending, showMiniToast, getCurrentClipRevision]);
+  }, [isSingleModeVideo, onClipSave, isSingleModeClipPending, showMiniToast, getCurrentClipRevision, singleModeDuration]);
 
   useEffect(() => {
     singleModeRangeRef.current = { inPoint: singleModeInPoint, outPoint: singleModeOutPoint };
@@ -415,6 +419,13 @@ export function usePreviewSingleRuntime({
     setSingleModeIsPlaying(false);
   }, [isSingleModeImage, isSingleModeVideo, videoRef]);
 
+  const beginRangeEdit = useCallback(() => {
+    isDraggingRef.current = true;
+    if (isPlayingRef.current) {
+      pauseSingleMode();
+    }
+  }, [pauseSingleMode]);
+
   const handleSingleModeSetInPoint = useCallback(() => {
     if (!isSingleModeVideo) return;
     const nextRange = computeNextRangeForSetIn({
@@ -422,13 +433,9 @@ export function usePreviewSingleRuntime({
       duration: singleModeDuration,
       inPoint,
       outPoint,
-      keepOppositeWhenCrossed: isSingleModeClipEnabled,
     });
     const { inPoint: nextInPoint, outPoint: nextOutPoint } = nextRange;
     setSingleModeRange(nextInPoint, nextOutPoint);
-    if (focusedMarker === 'out' && nextOutPoint === null) {
-      setFocusedMarker(null);
-    }
     notifyRangeChange(nextInPoint, nextOutPoint);
     void commitSingleModeClipPoints(nextInPoint, nextOutPoint);
   }, [
@@ -437,8 +444,6 @@ export function usePreviewSingleRuntime({
     singleModeDuration,
     inPoint,
     outPoint,
-    focusedMarker,
-    setFocusedMarker,
     notifyRangeChange,
     commitSingleModeClipPoints,
     setSingleModeRange,
@@ -452,13 +457,9 @@ export function usePreviewSingleRuntime({
       duration: singleModeDuration,
       inPoint,
       outPoint,
-      keepOppositeWhenCrossed: isSingleModeClipEnabled,
     });
     const { inPoint: nextInPoint, outPoint: nextOutPoint } = nextRange;
     setSingleModeRange(nextInPoint, nextOutPoint);
-    if (focusedMarker === 'in' && nextInPoint === null) {
-      setFocusedMarker(null);
-    }
     notifyRangeChange(nextInPoint, nextOutPoint);
     void commitSingleModeClipPoints(nextInPoint, nextOutPoint);
   }, [
@@ -467,8 +468,6 @@ export function usePreviewSingleRuntime({
     singleModeDuration,
     inPoint,
     outPoint,
-    focusedMarker,
-    setFocusedMarker,
     notifyRangeChange,
     commitSingleModeClipPoints,
     setSingleModeRange,
@@ -498,6 +497,7 @@ export function usePreviewSingleRuntime({
   const handleSingleModeSave = useCallback(async () => {
     if (!isSingleModeVideo) return;
     if (inPoint === null || outPoint === null) return;
+    if (!hasValidRangeSpan(inPoint, outPoint, singleModeDuration)) return;
 
     const start = Math.min(inPoint, outPoint);
     const end = Math.max(inPoint, outPoint);
@@ -513,7 +513,7 @@ export function usePreviewSingleRuntime({
     } finally {
       setIsSingleModeClipPending(false);
     }
-  }, [isSingleModeVideo, inPoint, outPoint, onClipSave, showMiniToast, getCurrentClipRevision]);
+  }, [isSingleModeVideo, inPoint, outPoint, onClipSave, showMiniToast, getCurrentClipRevision, singleModeDuration]);
 
   const handleSingleModeCaptureFrame = useCallback(async () => {
     if (!isSingleModeVideo || !onFrameCapture) return;
@@ -573,13 +573,43 @@ export function usePreviewSingleRuntime({
     }
   }, [isSingleModeVideo, singleModeIsLooping, inPoint, outPoint, videoRef, pauseSingleMode]);
 
+  const handleMarkerDragStart = useCallback(() => {
+    beginRangeEdit();
+  }, [beginRangeEdit]);
+
   const handleMarkerDrag = useCallback((marker: 'in' | 'out', newTime: number): number => {
+    beginRangeEdit();
     if (isSingleModeVideo) {
-      isDraggingRef.current = true;
       singleModeClipDragDirtyRef.current = true;
     }
     return setMarkerTime(marker, newTime);
-  }, [setMarkerTime, isSingleModeVideo]);
+  }, [beginRangeEdit, setMarkerTime, isSingleModeVideo]);
+
+  const handleSelectionDragStart = useCallback(() => {
+    beginRangeEdit();
+  }, [beginRangeEdit]);
+
+  const handleSelectionDrag = useCallback((baseInPoint: number, baseOutPoint: number, deltaTime: number) => {
+    beginRangeEdit();
+    const nextRange = moveRangeWindow({
+      inPoint: baseInPoint,
+      outPoint: baseOutPoint,
+      duration: singleModeDuration,
+      deltaTime,
+    });
+    setSingleModeRange(nextRange.inPoint, nextRange.outPoint);
+    notifyRangeChange(nextRange.inPoint, nextRange.outPoint);
+    if (isSingleModeVideo) {
+      singleModeClipDragDirtyRef.current = true;
+    }
+    return nextRange;
+  }, [
+    beginRangeEdit,
+    singleModeDuration,
+    setSingleModeRange,
+    notifyRangeChange,
+    isSingleModeVideo,
+  ]);
 
   const handleMarkerDragEnd = useCallback(async () => {
     if (isSingleModeVideo && singleModeClipDragDirtyRef.current) {
@@ -594,8 +624,7 @@ export function usePreviewSingleRuntime({
       syncLocalRangeFromExternal(latestExternal);
       lastSyncedExternalRef.current = latestExternal;
     }
-    setFocusedMarker(null);
-  }, [isSingleModeVideo, commitSingleModeClipPoints, setFocusedMarker, syncLocalRangeFromExternal]);
+  }, [isSingleModeVideo, commitSingleModeClipPoints, syncLocalRangeFromExternal]);
 
   useEffect(() => {
     if (!isSingleModeVideo || !videoRef.current) return;
@@ -620,7 +649,10 @@ export function usePreviewSingleRuntime({
     handleSingleModeTimeUpdate,
     handleSingleModeLoadedMetadata,
     handleSingleModeVideoEnded,
+    handleMarkerDragStart,
     handleMarkerDrag,
+    handleSelectionDragStart,
+    handleSelectionDrag,
     handleMarkerDragEnd,
   };
 }

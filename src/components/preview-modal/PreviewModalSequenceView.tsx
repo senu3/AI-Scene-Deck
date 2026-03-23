@@ -40,8 +40,12 @@ interface PreviewModalSequenceViewProps {
   sequenceTotalDuration: number;
   focusedMarker: FocusedMarker;
   onMarkerFocus: (marker: FocusedMarker) => void;
+  onMarkerDragStart: (marker: 'in' | 'out') => void;
   onMarkerDrag: (marker: 'in' | 'out', newTime: number) => void;
   onMarkerDragEnd: () => void;
+  onSelectionDragStart: () => void;
+  onSelectionDrag: (baseInPoint: number, baseOutPoint: number, deltaTime: number) => void;
+  onSelectionDragEnd: () => void;
   onProgressBarMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
   onProgressBarHover: (e: React.MouseEvent<HTMLDivElement>) => void;
   onProgressBarLeave: () => void;
@@ -93,8 +97,12 @@ export function PreviewModalSequenceView({
   sequenceTotalDuration,
   focusedMarker,
   onMarkerFocus,
+  onMarkerDragStart,
   onMarkerDrag,
   onMarkerDragEnd,
+  onSelectionDragStart,
+  onSelectionDrag,
+  onSelectionDragEnd,
   onProgressBarMouseDown,
   onProgressBarHover,
   onProgressBarLeave,
@@ -260,8 +268,12 @@ export function PreviewModalSequenceView({
                     showMilliseconds={false}
                     focusedMarker={focusedMarker}
                     onMarkerFocus={onMarkerFocus}
+                    onMarkerDragStart={onMarkerDragStart}
                     onMarkerDrag={onMarkerDrag}
                     onMarkerDragEnd={onMarkerDragEnd}
+                    onSelectionDragStart={onSelectionDragStart}
+                    onSelectionDrag={onSelectionDrag}
+                    onSelectionDragEnd={onSelectionDragEnd}
                     progressBarRef={progressBarRef}
                   />
                   <div ref={progressFillRef} className="preview-progress-fill" />

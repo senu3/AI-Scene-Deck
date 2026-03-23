@@ -1,3 +1,4 @@
+import { FRAME_DURATION } from './constants';
 import { clampToDuration } from './helpers';
 
 interface ComputeRangeInput {
@@ -5,7 +6,37 @@ interface ComputeRangeInput {
   duration: number;
   inPoint: number | null;
   outPoint: number | null;
-  keepOppositeWhenCrossed?: boolean;
+}
+
+interface ConstrainMarkerTimeInput {
+  marker: 'in' | 'out';
+  candidateTime: number;
+  duration: number;
+  inPoint: number | null;
+  outPoint: number | null;
+}
+
+interface MoveRangeWindowInput {
+  inPoint: number | null;
+  outPoint: number | null;
+  duration: number;
+  deltaTime: number;
+}
+
+export const MIN_CLIP_RANGE_SPAN = FRAME_DURATION;
+
+function resolveEffectiveMinSpan(duration: number): number {
+  return Math.max(0, Math.min(duration, MIN_CLIP_RANGE_SPAN));
+}
+
+function clampInPointAgainstOutPoint(candidateTime: number, duration: number, outPoint: number): number {
+  const maxInPoint = Math.max(0, outPoint - resolveEffectiveMinSpan(duration));
+  return Math.min(candidateTime, maxInPoint);
+}
+
+function clampOutPointAgainstInPoint(candidateTime: number, duration: number, inPoint: number): number {
+  const minOutPoint = Math.min(duration, inPoint + resolveEffectiveMinSpan(duration));
+  return Math.max(candidateTime, minOutPoint);
 }
 
 export function computeNextRangeForSetIn({
@@ -13,18 +44,16 @@ export function computeNextRangeForSetIn({
   duration,
   inPoint: _inPoint,
   outPoint,
-  keepOppositeWhenCrossed = false,
 }: ComputeRangeInput): { inPoint: number | null; outPoint: number | null } {
   void _inPoint;
   const nextInPoint = clampToDuration(playheadTime, duration);
   if (outPoint === null) {
     return { inPoint: nextInPoint, outPoint };
   }
-  const nextOutPoint = keepOppositeWhenCrossed
-    ? outPoint
-    : (nextInPoint >= outPoint ? null : outPoint);
-  const constrainedInPoint = keepOppositeWhenCrossed ? Math.min(nextInPoint, outPoint) : nextInPoint;
-  return { inPoint: constrainedInPoint, outPoint: nextOutPoint };
+  return {
+    inPoint: clampInPointAgainstOutPoint(nextInPoint, duration, outPoint),
+    outPoint,
+  };
 }
 
 export function computeNextRangeForSetOut({
@@ -32,18 +61,64 @@ export function computeNextRangeForSetOut({
   duration,
   inPoint,
   outPoint: _outPoint,
-  keepOppositeWhenCrossed = false,
 }: ComputeRangeInput): { inPoint: number | null; outPoint: number | null } {
   void _outPoint;
   const nextOutPoint = clampToDuration(playheadTime, duration);
   if (inPoint === null) {
     return { inPoint, outPoint: nextOutPoint };
   }
-  const nextInPoint = keepOppositeWhenCrossed
-    ? inPoint
-    : (nextOutPoint <= inPoint ? null : inPoint);
-  const constrainedOutPoint = keepOppositeWhenCrossed ? Math.max(nextOutPoint, inPoint) : nextOutPoint;
-  return { inPoint: nextInPoint, outPoint: constrainedOutPoint };
+  return {
+    inPoint,
+    outPoint: clampOutPointAgainstInPoint(nextOutPoint, duration, inPoint),
+  };
+}
+
+export function constrainMarkerTime({
+  marker,
+  candidateTime,
+  duration,
+  inPoint,
+  outPoint,
+}: ConstrainMarkerTimeInput): number {
+  const nextTime = clampToDuration(candidateTime, duration);
+  if (marker === 'in' && outPoint !== null) {
+    return clampInPointAgainstOutPoint(nextTime, duration, outPoint);
+  }
+  if (marker === 'out' && inPoint !== null) {
+    return clampOutPointAgainstInPoint(nextTime, duration, inPoint);
+  }
+  return nextTime;
+}
+
+export function moveRangeWindow({
+  inPoint,
+  outPoint,
+  duration,
+  deltaTime,
+}: MoveRangeWindowInput): { inPoint: number | null; outPoint: number | null } {
+  if (inPoint === null || outPoint === null) {
+    return { inPoint, outPoint };
+  }
+
+  const rangeStart = Math.min(inPoint, outPoint);
+  const rangeEnd = Math.max(inPoint, outPoint);
+  const span = rangeEnd - rangeStart;
+  const maxStart = Math.max(0, duration - span);
+  const nextStart = clampToDuration(rangeStart + deltaTime, maxStart);
+
+  return {
+    inPoint: nextStart,
+    outPoint: nextStart + span,
+  };
+}
+
+export function hasValidRangeSpan(
+  inPoint: number | null,
+  outPoint: number | null,
+  duration: number,
+): boolean {
+  if (inPoint === null || outPoint === null) return false;
+  return Math.abs(outPoint - inPoint) >= resolveEffectiveMinSpan(duration);
 }
 
 interface ResolveUiPlayheadTimeInput {

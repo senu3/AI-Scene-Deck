@@ -39,6 +39,7 @@ import {
 import { revokeIfBlob } from './preview-modal/helpers';
 import { PreviewModalSequenceView } from './preview-modal/PreviewModalSequenceView';
 import { PreviewModalSingleView } from './preview-modal/PreviewModalSingleView';
+import { hasValidRangeSpan } from './preview-modal/clipRangeOps';
 import { useClipRangeState } from './preview-modal/useClipRangeState';
 import { usePreviewSequenceDerived } from './preview-modal/usePreviewSequenceDerived';
 import { usePreviewSingleAttachedAudio } from './preview-modal/usePreviewSingleAttachedAudio';
@@ -305,7 +306,10 @@ function PreviewModalSingleRoot({
     handleSingleModeTimeUpdate,
     handleSingleModeLoadedMetadata,
     handleSingleModeVideoEnded,
+    handleMarkerDragStart,
     handleMarkerDrag,
+    handleSelectionDragStart,
+    handleSelectionDrag,
     handleMarkerDragEnd,
   } = usePreviewSingleRuntime({
     isSingleModeVideo,
@@ -322,7 +326,6 @@ function PreviewModalSingleRoot({
     singleModeInPoint,
     singleModeOutPoint,
     singleModeIsLooping,
-    focusedMarker,
     setFocusedMarker,
     setSingleModeInPoint,
     setSingleModeOutPoint,
@@ -413,8 +416,12 @@ function PreviewModalSingleRoot({
     toggleLooping,
     toggleGlobalMute,
     handleMarkerFocus,
+    handleMarkerDragStart,
     handleMarkerDrag,
     handleMarkerDragEnd,
+    handleSelectionDragStart,
+    handleSelectionDrag,
+    handleSelectionDragEnd: handleMarkerDragEnd,
   });
 
   const {
@@ -476,8 +483,11 @@ function PreviewModalSingleRoot({
     progressHandleRef,
   });
 
-  const hasSingleModeRange = isSingleModeVideo && inPoint !== null && outPoint !== null;
-  const showSingleModeClipButton = isSingleModeVideo && hasSingleModeRange && !!(onClipSave || onClipClear);
+  const hasSingleModeRange = isSingleModeVideo && hasValidRangeSpan(inPoint, outPoint, singleModeDuration);
+  const showSingleModeClipButton = isSingleModeVideo && (
+    (isSingleModeClipEnabled && !!onClipClear)
+    || (!isSingleModeClipEnabled && hasSingleModeRange && !!onClipSave)
+  );
   const currentFocusHold = focusCutData?.cut?.id ? getCutRuntime(focusCutData.cut.id)?.hold : undefined;
   const isHoldEnabled = !!(currentFocusHold?.enabled && currentFocusHold.durationMs > 0);
   const openHoldEditor = useCallback(() => {
@@ -554,8 +564,12 @@ function PreviewModalSingleRoot({
         singleModePlaybackTime={singleModePlaybackTime}
         focusedMarker={focusedMarker}
         onMarkerFocus={interactionCommands.markerFocus}
+        onMarkerDragStart={interactionCommands.markerDragStart}
         onMarkerDrag={interactionCommands.markerDrag}
         onMarkerDragEnd={interactionCommands.markerDragEnd}
+        onSelectionDragStart={interactionCommands.selectionDragStart}
+        onSelectionDrag={interactionCommands.selectionDrag}
+        onSelectionDragEnd={interactionCommands.selectionDragEnd}
         onProgressBarMouseDown={handleProgressBarMouseDown}
         isPlaying={singleModeIsPlaying}
         skipBack={interactionCommands.skipBack}
@@ -749,6 +763,7 @@ function PreviewModalSequenceRoot({
     stepFocusedMarker,
     handleMarkerFocus,
     handleMarkerDrag,
+    handleSelectionDrag,
     handleMarkerDragEnd,
     handleContainerMouseDown,
   } = useClipRangeState({
@@ -841,8 +856,12 @@ function PreviewModalSequenceRoot({
     toggleLooping,
     toggleGlobalMute,
     handleMarkerFocus,
+    handleMarkerDragStart: NOOP,
     handleMarkerDrag,
     handleMarkerDragEnd: handleSequenceMarkerDragEnd,
+    handleSelectionDragStart: NOOP,
+    handleSelectionDrag,
+    handleSelectionDragEnd: handleSequenceMarkerDragEnd,
   });
 
   const {
@@ -954,8 +973,12 @@ function PreviewModalSequenceRoot({
       sequenceTotalDuration={sequenceTotalDuration}
       focusedMarker={focusedMarker}
       onMarkerFocus={interactionCommands.markerFocus}
+      onMarkerDragStart={interactionCommands.markerDragStart}
       onMarkerDrag={interactionCommands.markerDrag}
       onMarkerDragEnd={interactionCommands.markerDragEnd}
+      onSelectionDragStart={interactionCommands.selectionDragStart}
+      onSelectionDrag={interactionCommands.selectionDrag}
+      onSelectionDragEnd={interactionCommands.selectionDragEnd}
       onProgressBarMouseDown={handleProgressBarMouseDown}
       onProgressBarHover={handleProgressBarHover}
       onProgressBarLeave={handleProgressBarLeave}

@@ -1,6 +1,6 @@
 import type React from 'react';
 import { useCallback, useState } from 'react';
-import { constrainMarkerTime } from './helpers';
+import { constrainMarkerTime, moveRangeWindow } from './clipRangeOps';
 import type { FocusedMarker } from './parts/PlaybackRangeMarkers';
 
 interface UseClipRangeStateInput {
@@ -39,39 +39,45 @@ export function useClipRangeState({
     onRangeChange?.({ inPoint: nextInPoint, outPoint: nextOutPoint });
   }, [onRangeChange]);
 
+  const applyRange = useCallback((nextInPoint: number | null, nextOutPoint: number | null) => {
+    if (!usesSequenceController) {
+      setSingleModeInPoint(nextInPoint);
+      setSingleModeOutPoint(nextOutPoint);
+    } else {
+      setSequenceRange(nextInPoint, nextOutPoint);
+    }
+    notifyRangeChange(nextInPoint, nextOutPoint);
+  }, [
+    usesSequenceController,
+    setSequenceRange,
+    notifyRangeChange,
+  ]);
+
   const setMarkerTime = useCallback((marker: 'in' | 'out', newTime: number): number => {
     const duration = usesSequenceController
       ? sequenceTotalDuration
       : singleModeDuration;
-    const constrainedTime = constrainMarkerTime(marker, newTime, duration, inPoint, outPoint);
+    const constrainedTime = constrainMarkerTime({
+      marker,
+      candidateTime: newTime,
+      duration,
+      inPoint,
+      outPoint,
+    });
 
     if (marker === 'in') {
-      if (!usesSequenceController) {
-        setSingleModeInPoint(constrainedTime);
-        notifyRangeChange(constrainedTime, outPoint);
-      } else {
-        setSequenceRange(constrainedTime, outPoint ?? null);
-        notifyRangeChange(constrainedTime, outPoint ?? null);
-      }
+      applyRange(constrainedTime, outPoint ?? null);
     } else {
-      if (!usesSequenceController) {
-        setSingleModeOutPoint(constrainedTime);
-        notifyRangeChange(inPoint, constrainedTime);
-      } else {
-        setSequenceRange(inPoint ?? null, constrainedTime);
-        notifyRangeChange(inPoint ?? null, constrainedTime);
-      }
+      applyRange(inPoint ?? null, constrainedTime);
     }
 
     return constrainedTime;
   }, [
-    usesSequenceController,
     sequenceTotalDuration,
     singleModeDuration,
     inPoint,
     outPoint,
-    notifyRangeChange,
-    setSequenceRange,
+    applyRange,
   ]);
 
   const stepFocusedMarker = useCallback((direction: number): number | null => {
@@ -89,9 +95,21 @@ export function useClipRangeState({
     return setMarkerTime(marker, newTime);
   }, [setMarkerTime]);
 
-  const handleMarkerDragEnd = useCallback(() => {
-    setFocusedMarker(null);
-  }, []);
+  const handleSelectionDrag = useCallback((baseInPoint: number, baseOutPoint: number, deltaTime: number) => {
+    const duration = usesSequenceController
+      ? sequenceTotalDuration
+      : singleModeDuration;
+    const nextRange = moveRangeWindow({
+      inPoint: baseInPoint,
+      outPoint: baseOutPoint,
+      duration,
+      deltaTime,
+    });
+    applyRange(nextRange.inPoint, nextRange.outPoint);
+    return nextRange;
+  }, [usesSequenceController, sequenceTotalDuration, singleModeDuration, applyRange]);
+
+  const handleMarkerDragEnd = useCallback(() => {}, []);
 
   const handleContainerMouseDown = useCallback((e: React.MouseEvent) => {
     if (!focusedMarker) return;
@@ -116,6 +134,7 @@ export function useClipRangeState({
     stepFocusedMarker,
     handleMarkerFocus,
     handleMarkerDrag,
+    handleSelectionDrag,
     handleMarkerDragEnd,
     handleContainerMouseDown,
   };

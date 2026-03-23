@@ -11,8 +11,12 @@ interface PlaybackRangeMarkersProps {
   showMilliseconds?: boolean;
   focusedMarker?: FocusedMarker;
   onMarkerFocus?: (marker: FocusedMarker) => void;
+  onMarkerDragStart?: (marker: 'in' | 'out') => void;
   onMarkerDrag?: (marker: 'in' | 'out', newTime: number) => void;
   onMarkerDragEnd?: () => void;
+  onSelectionDragStart?: () => void;
+  onSelectionDrag?: (baseInPoint: number, baseOutPoint: number, deltaTime: number) => void;
+  onSelectionDragEnd?: () => void;
   progressBarRef?: React.RefObject<HTMLDivElement>;
 }
 
@@ -23,12 +27,17 @@ export function PlaybackRangeMarkers({
   showMilliseconds = true,
   focusedMarker,
   onMarkerFocus,
+  onMarkerDragStart,
   onMarkerDrag,
   onMarkerDragEnd,
+  onSelectionDragStart,
+  onSelectionDrag,
+  onSelectionDragEnd,
   progressBarRef,
 }: PlaybackRangeMarkersProps) {
-  const draggingMarkerRef = useRef<'in' | 'out' | null>(null);
+  const dragModeRef = useRef<'in' | 'out' | 'selection' | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const selectionStartRangeRef = useRef<{ inPoint: number; outPoint: number } | null>(null);
   const didDragRef = useRef(false);
   const suppressClickRef = useRef(false);
   const [hoveredMarker, setHoveredMarker] = useState<'in' | 'out' | null>(null);
@@ -41,33 +50,41 @@ export function PlaybackRangeMarkers({
     return percent * duration;
   }, [progressBarRef, duration]);
 
+  const calculateDeltaTimeFromPointerEvent = useCallback((startClientX: number, currentClientX: number): number => {
+    if (!progressBarRef?.current) return 0;
+    const rect = progressBarRef.current.getBoundingClientRect();
+    if (rect.width <= 0) return 0;
+    return ((currentClientX - startClientX) / rect.width) * duration;
+  }, [progressBarRef, duration]);
+
   const handleMarkerPointerDown = useCallback((marker: 'in' | 'out', e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
-    draggingMarkerRef.current = marker;
+    dragModeRef.current = marker;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     didDragRef.current = false;
     onMarkerFocus?.(marker);
 
     const handlePointerMove = (moveEvent: PointerEvent) => {
-      if (!draggingMarkerRef.current) return;
+      if (dragModeRef.current !== marker) return;
       const dragStart = dragStartRef.current;
       if (!didDragRef.current && dragStart) {
         const movedX = Math.abs(moveEvent.clientX - dragStart.x);
         const movedY = Math.abs(moveEvent.clientY - dragStart.y);
         if (movedX > 2 || movedY > 2) {
           didDragRef.current = true;
+          onMarkerDragStart?.(marker);
         }
       }
       if (!didDragRef.current) return;
       const newTime = calculateTimeFromPointerEvent(moveEvent);
-      onMarkerDrag?.(draggingMarkerRef.current, newTime);
+      onMarkerDrag?.(marker, newTime);
     };
 
     const handlePointerUp = () => {
       const didDrag = didDragRef.current;
-      draggingMarkerRef.current = null;
+      dragModeRef.current = null;
       dragStartRef.current = null;
       didDragRef.current = false;
       if (didDrag) {
@@ -83,7 +100,62 @@ export function PlaybackRangeMarkers({
 
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-  }, [onMarkerFocus, onMarkerDrag, onMarkerDragEnd, calculateTimeFromPointerEvent]);
+  }, [onMarkerFocus, onMarkerDragStart, onMarkerDrag, onMarkerDragEnd, calculateTimeFromPointerEvent]);
+
+  const handleSelectionPointerDown = useCallback((e: React.PointerEvent) => {
+    if (inPoint === null || outPoint === null) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    dragModeRef.current = 'selection';
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    selectionStartRangeRef.current = { inPoint, outPoint };
+    didDragRef.current = false;
+
+    const handlePointerMove = (moveEvent: PointerEvent) => {
+      if (dragModeRef.current !== 'selection') return;
+      const dragStart = dragStartRef.current;
+      const selectionStartRange = selectionStartRangeRef.current;
+      if (!dragStart || !selectionStartRange) return;
+
+      if (!didDragRef.current) {
+        const movedX = Math.abs(moveEvent.clientX - dragStart.x);
+        const movedY = Math.abs(moveEvent.clientY - dragStart.y);
+        if (movedX > 2 || movedY > 2) {
+          didDragRef.current = true;
+          onSelectionDragStart?.();
+        }
+      }
+      if (!didDragRef.current) return;
+
+      const deltaTime = calculateDeltaTimeFromPointerEvent(dragStart.x, moveEvent.clientX);
+      onSelectionDrag?.(selectionStartRange.inPoint, selectionStartRange.outPoint, deltaTime);
+    };
+
+    const handlePointerUp = () => {
+      const didDrag = didDragRef.current;
+      dragModeRef.current = null;
+      dragStartRef.current = null;
+      selectionStartRangeRef.current = null;
+      didDragRef.current = false;
+      if (didDrag) {
+        onSelectionDragEnd?.();
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+  }, [
+    inPoint,
+    outPoint,
+    onSelectionDragStart,
+    calculateDeltaTimeFromPointerEvent,
+    onSelectionDrag,
+    onSelectionDragEnd,
+  ]);
 
   const handleMarkerClick = useCallback((marker: 'in' | 'out', e: React.MouseEvent) => {
     e.preventDefault();
@@ -113,6 +185,7 @@ export function PlaybackRangeMarkers({
           onMouseEnter={() => setHoveredMarker('in')}
           onMouseLeave={() => setHoveredMarker(null)}
         >
+          <span className="timeline-marker-bar" />
           {showInTooltip && (
             <span className="marker-tooltip in-tooltip">
               IN {formatTime(inPoint!, showMilliseconds)}
@@ -131,6 +204,7 @@ export function PlaybackRangeMarkers({
           onMouseEnter={() => setHoveredMarker('out')}
           onMouseLeave={() => setHoveredMarker(null)}
         >
+          <span className="timeline-marker-bar" />
           {showOutTooltip && (
             <span className="marker-tooltip out-tooltip">
               OUT {formatTime(outPoint!, showMilliseconds)}
@@ -147,6 +221,7 @@ export function PlaybackRangeMarkers({
             left: `${Math.min(inPointPercent, outPointPercent)}%`,
             width: `${Math.abs(outPointPercent - inPointPercent)}%`,
           }}
+          onPointerDown={handleSelectionPointerDown}
         />
       )}
     </>

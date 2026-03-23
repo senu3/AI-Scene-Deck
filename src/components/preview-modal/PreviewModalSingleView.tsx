@@ -42,8 +42,12 @@ interface PreviewModalSingleViewProps {
   singleModePlaybackTime: number;
   focusedMarker: FocusedMarker;
   onMarkerFocus: (marker: FocusedMarker) => void;
+  onMarkerDragStart: (marker: 'in' | 'out') => void;
   onMarkerDrag: (marker: 'in' | 'out', newTime: number) => void;
   onMarkerDragEnd: () => void;
+  onSelectionDragStart: () => void;
+  onSelectionDrag: (baseInPoint: number, baseOutPoint: number, deltaTime: number) => void;
+  onSelectionDragEnd: () => void;
   onProgressBarMouseDown: (e: React.MouseEvent<HTMLDivElement>) => void;
   isPlaying: boolean;
   skipBack: () => void;
@@ -108,8 +112,12 @@ export function PreviewModalSingleView({
   singleModePlaybackTime,
   focusedMarker,
   onMarkerFocus,
+  onMarkerDragStart,
   onMarkerDrag,
   onMarkerDragEnd,
+  onSelectionDragStart,
+  onSelectionDrag,
+  onSelectionDragEnd,
   onProgressBarMouseDown,
   isPlaying,
   skipBack,
@@ -268,8 +276,12 @@ export function PreviewModalSingleView({
                       showMilliseconds={isSingleModeVideo}
                       focusedMarker={focusedMarker}
                       onMarkerFocus={onMarkerFocus}
+                      onMarkerDragStart={onMarkerDragStart}
                       onMarkerDrag={onMarkerDrag}
                       onMarkerDragEnd={onMarkerDragEnd}
+                      onSelectionDragStart={onSelectionDragStart}
+                      onSelectionDrag={onSelectionDrag}
+                      onSelectionDragEnd={onSelectionDragEnd}
                       progressBarRef={progressBarRef}
                     />
                     <div

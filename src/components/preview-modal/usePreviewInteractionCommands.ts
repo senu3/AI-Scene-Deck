@@ -41,8 +41,12 @@ interface UsePreviewInteractionCommandsInput {
   toggleLooping: () => void;
   toggleGlobalMute: () => void;
   handleMarkerFocus: (marker: FocusedMarker) => void;
+  handleMarkerDragStart: () => void;
   handleMarkerDrag: (marker: 'in' | 'out', newTime: number) => number;
   handleMarkerDragEnd: () => Promise<void>;
+  handleSelectionDragStart: () => void;
+  handleSelectionDrag: (baseInPoint: number, baseOutPoint: number, deltaTime: number) => void;
+  handleSelectionDragEnd: () => Promise<void> | void;
 }
 
 export function usePreviewInteractionCommands({
@@ -75,8 +79,12 @@ export function usePreviewInteractionCommands({
   toggleLooping,
   toggleGlobalMute,
   handleMarkerFocus,
+  handleMarkerDragStart,
   handleMarkerDrag,
   handleMarkerDragEnd,
+  handleSelectionDragStart,
+  handleSelectionDrag,
+  handleSelectionDragEnd,
 }: UsePreviewInteractionCommandsInput) {
   const seekToAbsolute = useCallback((time: number) => {
     if (mode === 'single') {
@@ -272,9 +280,37 @@ export function usePreviewInteractionCommands({
     seekToAbsolute(markerTime);
   }, [handleMarkerDrag, seekToAbsolute]);
 
+  const beginRangeEdit = useCallback(() => {
+    if (!isPlaying) return;
+    if (mode === 'single') {
+      pauseSingleMode();
+      return;
+    }
+    sequencePause();
+  }, [isPlaying, mode, pauseSingleMode, sequencePause]);
+
+  const markerDragStart = useCallback((marker: 'in' | 'out') => {
+    handleMarkerFocus(marker);
+    beginRangeEdit();
+    handleMarkerDragStart();
+  }, [handleMarkerFocus, beginRangeEdit, handleMarkerDragStart]);
+
   const markerDragEnd = useCallback(() => {
     void handleMarkerDragEnd();
   }, [handleMarkerDragEnd]);
+
+  const selectionDragStart = useCallback(() => {
+    beginRangeEdit();
+    handleSelectionDragStart();
+  }, [beginRangeEdit, handleSelectionDragStart]);
+
+  const selectionDrag = useCallback((baseInPoint: number, baseOutPoint: number, deltaTime: number) => {
+    handleSelectionDrag(baseInPoint, baseOutPoint, deltaTime);
+  }, [handleSelectionDrag]);
+
+  const selectionDragEnd = useCallback(() => {
+    void handleSelectionDragEnd();
+  }, [handleSelectionDragEnd]);
 
   return {
     playPause,
@@ -287,8 +323,12 @@ export function usePreviewInteractionCommands({
     toggleLooping,
     toggleMute: toggleGlobalMute,
     markerFocus: handleMarkerFocus,
+    markerDragStart,
     markerDrag,
     markerDragEnd,
+    selectionDragStart,
+    selectionDrag,
+    selectionDragEnd,
     seekToAbsolute,
     seekToPercent,
   };
