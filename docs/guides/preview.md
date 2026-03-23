@@ -1,17 +1,18 @@
 # Preview Guide (Single vs Sequence)
 
 ## TL;DR
-対象：Sequence Previewの再生制御
-正本：cut canonical timing
+対象：Preview の責務境界
+正本：canonical cut timing / command 単一入口 / mode境界
 原則：
 - Sequence再生制御は単一コントローラ経由
 - Preview操作は command 単一入口経由
 - 時間正本は canonical cut timing
-詳細：再生実装は preview系実装を参照
+- runtime ownership / UI contract 詳細は L2 実装ガイドを参照
+詳細：実装境界は `docs/guides/implementation/preview-runtime-boundaries.md` を参照
 
-**目的**: Preview 再生の責務境界と変更禁止点を固定する。  
-**適用範囲**: `PreviewModal` / 再生コントローラ / Preview media source。  
-**関連ファイル**: `docs/guides/export.md`, `docs/guides/media-handling.md`, `docs/guides/implementation/thumbnail-profiles.md`, `docs/guides/implementation/debug-overlay.md`。  
+**目的**: Preview のL1責務と不変条件を固定し、runtime 実装境界を L2 へ分離して運用する。  
+**適用範囲**: `PreviewModal` / 再生コントローラ / Preview command surface。  
+**関連ファイル**: `docs/guides/export.md`, `docs/guides/media-handling.md`, `docs/guides/implementation/preview-runtime-boundaries.md`, `docs/guides/implementation/debug-overlay.md`。  
 **更新頻度**: 中。
 
 ## Must / Must Not
@@ -35,50 +36,10 @@
 - Sequence Mode:
   - cut 列の連続再生を行う。
   - play/pause/seek/loop/range/buffering をコントローラで一元管理する。
+- owner / runtime / capability 差 / 欠落状態 UI contract の詳細は `docs/guides/implementation/preview-runtime-boundaries.md` を正本にする。
 
-## Owner Matrix
-- Owner Matrix は監査表であり、新しい実装抽象を追加するものではない。
-- owner の列挙単位は hook / runtime / controller に揃える。DOM 要素は実装詳細として扱い、owner label に混ぜない。
-- owner 軸は `clock owner` `media owner` `audio owner` の 3 つに固定する。
-- Single Video:
-  - clock owner は `usePreviewSingleRuntime`。
-  - media owner は `usePreviewSingleRuntime`。
-  - audio owner は `usePreviewSingleAttachedAudio`（attached）。
-- Single Image:
-  - clock owner は `usePreviewSingleRuntime`。
-  - media owner は `usePreviewSingleRuntime`。
-  - audio owner は `usePreviewSingleAttachedAudio`（attached）。
-- Sequence:
-  - clock owner は `useSequencePlaybackController`。
-  - media owner は `usePreviewSequenceRuntime`。
-  - audio owner は `usePreviewSequenceAudio`。
-- Must Not: Single Image を sequence controller 経由へ戻さない。
-
-## 時間・音声の原則
+## Preview / Export Parity
 - 表示時間は cut canonical timing を正本とする。
-- AudioPlan/再生同期は cut 列由来の時間軸で扱う。
-- 再生速度変更は UI capability 差として single video のみに意図的に制限し、Single Image と Sequence の parity 正本には含めない。
-- focus cut 不在時は曖昧なフォールバック再生を行わず、欠落状態を明示する。
-- 欠落状態では silent fallback せず、play 開始条件を満たさない理由を UI に出す。
-
-## 責務境界
-- 操作入口（Commands）:
-  - 対象は play/pause/seek/step/skip、IN/OUT、loop/mute/marker。
-  - progress bar click/drag や marker drag による seek も command 入口で処理する。
-  - 表示整形、DOM 計測、fullscreen/overlay など純UI状態は command 対象外。
-- 時間の正本（Timebase）:
-  - 正本は domain 正規化後の canonical cut timing とし、Preview 側の独自再計算や Preview/Export の時間定義分岐を禁止する。
-- IN/OUT（Clip Range）:
-  - 更新入力は playhead、基準は canonical timing。
-  - clamp/normalize/swap/reject は `clipRangeOps` の純関数に集約し、`PreviewModal.tsx` に戻さない。
-  - clip 保存/clear 後のサムネイル更新は command 外の非同期 queue（`features/cut`）で追随させる。
-- Sequence Playback Spec:
-  - Sequence 再生時の clip/hold/media source 判定は `buildSequencePlan` 由来の playback spec を使う。
-  - `PreviewItem.cut` は表示文脈や command 入力の参照に留め、Sequence media source の時間 spec に使わない。
-- 表示（View）:
-  - UI playhead time の丸め/fps/表示単位は View 側の純関数で完結し、controller/domain に混ぜない。
-  - fullscreen state は `fullscreenchange` を正本とする event 駆動で同期し、楽観的な local state を正本にしない。
-## Export連携
 - Preview 起点 export は Export ガイドの正本ルールに従う。
 - Preview 側で独自の export 時間定義を持たず、`buildSequencePlan(project, opts)` で生成した Plan を Export へ渡す。
 
@@ -86,10 +47,8 @@
 - Debug Overlay の仕様は `docs/guides/implementation/debug-overlay.md` に従う。
 - Preview の時間正本・ドメイン構造に干渉してはならない。
 
-## 運用メモ
-- UI文言の未確定事項は `docs/TODO_MASTER.md` で管理する。
-- 実装手順・性能調整・既知事象は `docs/notes/` へ分離する。
-
 ## 関連ガイド
+- 実装境界: `docs/guides/implementation/preview-runtime-boundaries.md`
 - Export正本: `docs/guides/export.md`
 - Media I/O: `docs/guides/media-handling.md`
+- Debug Overlay: `docs/guides/implementation/debug-overlay.md`

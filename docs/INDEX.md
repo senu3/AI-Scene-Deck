@@ -34,6 +34,7 @@
 - `docs/guides/implementation/ui-components.md`
 - `docs/guides/implementation/color-system.md`
 - `docs/guides/implementation/debug-overlay.md`
+- `docs/guides/implementation/preview-runtime-boundaries.md`
 - `docs/guides/implementation/scene-duration-bar-ui.md`
 - `docs/guides/implementation/header-ui.md`
 - `docs/guides/implementation/autoclip-simple.md`
