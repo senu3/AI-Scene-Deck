@@ -28,6 +28,7 @@
 - Must Not: Controller はドメイン構造を書き換えない。
 
 ## モード境界
+- `PreviewModalProps` は `mode: 'single' | 'sequence'` の discriminated union を正本にする。
 - Single Mode:
   - 単一 asset（または単一 cut）の確認に使う。
   - clip-local な IN/OUT 調整を許可する。
@@ -35,9 +36,26 @@
   - cut 列の連続再生を行う。
   - play/pause/seek/loop/range/buffering をコントローラで一元管理する。
 
+## Owner Matrix
+- owner 軸は `clock owner` `media owner` `audio owner` の 3 つに固定する。
+- Single Video:
+  - clock owner は `usePreviewSingleRuntime`。
+  - media owner は single `<video>` と `usePreviewSingleRuntime`。
+  - attached audio owner は `usePreviewSingleAttachedAudio`。
+- Single Image:
+  - clock owner は `usePreviewSingleRuntime`。
+  - media owner は `usePreviewSingleRuntime`。
+  - audio owner は `usePreviewSingleAttachedAudio`。
+- Sequence:
+  - clock owner は `useSequencePlaybackController`。
+  - media owner は `usePreviewSequenceRuntime` と `usePreviewSequenceMediaSource`。
+  - audio owner は `usePreviewSequenceRuntime` と `usePreviewSequenceAudio`。
+- Must Not: Single Image を sequence controller 経由へ戻さない。
+
 ## 時間・音声の原則
 - 表示時間は cut canonical timing を正本とする。
 - AudioPlan/再生同期は cut 列由来の時間軸で扱う。
+- 再生速度変更は UI/仕様として single video のみ対応とする。Single Image と Sequence は未対応として扱う。
 - focus cut 不在時は曖昧なフォールバック再生を行わず、欠落状態を明示する。
 
 ## 責務境界
@@ -56,6 +74,7 @@
   - `PreviewItem.cut` は表示文脈や command 入力の参照に留め、Sequence media source の時間 spec に使わない。
 - 表示（View）:
   - UI playhead time の丸め/fps/表示単位は View 側の純関数で完結し、controller/domain に混ぜない。
+  - fullscreen state は `fullscreenchange` を正本とする event 駆動で同期し、楽観的な local state を正本にしない。
 ## Export連携
 - Preview 起点 export は Export ガイドの正本ルールに従う。
 - Preview 側で独自の export 時間定義を持たず、`buildSequencePlan(project, opts)` で生成した Plan を Export へ渡す。
