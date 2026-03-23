@@ -37,26 +37,29 @@
   - play/pause/seek/loop/range/buffering をコントローラで一元管理する。
 
 ## Owner Matrix
+- Owner Matrix は監査表であり、新しい実装抽象を追加するものではない。
+- owner の列挙単位は hook / runtime / controller に揃える。DOM 要素は実装詳細として扱い、owner label に混ぜない。
 - owner 軸は `clock owner` `media owner` `audio owner` の 3 つに固定する。
 - Single Video:
   - clock owner は `usePreviewSingleRuntime`。
-  - media owner は single `<video>` と `usePreviewSingleRuntime`。
-  - attached audio owner は `usePreviewSingleAttachedAudio`。
+  - media owner は `usePreviewSingleRuntime`。
+  - audio owner は `usePreviewSingleAttachedAudio`（attached）。
 - Single Image:
   - clock owner は `usePreviewSingleRuntime`。
   - media owner は `usePreviewSingleRuntime`。
-  - audio owner は `usePreviewSingleAttachedAudio`。
+  - audio owner は `usePreviewSingleAttachedAudio`（attached）。
 - Sequence:
   - clock owner は `useSequencePlaybackController`。
-  - media owner は `usePreviewSequenceRuntime` と `usePreviewSequenceMediaSource`。
-  - audio owner は `usePreviewSequenceRuntime` と `usePreviewSequenceAudio`。
+  - media owner は `usePreviewSequenceRuntime`。
+  - audio owner は `usePreviewSequenceAudio`。
 - Must Not: Single Image を sequence controller 経由へ戻さない。
 
 ## 時間・音声の原則
 - 表示時間は cut canonical timing を正本とする。
 - AudioPlan/再生同期は cut 列由来の時間軸で扱う。
-- 再生速度変更は UI/仕様として single video のみ対応とする。Single Image と Sequence は未対応として扱う。
+- 再生速度変更は UI capability 差として single video のみに意図的に制限し、Single Image と Sequence の parity 正本には含めない。
 - focus cut 不在時は曖昧なフォールバック再生を行わず、欠落状態を明示する。
+- 欠落状態では silent fallback せず、play 開始条件を満たさない理由を UI に出す。
 
 ## 責務境界
 - 操作入口（Commands）:
