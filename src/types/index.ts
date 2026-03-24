@@ -42,6 +42,8 @@ export interface Asset {
   hash?: string;               // SHA256 hash for duplicate detection
 }
 
+export type PreviewableAsset = Asset & { type: 'image' | 'video' };
+
 // Asset index entry for vault
 export interface AssetIndexEntry {
   id: string;

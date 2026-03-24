@@ -1,4 +1,4 @@
-import type { Asset, Cut } from '../../types';
+import type { Cut, PreviewableAsset } from '../../types';
 import type { SequencePlan } from '../../utils/sequencePlan';
 import type { CanonicalDurationSec } from '../../utils/storyTiming';
 
@@ -18,7 +18,7 @@ export interface PreviewModalSharedProps {
 
 export interface SinglePreviewModalProps extends PreviewModalSharedProps {
   mode: 'single';
-  asset: Asset;
+  asset: PreviewableAsset;
   initialInPoint?: number;
   initialOutPoint?: number;
   onRangeChange?: (range: { inPoint: number | null; outPoint: number | null }) => void;

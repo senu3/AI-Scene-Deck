@@ -1,6 +1,6 @@
 import { Camera, Clock3, MapPinOff, Maximize, Pause, Play, Repeat, Scissors, SkipBack, SkipForward, X } from 'lucide-react';
 import type React from 'react';
-import type { Asset } from '../../types';
+import type { PreviewableAsset } from '../../types';
 import { PlaybackRangeMarkers } from './parts/PlaybackRangeMarkers';
 import type { FocusedMarker } from './parts/PlaybackRangeMarkers';
 import { usePreviewFocusTrap } from './usePreviewFocusTrap';
@@ -22,7 +22,7 @@ interface PreviewModalSingleViewProps {
   previewDisplayClassName: string;
   showOverlayNow: () => void;
   scheduleHideOverlay: () => void;
-  asset: Asset;
+  asset: PreviewableAsset;
   isAssetOnlyPreview: boolean;
   isLoading: boolean;
   isSingleModeVideo: boolean;

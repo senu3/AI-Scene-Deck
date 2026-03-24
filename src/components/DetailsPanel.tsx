@@ -76,10 +76,14 @@ import { importFileToVault } from "../utils/assetPath";
 // Note: getAudioDuration was removed - duration comes from asset.duration after import
 import PreviewModal from "./PreviewModal";
 import AssetModal from "./AssetModal";
-import type { Asset } from "../types";
+import type { Asset, PreviewableAsset } from "../types";
 import { v4 as uuidv4 } from "uuid";
 import { Toggle } from "../ui";
 import "./DetailsPanel.css";
+
+function isPreviewableAsset(asset: Asset | null | undefined): asset is PreviewableAsset {
+  return asset?.type === "image" || asset?.type === "video";
+}
 
 export default function DetailsPanel() {
   const scenes = useStore(selectScenes);
@@ -110,7 +114,7 @@ export default function DetailsPanel() {
   const [localDisplayTime, setLocalDisplayTime] = useState("2.0");
   const [batchDisplayTime, setBatchDisplayTime] = useState("2.0");
   const [noteText, setNoteText] = useState("");
-  const [showVideoPreview, setShowVideoPreview] = useState(false);
+  const [showSinglePreview, setShowSinglePreview] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
   const [showSceneAudioModal, setShowSceneAudioModal] = useState(false);
   const [showGroupAudioModal, setShowGroupAudioModal] = useState(false);
@@ -1072,6 +1076,7 @@ export default function DetailsPanel() {
   // Show cut details
   if (selectionType === "cut" && cut && activeAsset) {
     const isVideo = activeAsset.type === "video";
+    const previewAsset = isPreviewableAsset(activeAsset) ? activeAsset : null;
     const previewImage = thumbnail;
 
     return (
@@ -1093,7 +1098,7 @@ export default function DetailsPanel() {
 
           <div
             className="details-preview clickable"
-            onClick={() => setShowVideoPreview(true)}
+            onClick={() => previewAsset && setShowSinglePreview(true)}
             title="Click to preview"
           >
             {previewImage ? (
@@ -1177,7 +1182,7 @@ export default function DetailsPanel() {
                   <div className="clip-actions">
                     <button
                       className="clip-edit-btn"
-                      onClick={() => setShowVideoPreview(true)}
+                      onClick={() => setShowSinglePreview(true)}
                       title="Edit clip points"
                     >
                       Edit
@@ -1295,13 +1300,13 @@ export default function DetailsPanel() {
           </div>
         </div>
 
-        {/* Single Mode Preview Modal */}
-        {showVideoPreview && activeAsset && (
+        {/* Single Preview Modal */}
+        {showSinglePreview && previewAsset && (
           <PreviewModal
             mode="single"
-            asset={activeAsset}
+            asset={previewAsset}
             focusCutId={cut?.id}
-            onClose={() => setShowVideoPreview(false)}
+            onClose={() => setShowSinglePreview(false)}
             initialInPoint={cut?.inPoint}
             initialOutPoint={cut?.outPoint}
             onClipSave={isVideo ? handleSaveClip : undefined}

@@ -49,7 +49,7 @@ import Storyline from './components/Storyline';
 import Header from './components/Header';
 import AppCloseGuard from './components/AppCloseGuard';
 import { v4 as uuidv4 } from 'uuid';
-import type { Asset, Cut } from './types';
+import type { Asset, Cut, PreviewableAsset } from './types';
 import { getAssetThumbnail } from './features/thumbnails/api';
 import { clearPreviewClipPoints, savePreviewClipPoints } from './features/cut/previewClipUpdate';
 import { importFileToVault } from './utils/assetPath';
@@ -107,6 +107,10 @@ function DndMonitorShim({ onDragStart }: { onDragStart: () => void }) {
     onDragStart,
   });
   return null;
+}
+
+function isPreviewableAsset(asset: Asset | null | undefined): asset is PreviewableAsset {
+  return asset?.type === 'image' || asset?.type === 'video';
 }
 
 function App() {
@@ -856,23 +860,23 @@ function App() {
     });
   }, [exportMp4Sequence]);
 
-  // Find cut data for Single Mode preview modal
-  const previewCutData = useCallback(() => {
+  // Find cut data for single preview modal
+  const resolveSinglePreviewData = useCallback(() => {
     if (!singlePreviewCutId) return null;
     for (const scene of orderedScenes) {
       const cut = scene.cuts.find(c => c.id === singlePreviewCutId);
       const resolvedAsset = cut ? resolveCutAsset(cut, getAsset) : null;
-      if (cut && resolvedAsset) {
+      if (cut && isPreviewableAsset(resolvedAsset)) {
         return { scene, cut, asset: resolvedAsset };
       }
     }
     return null;
   }, [singlePreviewCutId, orderedScenes, getAsset]);
 
-  const previewData = previewCutData();
+  const previewData = resolveSinglePreviewData();
 
-  // Handle clip save from video preview modal
-  const handleVideoPreviewClipSave = useCallback(async (
+  // Handle clip save from single preview modal
+  const handleSinglePreviewClipSave = useCallback(async (
     inPoint: number,
     outPoint: number,
     options?: { expectedClipRevision?: number },
@@ -901,7 +905,7 @@ function App() {
     );
   }, [previewData, executeCommand]);
 
-  const handleVideoPreviewClipClear = useCallback(async () => {
+  const handleSinglePreviewClipClear = useCallback(async () => {
     if (!previewData) return;
     const { scene, cut, asset } = previewData;
     await clearPreviewClipPoints(
@@ -923,8 +927,8 @@ function App() {
     );
   }, [previewData, executeCommand]);
 
-  // Handle frame capture from video preview modal
-  const handleVideoPreviewFrameCapture = useCallback(async (timestamp: number): Promise<string | void> => {
+  // Handle frame capture from single preview modal
+  const handleSinglePreviewFrameCapture = useCallback(async (timestamp: number): Promise<string | void> => {
     if (!previewData || !vaultPath) {
       throw new Error('Cannot capture frame: missing required data');
     }
@@ -1057,9 +1061,9 @@ function App() {
                 onClose={closeSinglePreview}
                 initialInPoint={previewData.cut.inPoint}
                 initialOutPoint={previewData.cut.outPoint}
-                onClipSave={handleVideoPreviewClipSave}
-                onClipClear={handleVideoPreviewClipClear}
-                onFrameCapture={handleVideoPreviewFrameCapture}
+                onClipSave={handleSinglePreviewClipSave}
+                onClipClear={handleSinglePreviewClipClear}
+                onFrameCapture={handleSinglePreviewFrameCapture}
                 exportResolution={exportResolution}
                 onResolutionChange={setExportResolution}
                 onExportSequence={handlePreviewExport}
