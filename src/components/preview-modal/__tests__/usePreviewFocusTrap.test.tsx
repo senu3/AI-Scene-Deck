@@ -19,6 +19,14 @@ function Harness() {
 let host: HTMLDivElement | null = null;
 let root: Root | null = null;
 
+function waitForFocusTrapFrame() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 describe('usePreviewFocusTrap', () => {
   afterEach(() => {
     act(() => {
@@ -29,18 +37,23 @@ describe('usePreviewFocusTrap', () => {
     root = null;
   });
 
-  it('focuses the first tabbable element and wraps Tab navigation', async () => {
+  it('wraps Tab navigation when focus is on the modal root or last control', async () => {
     host = document.createElement('div');
     document.body.appendChild(host);
     root = createRoot(host);
 
     await act(async () => {
       root?.render(<Harness />);
-      await new Promise((resolve) => window.requestAnimationFrame(() => resolve(undefined)));
+      await waitForFocusTrapFrame();
     });
 
     const buttons = Array.from(host.querySelectorAll('button'));
     const [firstButton, lastButton] = buttons;
+    const modal = host.firstElementChild as HTMLDivElement;
+
+    act(() => {
+      modal.focus();
+    });
 
     act(() => {
       lastButton.focus();
@@ -55,5 +68,29 @@ describe('usePreviewFocusTrap', () => {
     });
 
     expect(document.activeElement).toBe(firstButton);
+  });
+
+  it('returns focus to the modal when clicking non-interactive preview surface', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(<Harness />);
+      await waitForFocusTrapFrame();
+    });
+
+    const modal = host.firstElementChild as HTMLDivElement;
+    const [firstButton] = Array.from(host.querySelectorAll('button'));
+
+    act(() => {
+      firstButton.focus();
+      modal.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true,
+        cancelable: true,
+      }));
+    });
+
+    expect(document.activeElement).toBe(modal);
   });
 });
