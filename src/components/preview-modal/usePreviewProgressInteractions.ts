@@ -60,7 +60,7 @@ export function usePreviewProgressInteractions({
     const hoverX = e.clientX - rect.left;
     const progressPercent = (hoverX / rect.width) * 100;
     const hoverTimeSeconds = (progressPercent / 100) * totalDuration;
-    setHoverTime(formatTime(hoverTimeSeconds));
+    setHoverTime(formatTime(hoverTimeSeconds, true));
   }, [progressBarRef, itemsLength, totalDuration]);
 
   const handleProgressBarLeave = useCallback(() => {

@@ -3,6 +3,7 @@ import type React from 'react';
 import type { Asset } from '../../types';
 import { PlaybackRangeMarkers } from './parts/PlaybackRangeMarkers';
 import type { FocusedMarker } from './parts/PlaybackRangeMarkers';
+import { usePreviewFocusTrap } from './usePreviewFocusTrap';
 import { TimeDisplay } from './parts/TimeDisplay';
 import { VolumeControl } from './parts/VolumeControl';
 import { PreviewResolutionPicker } from './PreviewResolutionPicker';
@@ -158,6 +159,7 @@ export function PreviewModalSingleView({
 }: PreviewModalSingleViewProps) {
   const viewportStyle = getViewportStyle();
   const loadingLabel = isSingleModeVideo ? 'video' : 'image';
+  const handleModalKeyDownCapture = usePreviewFocusTrap(modalRef);
   let mediaContent: JSX.Element;
 
   if (isLoading) {
@@ -209,7 +211,12 @@ export function PreviewModalSingleView({
   }
 
   return (
-    <div className="preview-modal" ref={modalRef} onMouseDown={onContainerMouseDown}>
+    <div
+      className="preview-modal"
+      ref={modalRef}
+      onMouseDown={onContainerMouseDown}
+      onKeyDownCapture={handleModalKeyDownCapture}
+    >
       <div className="preview-backdrop" onClick={onClose} />
       <div className="preview-container preview-container--compact">
         <div
@@ -283,7 +290,7 @@ export function PreviewModalSingleView({
                       inPoint={inPoint}
                       outPoint={outPoint}
                       duration={singleModePlaybackDuration}
-                      showMilliseconds={false}
+                      showMilliseconds
                       focusedMarker={focusedMarker}
                       onMarkerFocus={onMarkerFocus}
                       onMarkerStep={onMarkerStep}
@@ -315,7 +322,7 @@ export function PreviewModalSingleView({
                     <TimeDisplay
                       currentTime={singleModePlaybackTime}
                       totalDuration={singleModePlaybackDuration}
-                      showMilliseconds={isSingleModeVideo}
+                      showMilliseconds
                     />
                   </div>
                 </div>

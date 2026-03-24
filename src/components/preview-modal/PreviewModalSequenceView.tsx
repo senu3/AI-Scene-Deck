@@ -3,6 +3,7 @@ import type React from 'react';
 import type { Asset, Cut } from '../../types';
 import { PlaybackRangeMarkers } from './parts/PlaybackRangeMarkers';
 import type { FocusedMarker } from './parts/PlaybackRangeMarkers';
+import { usePreviewFocusTrap } from './usePreviewFocusTrap';
 import { TimeDisplay } from './parts/TimeDisplay';
 import { VolumeControl } from './parts/VolumeControl';
 import { PreviewResolutionPicker } from './PreviewResolutionPicker';
@@ -124,9 +125,11 @@ export function PreviewModalSequenceView({
   toggleFullscreen,
   miniToastElement,
 }: PreviewModalSequenceViewProps) {
+  const handleModalKeyDownCapture = usePreviewFocusTrap(modalRef);
+
   if (items.length === 0) {
     return (
-      <div className="preview-modal" ref={modalRef}>
+      <div className="preview-modal" ref={modalRef} onKeyDownCapture={handleModalKeyDownCapture}>
         <div className="preview-backdrop" onClick={onClose} />
         <div className="preview-container">
           <div className="preview-header preview-header--static">
@@ -171,7 +174,12 @@ export function PreviewModalSequenceView({
   })();
 
   return (
-    <div className="preview-modal" ref={modalRef} onMouseDown={onContainerMouseDown}>
+    <div
+      className="preview-modal"
+      ref={modalRef}
+      onMouseDown={onContainerMouseDown}
+      onKeyDownCapture={handleModalKeyDownCapture}
+    >
       <div className="preview-backdrop" onClick={onClose} />
       <div className="preview-container preview-container--compact">
         <div
@@ -267,7 +275,7 @@ export function PreviewModalSequenceView({
                     inPoint={inPoint}
                     outPoint={outPoint}
                     duration={sequenceTotalDuration}
-                    showMilliseconds={false}
+                    showMilliseconds
                     focusedMarker={focusedMarker}
                     onMarkerFocus={onMarkerFocus}
                     onMarkerStep={onMarkerStep}
@@ -288,7 +296,7 @@ export function PreviewModalSequenceView({
                   )}
                 </div>
                 <div className="preview-progress-info">
-                  <TimeDisplay currentTime={sequenceCurrentTime} totalDuration={sequenceTotalDuration} />
+                  <TimeDisplay currentTime={sequenceCurrentTime} totalDuration={sequenceTotalDuration} showMilliseconds />
                 </div>
               </div>
 
