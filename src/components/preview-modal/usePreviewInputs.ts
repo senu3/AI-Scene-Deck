@@ -18,8 +18,8 @@ interface UsePreviewInputsInput {
   onStepForward: () => void;
   onToggleFullscreen: () => void;
   onToggleLooping: () => void;
-  onSetInPoint: () => void;
-  onSetOutPoint: () => void;
+  onSetInPoint?: () => void;
+  onSetOutPoint?: () => void;
   onToggleMute: () => void;
 }
 

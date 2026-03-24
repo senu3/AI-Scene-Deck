@@ -445,8 +445,8 @@ function PreviewModalSingleRoot({
     onStepForward: interactionCommands.stepForward,
     onToggleFullscreen: toggleFullscreen,
     onToggleLooping: interactionCommands.toggleLooping,
-    onSetInPoint: isSingleModeVideo ? interactionCommands.setInPoint : NOOP,
-    onSetOutPoint: isSingleModeVideo ? interactionCommands.setOutPoint : NOOP,
+    onSetInPoint: isSingleModeVideo ? interactionCommands.setInPoint : undefined,
+    onSetOutPoint: isSingleModeVideo ? interactionCommands.setOutPoint : undefined,
     onToggleMute: interactionCommands.toggleMute,
   });
 
@@ -587,8 +587,8 @@ function PreviewModalSingleRoot({
         skipBack={interactionCommands.skipBack}
         skipForward={interactionCommands.skipForward}
         togglePlay={interactionCommands.playPause}
-        handleSetInPoint={isSingleModeVideo ? interactionCommands.setInPoint : NOOP}
-        handleSetOutPoint={isSingleModeVideo ? interactionCommands.setOutPoint : NOOP}
+        handleSetInPoint={isSingleModeVideo ? interactionCommands.setInPoint : undefined}
+        handleSetOutPoint={isSingleModeVideo ? interactionCommands.setOutPoint : undefined}
         showSingleModeClearRangeButton={showSingleModeClearRangeButton}
         onClearRange={interactionCommands.clearRange}
         showSingleModeClipButton={showSingleModeClipButton}

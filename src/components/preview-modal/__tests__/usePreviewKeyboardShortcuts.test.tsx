@@ -7,9 +7,11 @@ import { usePreviewKeyboardShortcuts } from '../usePreviewKeyboardShortcuts';
 interface HarnessProps {
   onPlayPause: ReturnType<typeof vi.fn>;
   onClose: ReturnType<typeof vi.fn>;
+  onSetInPoint?: ReturnType<typeof vi.fn>;
+  onSetOutPoint?: ReturnType<typeof vi.fn>;
 }
 
-function Harness({ onPlayPause, onClose }: HarnessProps) {
+function Harness({ onPlayPause, onClose, onSetInPoint, onSetOutPoint }: HarnessProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   usePreviewKeyboardShortcuts({
@@ -22,8 +24,8 @@ function Harness({ onPlayPause, onClose }: HarnessProps) {
     onStepForward: vi.fn(),
     onToggleFullscreen: vi.fn(),
     onToggleLooping: vi.fn(),
-    onSetInPoint: vi.fn(),
-    onSetOutPoint: vi.fn(),
+    onSetInPoint,
+    onSetOutPoint,
     onToggleMute: vi.fn(),
   });
 
@@ -100,6 +102,38 @@ describe('usePreviewKeyboardShortcuts', () => {
       }));
     });
 
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('skips I/O bindings when the preview mode does not expose range editing', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    const onPlayPause = vi.fn();
+    const onClose = vi.fn();
+
+    await act(async () => {
+      root?.render(<Harness onPlayPause={onPlayPause} onClose={onClose} />);
+    });
+
+    const previewSurface = host.querySelector('[tabindex="0"]') as HTMLDivElement;
+
+    act(() => {
+      previewSurface.focus();
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'i',
+        bubbles: true,
+        cancelable: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'o',
+        bubbles: true,
+        cancelable: true,
+      }));
+    });
+
+    expect(onPlayPause).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
   });
 });

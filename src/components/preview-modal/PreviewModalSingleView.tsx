@@ -58,8 +58,8 @@ interface PreviewModalSingleViewProps {
   skipBack: () => void;
   skipForward: () => void;
   togglePlay: () => void;
-  handleSetInPoint: () => void;
-  handleSetOutPoint: () => void;
+  handleSetInPoint?: () => void;
+  handleSetOutPoint?: () => void;
   showSingleModeClearRangeButton: boolean;
   onClearRange: () => void;
   showSingleModeClipButton: boolean;

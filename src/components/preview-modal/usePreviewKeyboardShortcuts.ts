@@ -12,8 +12,8 @@ interface UsePreviewKeyboardShortcutsInput {
   onStepForward: () => void;
   onToggleFullscreen: () => void;
   onToggleLooping: () => void;
-  onSetInPoint: () => void;
-  onSetOutPoint: () => void;
+  onSetInPoint?: () => void;
+  onSetOutPoint?: () => void;
   onToggleMute: () => void;
 }
 
@@ -81,9 +81,11 @@ export function usePreviewKeyboardShortcuts({
           onToggleLooping();
           break;
         case 'i':
+          if (!onSetInPoint) return;
           onSetInPoint();
           break;
         case 'o':
+          if (!onSetOutPoint) return;
           onSetOutPoint();
           break;
         case 'm':
