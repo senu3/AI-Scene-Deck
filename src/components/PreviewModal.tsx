@@ -19,7 +19,6 @@ import type { Cut, Scene } from '../types';
 import { useSequencePlaybackController } from '../utils/previewPlaybackController';
 import { getScenesInOrder } from '../utils/sceneOrder';
 import { buildSequencePlan } from '../utils/sequencePlan';
-import { cyclePlaybackSpeed } from '../utils/timeUtils';
 import { slicePreviewAudioPlan } from '../utils/previewAudioPlanSlice';
 import { EXPORT_FRAMING_DEFAULTS } from '../constants/framing';
 import { useMiniToast } from '../ui';
@@ -166,7 +165,6 @@ function PreviewModalSingleRoot({
   const hasCutContext = !!focusCutData?.cut;
   const isAssetOnlyPreview = !hasCutContext;
 
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [videoObjectUrl, setVideoObjectUrl] = useState<{ assetId: string; url: string } | null>(null);
   const [singleModeIsLooping, setSingleModeIsLooping] = useState(false);
   const [selectedResolution, setSelectedResolution] = useState<ResolutionPreset>(
@@ -337,7 +335,6 @@ function PreviewModalSingleRoot({
     onClipClear,
     onFrameCapture,
     showMiniToast,
-    playbackSpeed,
     singleModeImageData,
     singleModeImageDuration,
     singleModeDuration,
@@ -383,10 +380,6 @@ function PreviewModalSingleRoot({
   const toggleLooping = useCallback(() => {
     setSingleModeIsLooping((prev) => !prev);
   }, []);
-  const cycleSingleModeSpeed = useCallback(() => {
-    setPlaybackSpeed((current) => cyclePlaybackSpeed(current, 'up'));
-  }, []);
-
   const interactionCommands = usePreviewInteractionCommands({
     mode: 'single',
     isPlaying: singleModeIsPlaying,
@@ -599,8 +592,6 @@ function PreviewModalSingleRoot({
         toggleLooping={interactionCommands.toggleLooping}
         globalMuted={globalMuted}
         toggleGlobalMute={interactionCommands.toggleMute}
-        playbackSpeed={playbackSpeed}
-        cycleSpeedUp={cycleSingleModeSpeed}
         isFullscreen={isFullscreen}
         toggleFullscreen={toggleFullscreen}
         miniToastElement={miniToastElement}

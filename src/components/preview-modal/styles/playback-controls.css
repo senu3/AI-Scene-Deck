@@ -197,23 +197,6 @@
   font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
 }
 
-/* Speed Display */
-.speed-display {
-  padding: 2px 6px;
-  background-color: var(--bg-tertiary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 12px;
-  color: var(--text-secondary);
-  transition: all 0.15s ease;
-}
-
-.speed-display:hover {
-  background-color: var(--accent-primary, var(--accent-color));
-  color: white;
-}
-
 /* Icon Button (Loop, Fullscreen, etc.) */
 .control-btn.icon-btn {
   background: var(--bg-tertiary);

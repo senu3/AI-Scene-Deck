@@ -72,8 +72,6 @@ interface PreviewModalSingleViewProps {
   toggleLooping: () => void;
   globalMuted: boolean;
   toggleGlobalMute: () => void;
-  playbackSpeed: number;
-  cycleSpeedUp: () => void;
   isFullscreen: boolean;
   toggleFullscreen: () => void;
   miniToastElement: React.ReactNode;
@@ -146,8 +144,6 @@ export function PreviewModalSingleView({
   toggleLooping,
   globalMuted,
   toggleGlobalMute,
-  playbackSpeed,
-  cycleSpeedUp,
   isFullscreen,
   toggleFullscreen,
   miniToastElement,
@@ -405,15 +401,6 @@ export function PreviewModalSingleView({
                   isMuted={globalMuted}
                   onMuteToggle={toggleGlobalMute}
                 />
-                {isSingleModeVideo && (
-                  <button
-                    className="preview-ctrl-btn preview-ctrl-btn--text"
-                    onClick={cycleSpeedUp}
-                    title="Cycle speed"
-                  >
-                    {playbackSpeed.toFixed(1)}x
-                  </button>
-                )}
                 <button
                   className="preview-ctrl-btn"
                   onClick={toggleFullscreen}

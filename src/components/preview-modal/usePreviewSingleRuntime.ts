@@ -42,7 +42,6 @@ interface UsePreviewSingleRuntimeInput {
   onClipClear?: () => Promise<void> | void;
   onFrameCapture?: (timestamp: number) => Promise<string | void> | void;
   showMiniToast: (message: string, variant?: 'success' | 'info' | 'warning' | 'error') => void;
-  playbackSpeed: number;
   singleModeImageData: string | null;
   singleModeImageDuration: number;
   singleModeDuration: number;
@@ -77,7 +76,6 @@ export function usePreviewSingleRuntime({
   onClipClear,
   onFrameCapture,
   showMiniToast,
-  playbackSpeed,
   singleModeImageData,
   singleModeImageDuration,
   singleModeDuration,
@@ -625,11 +623,6 @@ export function usePreviewSingleRuntime({
       lastSyncedExternalRef.current = latestExternal;
     }
   }, [isSingleModeVideo, commitSingleModeClipPoints, syncLocalRangeFromExternal]);
-
-  useEffect(() => {
-    if (!isSingleModeVideo || !videoRef.current) return;
-    videoRef.current.playbackRate = playbackSpeed;
-  }, [isSingleModeVideo, videoRef, playbackSpeed]);
 
   return {
     singleMediaElement,
