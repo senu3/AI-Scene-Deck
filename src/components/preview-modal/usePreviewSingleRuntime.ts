@@ -188,11 +188,15 @@ export function usePreviewSingleRuntime({
       return;
     }
 
+    const shouldShowSetToast = lastCommittedClipPointsRef.current === null;
     setIsSingleModeClipPending(true);
     try {
       await onClipSave(start, end, { expectedClipRevision: getCurrentClipRevision?.() });
       setIsSingleModeClipEnabled(true);
       lastCommittedClipPointsRef.current = { start, end };
+      if (shouldShowSetToast) {
+        showMiniToast('VIDEOCLIP set', 'success');
+      }
     } catch (error) {
       console.error('Failed to update clip points:', error);
       showMiniToast(error instanceof Error ? error.message : 'Failed to update clip points', 'error');
