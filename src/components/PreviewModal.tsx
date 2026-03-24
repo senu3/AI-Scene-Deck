@@ -433,6 +433,7 @@ function PreviewModalSingleRoot({
     handleProgressBarHover,
     handleProgressBarLeave,
   } = usePreviewInputs({
+    modalRef,
     progressBarRef,
     itemsLength: isSingleModeVideo || isSingleModeImage ? 1 : 0,
     totalDuration: singleModeDuration,
@@ -882,6 +883,7 @@ function PreviewModalSequenceRoot({
     handleProgressBarHover,
     handleProgressBarLeave,
   } = usePreviewInputs({
+    modalRef,
     progressBarRef,
     itemsLength: previewSequenceItems.length,
     totalDuration: sequenceState.totalDuration,

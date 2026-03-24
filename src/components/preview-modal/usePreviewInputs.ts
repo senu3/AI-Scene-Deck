@@ -3,6 +3,7 @@ import { usePreviewKeyboardShortcuts } from './usePreviewKeyboardShortcuts';
 import { usePreviewProgressInteractions } from './usePreviewProgressInteractions';
 
 interface UsePreviewInputsInput {
+  modalRef: React.RefObject<HTMLDivElement>;
   progressBarRef: React.RefObject<HTMLDivElement>;
   itemsLength: number;
   totalDuration: number;
@@ -23,6 +24,7 @@ interface UsePreviewInputsInput {
 }
 
 export function usePreviewInputs({
+  modalRef,
   progressBarRef,
   itemsLength,
   totalDuration,
@@ -57,6 +59,7 @@ export function usePreviewInputs({
   });
 
   usePreviewKeyboardShortcuts({
+    modalRef,
     onClose,
     onPlayPause,
     onSkipBack,
