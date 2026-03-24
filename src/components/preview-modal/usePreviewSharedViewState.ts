@@ -67,8 +67,8 @@ export function usePreviewSharedViewState({
   const globalProgress = isSingleMode ? 0 : getSequenceGlobalProgress();
   const resolvedSequenceTotalDuration = isSingleMode ? 0 : sequenceTotalDuration;
   const sequenceCurrentTime = isSingleMode ? 0 : getSequenceAbsoluteTime();
-  const singleModePlaybackDuration = isSingleMode ? singleModeDuration : sequenceTotalDuration;
-  const singleModePlaybackTime = isSingleMode ? singleModeCurrentTime : getSequenceAbsoluteTime();
+  const playbackDuration = isSingleMode ? singleModeDuration : sequenceTotalDuration;
+  const playbackTime = isSingleMode ? singleModeCurrentTime : getSequenceAbsoluteTime();
   const resolutionTargetAsset = isSingleMode ? (asset ?? null) : resolveAssetForCut(currentItem?.cut);
   const { asset: hydratedResolutionAsset } = useAssetMetadataHydration({
     asset: resolutionTargetAsset,
@@ -101,10 +101,10 @@ export function usePreviewSharedViewState({
     return buildPreviewViewportFramingStyle(targetCut?.framing, EXPORT_FRAMING_DEFAULTS);
   }, [isSingleMode, focusCut, currentItem?.cut, previewSequenceItemByCutId]);
 
-  const singleModeProgressPercent = singleModePlaybackDuration > 0
-    ? (singleModePlaybackTime / singleModePlaybackDuration) * 100
+  const playbackProgressPercent = playbackDuration > 0
+    ? (playbackTime / playbackDuration) * 100
     : 0;
-  const progressPercent = isSingleMode ? singleModeProgressPercent : globalProgress;
+  const progressPercent = isSingleMode ? playbackProgressPercent : globalProgress;
   const isFreeResolution = selectedResolution.width === 0;
   const previewDisplayClassName = isFreeResolution
     ? 'preview-display'
@@ -204,11 +204,11 @@ export function usePreviewSharedViewState({
     globalProgress,
     sequenceTotalDuration: resolvedSequenceTotalDuration,
     sequenceCurrentTime,
-    singleModePlaybackDuration,
-    singleModePlaybackTime,
+    playbackDuration,
+    playbackTime,
     previewResolutionLabel,
     currentFraming,
-    singleModeProgressPercent,
+    playbackProgressPercent,
     previewDisplayClassName,
   };
 }

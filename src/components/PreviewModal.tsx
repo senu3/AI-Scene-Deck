@@ -453,11 +453,11 @@ function PreviewModalSingleRoot({
   });
 
   const {
-    singleModePlaybackDuration,
-    singleModePlaybackTime,
+    playbackDuration,
+    playbackTime,
     previewResolutionLabel,
     currentFraming,
-    singleModeProgressPercent,
+    playbackProgressPercent,
     previewDisplayClassName,
   } = usePreviewSharedViewState({
     isSingleMode: true,
@@ -564,9 +564,9 @@ function PreviewModalSingleRoot({
         showOverlay={showOverlay}
         inPoint={inPoint}
         outPoint={outPoint}
-        singleModePlaybackDuration={singleModePlaybackDuration}
-        singleModeProgressPercent={singleModeProgressPercent}
-        singleModePlaybackTime={singleModePlaybackTime}
+        singleModePlaybackDuration={playbackDuration}
+        singleModeProgressPercent={playbackProgressPercent}
+        singleModePlaybackTime={playbackTime}
         hoverTime={hoverTime}
         focusedMarker={focusedMarker}
         onMarkerFocus={interactionCommands.markerFocus}
