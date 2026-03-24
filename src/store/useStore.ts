@@ -74,7 +74,7 @@ export const useStore = create<AppState>((set, get) => ({
   globalVolume: 1,
   globalMuted: false,
 
-  videoPreviewCutId: null,
+  singlePreviewCutId: null,
   sequencePreviewCutId: null,
 
   isImportingAsset: null,

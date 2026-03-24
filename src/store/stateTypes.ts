@@ -84,7 +84,7 @@ export interface AppState
   globalVolume: number;
   globalMuted: boolean;
 
-  videoPreviewCutId: string | null;
+  singlePreviewCutId: string | null;
   sequencePreviewCutId: string | null;
 
   isImportingAsset: string | null;

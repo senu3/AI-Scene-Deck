@@ -376,6 +376,9 @@ export function usePreviewSingleRuntime({
           videoRef.current.currentTime = clipStart;
           setSingleModeCurrentTime(clipStart);
         }
+      } else if (videoRef.current.currentTime >= singleModeDuration) {
+        videoRef.current.currentTime = 0;
+        setSingleModeCurrentTime(0);
       }
       void videoRef.current.play();
       isPlayingRef.current = true;
@@ -394,6 +397,9 @@ export function usePreviewSingleRuntime({
         source.seek(clipStart);
         setSingleModeCurrentTime(clipStart);
       }
+    } else if (source.getCurrentTime() >= singleModeDuration) {
+      source.seek(0);
+      setSingleModeCurrentTime(0);
     }
     source.play();
     isPlayingRef.current = true;
@@ -403,6 +409,7 @@ export function usePreviewSingleRuntime({
     isSingleModeImage,
     isSingleModeVideo,
     outPoint,
+    singleModeDuration,
     setSingleModeCurrentTime,
     videoRef,
   ]);

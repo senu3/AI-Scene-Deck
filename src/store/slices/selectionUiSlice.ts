@@ -167,11 +167,11 @@ export function createSelectionUiSlice(set: SliceSet, get: SliceGet): SelectionU
     setGlobalMuted: (muted) => set({ globalMuted: muted }),
     toggleGlobalMute: () => set((state) => ({ globalMuted: !state.globalMuted })),
 
-    openVideoPreview: (cutId) =>
+    openSinglePreview: (cutId) =>
       set({
-        videoPreviewCutId: cutId,
+        singlePreviewCutId: cutId,
       }),
-    closeVideoPreview: () => set({ videoPreviewCutId: null }),
+    closeSinglePreview: () => set({ singlePreviewCutId: null }),
     openSequencePreview: (cutId) =>
       set({
         sequencePreviewCutId: cutId,

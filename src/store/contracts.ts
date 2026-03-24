@@ -113,8 +113,8 @@ export interface SelectionUiSliceContract {
   setGlobalVolume: (volume: number) => void;
   setGlobalMuted: (muted: boolean) => void;
   toggleGlobalMute: () => void;
-  openVideoPreview: (cutId: string) => void;
-  closeVideoPreview: () => void;
+  openSinglePreview: (cutId: string) => void;
+  closeSinglePreview: () => void;
   openSequencePreview: (cutId: string) => void;
   closeSequencePreview: () => void;
   setImportingAsset: (name: string | null) => void;

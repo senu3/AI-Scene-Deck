@@ -12,8 +12,8 @@ import {
   selectCopySelectedCuts,
   selectCanPaste,
   selectClearCutSelection,
-  selectVideoPreviewCutId,
-  selectCloseVideoPreview,
+  selectSinglePreviewCutId,
+  selectCloseSinglePreview,
   selectSequencePreviewCutId,
   selectCloseSequencePreview,
   selectCacheAssetAction,
@@ -120,8 +120,8 @@ function App() {
   const copySelectedCuts = useStore(selectCopySelectedCuts);
   const canPaste = useStore(selectCanPaste);
   const clearCutSelection = useStore(selectClearCutSelection);
-  const videoPreviewCutId = useStore(selectVideoPreviewCutId);
-  const closeVideoPreview = useStore(selectCloseVideoPreview);
+  const singlePreviewCutId = useStore(selectSinglePreviewCutId);
+  const closeSinglePreview = useStore(selectCloseSinglePreview);
   const sequencePreviewCutId = useStore(selectSequencePreviewCutId);
   const closeSequencePreview = useStore(selectCloseSequencePreview);
   const cacheAsset = useStore(selectCacheAssetAction);
@@ -858,16 +858,16 @@ function App() {
 
   // Find cut data for Single Mode preview modal
   const previewCutData = useCallback(() => {
-    if (!videoPreviewCutId) return null;
+    if (!singlePreviewCutId) return null;
     for (const scene of orderedScenes) {
-      const cut = scene.cuts.find(c => c.id === videoPreviewCutId);
+      const cut = scene.cuts.find(c => c.id === singlePreviewCutId);
       const resolvedAsset = cut ? resolveCutAsset(cut, getAsset) : null;
       if (cut && resolvedAsset) {
         return { scene, cut, asset: resolvedAsset };
       }
     }
     return null;
-  }, [videoPreviewCutId, orderedScenes, getAsset]);
+  }, [singlePreviewCutId, orderedScenes, getAsset]);
 
   const previewData = previewCutData();
 
@@ -1054,7 +1054,7 @@ function App() {
                 mode="single"
                 asset={previewData.asset}
                 focusCutId={previewData.cut.id}
-                onClose={closeVideoPreview}
+                onClose={closeSinglePreview}
                 initialInPoint={previewData.cut.inPoint}
                 initialOutPoint={previewData.cut.outPoint}
                 onClipSave={handleVideoPreviewClipSave}

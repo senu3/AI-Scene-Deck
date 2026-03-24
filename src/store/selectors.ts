@@ -20,7 +20,7 @@ export const selectProjectLoaded = (s: AppState) => s.projectLoaded;
 export const selectProjectName = (s: AppState) => s.projectName;
 export const selectSidebarOpen = (s: AppState) => s.sidebarOpen;
 
-export const selectVideoPreviewCutId = (s: AppState) => s.videoPreviewCutId;
+export const selectSinglePreviewCutId = (s: AppState) => s.singlePreviewCutId;
 export const selectSequencePreviewCutId = (s: AppState) => s.sequencePreviewCutId;
 
 export const selectSelectScene = (s: AppState) => s.selectScene;
@@ -38,7 +38,7 @@ export const selectGetCutRuntime = (s: AppState) => s.getCutRuntime;
 export const selectSetCutRuntimeHold = (s: AppState) => s.setCutRuntimeHold;
 export const selectClearCutRuntimeHold = (s: AppState) => s.clearCutRuntimeHold;
 export const selectClearCutRuntime = (s: AppState) => s.clearCutRuntime;
-export const selectOpenVideoPreview = (s: AppState) => s.openVideoPreview;
+export const selectOpenSinglePreview = (s: AppState) => s.openSinglePreview;
 export const selectOpenSequencePreview = (s: AppState) => s.openSequencePreview;
 export const selectCreateGroup = (s: AppState) => s.createGroup;
 export const selectCreateCutFromImport = (s: AppState) => s.createCutFromImport;
@@ -76,7 +76,7 @@ export const selectEmitCutRelinked = (s: AppState) => s.emitCutRelinked;
 export const selectSetGlobalVolume = (s: AppState) => s.setGlobalVolume;
 export const selectToggleGlobalMute = (s: AppState) => s.toggleGlobalMute;
 
-export const selectCloseVideoPreview = (s: AppState) => s.closeVideoPreview;
+export const selectCloseSinglePreview = (s: AppState) => s.closeSinglePreview;
 export const selectCloseSequencePreview = (s: AppState) => s.closeSequencePreview;
 export const selectCacheAssetAction = selectCacheAsset;
 export const selectUpdateCutAssetAction = selectUpdateCutAsset;
