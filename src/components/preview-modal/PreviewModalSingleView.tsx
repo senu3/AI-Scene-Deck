@@ -334,7 +334,7 @@ export function PreviewModalSingleView({
                 <button
                   className="preview-ctrl-btn"
                   onClick={skipBack}
-                  title="Rewind 5s (←)"
+                  title="Rewind 1s (←)"
                 >
                   <SkipBack size={18} />
                 </button>
@@ -348,7 +348,7 @@ export function PreviewModalSingleView({
                 <button
                   className="preview-ctrl-btn"
                   onClick={skipForward}
-                  title="Forward 5s (→)"
+                  title="Forward 1s (→)"
                 >
                   <SkipForward size={18} />
                 </button>

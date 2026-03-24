@@ -45,12 +45,16 @@ export function usePreviewKeyboardShortcuts({
   onToggleMute,
 }: UsePreviewKeyboardShortcutsInput) {
   useEffect(() => {
+    const repeatableKeys = new Set(['ArrowLeft', 'ArrowRight', ',', '.']);
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (!isPreviewShortcutTarget(e.target, modalRef)) return;
+      const normalizedKey = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (e.repeat && !repeatableKeys.has(normalizedKey)) return;
 
-      switch (e.key) {
+      switch (normalizedKey) {
         case 'Escape':
           onClose();
           break;

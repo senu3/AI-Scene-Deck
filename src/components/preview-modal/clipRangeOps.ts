@@ -23,7 +23,14 @@ interface MoveRangeWindowInput {
   deltaTime: number;
 }
 
+interface IsPlayheadNearMarkerInput {
+  playheadTime: number;
+  markerTime: number | null;
+  tolerance?: number;
+}
+
 export const MIN_CLIP_RANGE_SPAN = FRAME_DURATION;
+const MARKER_FOCUS_EPSILON = 0.0001;
 
 function resolveEffectiveMinSpan(duration: number): number {
   return Math.max(0, Math.min(duration, MIN_CLIP_RANGE_SPAN));
@@ -119,6 +126,15 @@ export function hasValidRangeSpan(
 ): boolean {
   if (inPoint === null || outPoint === null) return false;
   return Math.abs(outPoint - inPoint) >= resolveEffectiveMinSpan(duration);
+}
+
+export function isPlayheadNearMarker({
+  playheadTime,
+  markerTime,
+  tolerance = FRAME_DURATION,
+}: IsPlayheadNearMarkerInput): boolean {
+  if (markerTime === null) return false;
+  return Math.abs(playheadTime - markerTime) <= (Math.max(0, tolerance) + MARKER_FOCUS_EPSILON);
 }
 
 interface ResolveUiPlayheadTimeInput {

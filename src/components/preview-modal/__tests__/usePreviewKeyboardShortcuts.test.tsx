@@ -7,19 +7,28 @@ import { usePreviewKeyboardShortcuts } from '../usePreviewKeyboardShortcuts';
 interface HarnessProps {
   onPlayPause: ReturnType<typeof vi.fn>;
   onClose: ReturnType<typeof vi.fn>;
+  onSkipBack?: ReturnType<typeof vi.fn>;
+  onSkipForward?: ReturnType<typeof vi.fn>;
   onSetInPoint?: ReturnType<typeof vi.fn>;
   onSetOutPoint?: ReturnType<typeof vi.fn>;
 }
 
-function Harness({ onPlayPause, onClose, onSetInPoint, onSetOutPoint }: HarnessProps) {
+function Harness({
+  onPlayPause,
+  onClose,
+  onSkipBack,
+  onSkipForward,
+  onSetInPoint,
+  onSetOutPoint,
+}: HarnessProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
   usePreviewKeyboardShortcuts({
     modalRef,
     onClose,
     onPlayPause,
-    onSkipBack: vi.fn(),
-    onSkipForward: vi.fn(),
+    onSkipBack: onSkipBack ?? vi.fn(),
+    onSkipForward: onSkipForward ?? vi.fn(),
     onStepBack: vi.fn(),
     onStepForward: vi.fn(),
     onToggleFullscreen: vi.fn(),
@@ -135,5 +144,54 @@ describe('usePreviewKeyboardShortcuts', () => {
 
     expect(onPlayPause).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('normalizes letter shortcuts and ignores repeat for toggle-style actions', async () => {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    const onPlayPause = vi.fn();
+    const onClose = vi.fn();
+    const onSkipBack = vi.fn();
+    const onSetInPoint = vi.fn();
+
+    await act(async () => {
+      root?.render(
+        <Harness
+          onPlayPause={onPlayPause}
+          onClose={onClose}
+          onSkipBack={onSkipBack}
+          onSetInPoint={onSetInPoint}
+        />,
+      );
+    });
+
+    const previewSurface = host.querySelector('[tabindex="0"]') as HTMLDivElement;
+
+    act(() => {
+      previewSurface.focus();
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'I',
+        bubbles: true,
+        cancelable: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: ' ',
+        bubbles: true,
+        cancelable: true,
+        repeat: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        bubbles: true,
+        cancelable: true,
+        repeat: true,
+      }));
+    });
+
+    expect(onSetInPoint).toHaveBeenCalledTimes(1);
+    expect(onPlayPause).not.toHaveBeenCalled();
+    expect(onSkipBack).toHaveBeenCalledTimes(1);
   });
 });

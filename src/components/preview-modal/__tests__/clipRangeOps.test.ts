@@ -5,6 +5,7 @@ import {
   computeNextRangeForSetOut,
   constrainMarkerTime,
   hasValidRangeSpan,
+  isPlayheadNearMarker,
   moveRangeWindow,
 } from '../clipRangeOps';
 
@@ -62,5 +63,22 @@ describe('clipRangeOps', () => {
   it('rejects ranges shorter than the minimum clip span', () => {
     expect(hasValidRangeSpan(1, 1, 10)).toBe(false);
     expect(hasValidRangeSpan(1, 1 + MIN_CLIP_RANGE_SPAN, 10)).toBe(true);
+  });
+
+  it('treats playhead positions within one frame as re-focusing the same marker', () => {
+    expect(isPlayheadNearMarker({
+      playheadTime: 2,
+      markerTime: 2,
+    })).toBe(true);
+
+    expect(isPlayheadNearMarker({
+      playheadTime: 2 + (MIN_CLIP_RANGE_SPAN * 0.9),
+      markerTime: 2,
+    })).toBe(true);
+
+    expect(isPlayheadNearMarker({
+      playheadTime: 2 + (MIN_CLIP_RANGE_SPAN * 1.1),
+      markerTime: 2,
+    })).toBe(false);
   });
 });

@@ -8,8 +8,11 @@ import { clampToDuration } from './helpers';
 import {
   computeNextRangeForSetIn,
   computeNextRangeForSetOut,
+  isPlayheadNearMarker,
   resolveUiPlayheadTime,
 } from './clipRangeOps';
+
+const PREVIEW_SKIP_SECONDS = 1;
 
 interface UsePreviewInteractionCommandsInput {
   mode: 'single' | 'sequence';
@@ -179,11 +182,11 @@ export function usePreviewInteractionCommands({
   }, [isPlaying, mode, pauseSingleMode, sequencePause]);
 
   const skipBack = useCallback(() => {
-    skip(-5);
+    skip(-PREVIEW_SKIP_SECONDS);
   }, [skip]);
 
   const skipForward = useCallback(() => {
-    skip(5);
+    skip(PREVIEW_SKIP_SECONDS);
   }, [skip]);
 
   const stepBack = useCallback(() => {
@@ -227,16 +230,21 @@ export function usePreviewInteractionCommands({
   }, [focusedMarker, beginRangeEdit, stepFocusedMarker, seekToAbsolute, mode, stepSingleMode, items, currentIndex, resolveAssetForCut, stepSequenceFrame]);
 
   const setInPoint = useCallback(() => {
-    if (mode === 'single') {
-      handleSingleModeSetInPoint();
-      return;
-    }
-    if (items.length === 0) return;
     const playheadTime = resolveUiPlayheadTime({
       mode,
       getSingleModeCurrentTime,
       getSequenceAbsoluteTime,
     });
+    if (isPlayheadNearMarker({ playheadTime, markerTime: inPoint })) {
+      handleMarkerFocus('in');
+      return;
+    }
+
+    if (mode === 'single') {
+      handleSingleModeSetInPoint();
+      return;
+    }
+    if (items.length === 0) return;
     const nextRange = computeNextRangeForSetIn({
       playheadTime,
       duration: sequenceTotalDuration,
@@ -248,27 +256,33 @@ export function usePreviewInteractionCommands({
   }, [
     mode,
     handleSingleModeSetInPoint,
-    items.length,
+    inPoint,
     getSingleModeCurrentTime,
     getSequenceAbsoluteTime,
+    handleMarkerFocus,
+    items.length,
     sequenceTotalDuration,
-    inPoint,
     outPoint,
     setSequenceRange,
     notifyRangeChange,
   ]);
 
   const setOutPoint = useCallback(() => {
-    if (mode === 'single') {
-      handleSingleModeSetOutPoint();
-      return;
-    }
-    if (items.length === 0) return;
     const playheadTime = resolveUiPlayheadTime({
       mode,
       getSingleModeCurrentTime,
       getSequenceAbsoluteTime,
     });
+    if (isPlayheadNearMarker({ playheadTime, markerTime: outPoint })) {
+      handleMarkerFocus('out');
+      return;
+    }
+
+    if (mode === 'single') {
+      handleSingleModeSetOutPoint();
+      return;
+    }
+    if (items.length === 0) return;
     const nextRange = computeNextRangeForSetOut({
       playheadTime,
       duration: sequenceTotalDuration,
@@ -280,12 +294,13 @@ export function usePreviewInteractionCommands({
   }, [
     mode,
     handleSingleModeSetOutPoint,
-    items.length,
+    outPoint,
     getSingleModeCurrentTime,
     getSequenceAbsoluteTime,
+    handleMarkerFocus,
+    items.length,
     sequenceTotalDuration,
     inPoint,
-    outPoint,
     setSequenceRange,
     notifyRangeChange,
   ]);
