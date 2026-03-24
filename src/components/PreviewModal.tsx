@@ -301,6 +301,7 @@ function PreviewModalSingleRoot({
     getSingleModeCurrentTime,
     handleSingleModeSetInPoint,
     handleSingleModeSetOutPoint,
+    handleSingleModeClearRange,
     handleSingleModeClearClip,
     handleSingleModeSave,
     handleSingleModeCaptureFrame,
@@ -410,6 +411,7 @@ function PreviewModalSingleRoot({
     stepFocusedMarker,
     handleSingleModeSetInPoint,
     handleSingleModeSetOutPoint,
+    handleSingleModeClearRange,
     toggleLooping,
     toggleGlobalMute,
     handleMarkerFocus,
@@ -485,10 +487,15 @@ function PreviewModalSingleRoot({
   });
 
   const hasSingleModeRange = isSingleModeVideo && hasValidRangeSpan(inPoint, outPoint, singleModeDuration);
+  const hasSingleModePartialRange = isSingleModeVideo && (inPoint !== null || outPoint !== null) && !hasSingleModeRange;
   const showSingleModeClipButton = isSingleModeVideo && (
     (isSingleModeClipEnabled && !!onClipClear)
     || (!isSingleModeClipEnabled && hasSingleModeRange && !!onClipSave)
   );
+  const showSingleModeClearRangeButton = isSingleModeVideo
+    && !isSingleModeClipEnabled
+    && hasSingleModePartialRange
+    && !showSingleModeClipButton;
   const currentFocusHold = focusCutData?.cut?.id ? getCutRuntime(focusCutData.cut.id)?.hold : undefined;
   const isHoldEnabled = !!(currentFocusHold?.enabled && currentFocusHold.durationMs > 0);
   const openHoldEditor = useCallback(() => {
@@ -582,6 +589,8 @@ function PreviewModalSingleRoot({
         togglePlay={interactionCommands.playPause}
         handleSetInPoint={isSingleModeVideo ? interactionCommands.setInPoint : NOOP}
         handleSetOutPoint={isSingleModeVideo ? interactionCommands.setOutPoint : NOOP}
+        showSingleModeClearRangeButton={showSingleModeClearRangeButton}
+        onClearRange={interactionCommands.clearRange}
         showSingleModeClipButton={showSingleModeClipButton}
         isSingleModeClipEnabled={isSingleModeClipEnabled}
         onClipPrimaryAction={isSingleModeClipEnabled ? handleSingleModeClearClip : handleSingleModeSave}
@@ -858,6 +867,7 @@ function PreviewModalSequenceRoot({
     stepFocusedMarker,
     handleSingleModeSetInPoint: NOOP,
     handleSingleModeSetOutPoint: NOOP,
+    handleSingleModeClearRange: NOOP,
     toggleLooping,
     toggleGlobalMute,
     handleMarkerFocus,

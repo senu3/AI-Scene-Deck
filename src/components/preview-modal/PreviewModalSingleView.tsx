@@ -1,4 +1,4 @@
-import { Camera, Clock3, Maximize, Pause, Play, Repeat, Scissors, SkipBack, SkipForward, X } from 'lucide-react';
+import { Camera, Clock3, MapPinOff, Maximize, Pause, Play, Repeat, Scissors, SkipBack, SkipForward, X } from 'lucide-react';
 import type React from 'react';
 import type { Asset } from '../../types';
 import { PlaybackRangeMarkers } from './parts/PlaybackRangeMarkers';
@@ -60,6 +60,8 @@ interface PreviewModalSingleViewProps {
   togglePlay: () => void;
   handleSetInPoint: () => void;
   handleSetOutPoint: () => void;
+  showSingleModeClearRangeButton: boolean;
+  onClearRange: () => void;
   showSingleModeClipButton: boolean;
   isSingleModeClipEnabled: boolean;
   onClipPrimaryAction: () => void;
@@ -132,6 +134,8 @@ export function PreviewModalSingleView({
   togglePlay,
   handleSetInPoint,
   handleSetOutPoint,
+  showSingleModeClearRangeButton,
+  onClearRange,
   showSingleModeClipButton,
   isSingleModeClipEnabled,
   onClipPrimaryAction,
@@ -375,6 +379,15 @@ export function PreviewModalSingleView({
                     disabled={isSingleModeClipPending}
                   >
                     <Scissors size={18} />
+                  </button>
+                )}
+                {isSingleModeVideo && showSingleModeClearRangeButton && (
+                  <button
+                    className="preview-ctrl-btn"
+                    onClick={onClearRange}
+                    title="Clear I/O"
+                  >
+                    <MapPinOff size={16} />
                   </button>
                 )}
                 {isSingleModeVideo && showHoldButton && (

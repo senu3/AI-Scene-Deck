@@ -479,6 +479,13 @@ export function usePreviewSingleRuntime({
     videoRef,
   ]);
 
+  const handleSingleModeClearRange = useCallback(() => {
+    if (!isSingleModeVideo) return;
+    setSingleModeRange(null, null);
+    setFocusedMarker(null);
+    notifyRangeChange(null, null);
+  }, [isSingleModeVideo, notifyRangeChange, setSingleModeRange, setFocusedMarker]);
+
   const handleSingleModeClearClip = useCallback(async () => {
     if (!isSingleModeVideo) return;
     setIsSingleModeClipPending(true);
@@ -643,6 +650,7 @@ export function usePreviewSingleRuntime({
     getSingleModeCurrentTime,
     handleSingleModeSetInPoint,
     handleSingleModeSetOutPoint,
+    handleSingleModeClearRange,
     handleSingleModeClearClip,
     handleSingleModeSave,
     handleSingleModeCaptureFrame,

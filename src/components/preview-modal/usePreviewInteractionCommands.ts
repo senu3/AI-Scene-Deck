@@ -39,6 +39,7 @@ interface UsePreviewInteractionCommandsInput {
   stepFocusedMarker: (direction: number) => number | null;
   handleSingleModeSetInPoint: () => void;
   handleSingleModeSetOutPoint: () => void;
+  handleSingleModeClearRange: () => void;
   toggleLooping: () => void;
   toggleGlobalMute: () => void;
   handleMarkerFocus: (marker: FocusedMarker) => void;
@@ -78,6 +79,7 @@ export function usePreviewInteractionCommands({
   stepFocusedMarker,
   handleSingleModeSetInPoint,
   handleSingleModeSetOutPoint,
+  handleSingleModeClearRange,
   toggleLooping,
   toggleGlobalMute,
   handleMarkerFocus,
@@ -289,7 +291,10 @@ export function usePreviewInteractionCommands({
   ]);
 
   const clearRange = useCallback(() => {
-    if (mode !== 'sequence') return;
+    if (mode === 'single') {
+      handleSingleModeClearRange();
+      return;
+    }
     if (inPoint === null && outPoint === null) return;
     setSequenceRange(null, null);
     notifyRangeChange(null, null);
@@ -298,6 +303,7 @@ export function usePreviewInteractionCommands({
     mode,
     inPoint,
     outPoint,
+    handleSingleModeClearRange,
     setSequenceRange,
     notifyRangeChange,
     handleMarkerFocus,
