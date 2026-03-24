@@ -1,4 +1,4 @@
-import { Download, Loader2, Maximize, Pause, Play, Repeat, SkipBack, SkipForward, X } from 'lucide-react';
+import { Download, Loader2, MapPinOff, Maximize, Pause, Play, Repeat, SkipBack, SkipForward, X } from 'lucide-react';
 import type React from 'react';
 import type { Asset, Cut } from '../../types';
 import { PlaybackRangeMarkers } from './parts/PlaybackRangeMarkers';
@@ -59,6 +59,8 @@ interface PreviewModalSequenceViewProps {
   goToNext: () => void;
   handleSetInPoint: () => void;
   handleSetOutPoint: () => void;
+  showClearRangeButton: boolean;
+  onClearRange: () => void;
   isLooping: boolean;
   toggleLooping: () => void;
   globalMuted: boolean;
@@ -117,6 +119,8 @@ export function PreviewModalSequenceView({
   goToNext,
   handleSetInPoint,
   handleSetOutPoint,
+  showClearRangeButton,
+  onClearRange,
   isLooping,
   toggleLooping,
   globalMuted,
@@ -339,6 +343,15 @@ export function PreviewModalSequenceView({
                 >
                   O
                 </button>
+                {showClearRangeButton && (
+                  <button
+                    className="preview-ctrl-btn"
+                    onClick={onClearRange}
+                    title="Clear I/O"
+                  >
+                    <MapPinOff size={16} />
+                  </button>
+                )}
                 <div className="preview-ctrl-divider" />
                 <button
                   className={`preview-ctrl-btn ${isLooping ? 'is-active' : ''}`}

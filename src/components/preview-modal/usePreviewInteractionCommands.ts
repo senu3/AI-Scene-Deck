@@ -288,6 +288,21 @@ export function usePreviewInteractionCommands({
     notifyRangeChange,
   ]);
 
+  const clearRange = useCallback(() => {
+    if (mode !== 'sequence') return;
+    if (inPoint === null && outPoint === null) return;
+    setSequenceRange(null, null);
+    notifyRangeChange(null, null);
+    handleMarkerFocus(null);
+  }, [
+    mode,
+    inPoint,
+    outPoint,
+    setSequenceRange,
+    notifyRangeChange,
+    handleMarkerFocus,
+  ]);
+
   const markerDrag = useCallback((marker: 'in' | 'out', newTime: number) => {
     const markerTime = handleMarkerDrag(marker, newTime);
     seekToAbsolute(markerTime);
@@ -333,6 +348,7 @@ export function usePreviewInteractionCommands({
     stepForward,
     setInPoint,
     setOutPoint,
+    clearRange,
     toggleLooping,
     toggleMute: toggleGlobalMute,
     markerFocus: handleMarkerFocus,

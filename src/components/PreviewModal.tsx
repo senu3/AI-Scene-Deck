@@ -942,6 +942,8 @@ function PreviewModalSequenceRoot({
     progressHandleRef,
   });
 
+  const showClearSequenceRangeButton = inPoint !== null || outPoint !== null;
+
   return (
     <PreviewModalSequenceView
       modalRef={modalRef}
@@ -997,6 +999,8 @@ function PreviewModalSequenceRoot({
       goToNext={goToNext}
       handleSetInPoint={interactionCommands.setInPoint}
       handleSetOutPoint={interactionCommands.setOutPoint}
+      showClearRangeButton={showClearSequenceRangeButton}
+      onClearRange={interactionCommands.clearRange}
       isLooping={sequenceState.isLooping}
       toggleLooping={interactionCommands.toggleLooping}
       globalMuted={globalMuted}
