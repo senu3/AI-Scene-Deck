@@ -32,7 +32,8 @@
 - `PreviewModalProps` は `mode: 'single' | 'sequence'` の discriminated union を正本にする。
 - Single Mode:
   - 単一 asset（または単一 cut）の確認に使う。
-  - clip-local な IN/OUT 調整を許可する。
+  - video では clip-local な IN/OUT 調整を許可する。
+  - image は I/O surface を持たない。
 - Sequence Mode:
   - cut 列の連続再生を行う。
   - play/pause/seek/loop/range/buffering をコントローラで一元管理する。

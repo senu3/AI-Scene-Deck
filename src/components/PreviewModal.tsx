@@ -164,6 +164,8 @@ function PreviewModalSingleRoot({
   const isSingleModeImage = asset.type === 'image';
   const hasCutContext = !!focusCutData?.cut;
   const isAssetOnlyPreview = !hasCutContext;
+  const singleModeInitialInPoint = isSingleModeVideo ? initialInPoint : undefined;
+  const singleModeInitialOutPoint = isSingleModeVideo ? initialOutPoint : undefined;
 
   const [videoObjectUrl, setVideoObjectUrl] = useState<{ assetId: string; url: string } | null>(null);
   const [singleModeIsLooping, setSingleModeIsLooping] = useState(false);
@@ -280,8 +282,8 @@ function PreviewModalSingleRoot({
     sequenceOutPoint: null,
     sequenceTotalDuration: 0,
     singleModeDuration,
-    initialInPoint,
-    initialOutPoint,
+    initialInPoint: singleModeInitialInPoint,
+    initialOutPoint: singleModeInitialOutPoint,
     onRangeChange,
     setSequenceRange: NOOP_RANGE,
     frameDuration: FRAME_DURATION,
@@ -321,7 +323,7 @@ function PreviewModalSingleRoot({
     focusCutOutPoint: focusCutData?.cut?.outPoint,
     inPoint,
     outPoint,
-    initialInPoint,
+    initialInPoint: singleModeInitialInPoint,
     singleModeInPoint,
     singleModeOutPoint,
     singleModeIsLooping,
@@ -441,8 +443,8 @@ function PreviewModalSingleRoot({
     onStepForward: interactionCommands.stepForward,
     onToggleFullscreen: toggleFullscreen,
     onToggleLooping: interactionCommands.toggleLooping,
-    onSetInPoint: interactionCommands.setInPoint,
-    onSetOutPoint: interactionCommands.setOutPoint,
+    onSetInPoint: isSingleModeVideo ? interactionCommands.setInPoint : NOOP,
+    onSetOutPoint: isSingleModeVideo ? interactionCommands.setOutPoint : NOOP,
     onToggleMute: interactionCommands.toggleMute,
   });
 
@@ -578,8 +580,8 @@ function PreviewModalSingleRoot({
         skipBack={interactionCommands.skipBack}
         skipForward={interactionCommands.skipForward}
         togglePlay={interactionCommands.playPause}
-        handleSetInPoint={interactionCommands.setInPoint}
-        handleSetOutPoint={interactionCommands.setOutPoint}
+        handleSetInPoint={isSingleModeVideo ? interactionCommands.setInPoint : NOOP}
+        handleSetOutPoint={isSingleModeVideo ? interactionCommands.setOutPoint : NOOP}
         showSingleModeClipButton={showSingleModeClipButton}
         isSingleModeClipEnabled={isSingleModeClipEnabled}
         onClipPrimaryAction={isSingleModeClipEnabled ? handleSingleModeClearClip : handleSingleModeSave}

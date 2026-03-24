@@ -282,22 +282,24 @@ export function PreviewModalSingleView({
                     onMouseMove={onProgressBarHover}
                     onMouseLeave={onProgressBarLeave}
                   >
-                    <PlaybackRangeMarkers
-                      inPoint={inPoint}
-                      outPoint={outPoint}
-                      duration={singleModePlaybackDuration}
-                      showMilliseconds
-                      focusedMarker={focusedMarker}
-                      onMarkerFocus={onMarkerFocus}
-                      onMarkerStep={onMarkerStep}
-                      onMarkerDragStart={onMarkerDragStart}
-                      onMarkerDrag={onMarkerDrag}
-                      onMarkerDragEnd={onMarkerDragEnd}
-                      onSelectionDragStart={onSelectionDragStart}
-                      onSelectionDrag={onSelectionDrag}
-                      onSelectionDragEnd={onSelectionDragEnd}
-                      progressBarRef={progressBarRef}
-                    />
+                    {isSingleModeVideo && (
+                      <PlaybackRangeMarkers
+                        inPoint={inPoint}
+                        outPoint={outPoint}
+                        duration={singleModePlaybackDuration}
+                        showMilliseconds
+                        focusedMarker={focusedMarker}
+                        onMarkerFocus={onMarkerFocus}
+                        onMarkerStep={onMarkerStep}
+                        onMarkerDragStart={onMarkerDragStart}
+                        onMarkerDrag={onMarkerDrag}
+                        onMarkerDragEnd={onMarkerDragEnd}
+                        onSelectionDragStart={onSelectionDragStart}
+                        onSelectionDrag={onSelectionDrag}
+                        onSelectionDragEnd={onSelectionDragEnd}
+                        progressBarRef={progressBarRef}
+                      />
+                    )}
                     <div
                       ref={progressFillRef}
                       className="preview-progress-fill"
@@ -346,21 +348,25 @@ export function PreviewModalSingleView({
                 >
                   <SkipForward size={18} />
                 </button>
-                <div className="preview-ctrl-divider" />
-                <button
-                  className={`preview-ctrl-btn preview-ctrl-btn--text ${inPoint !== null ? 'is-active' : ''}`}
-                  onClick={handleSetInPoint}
-                  title="Set IN point (I)"
-                >
-                  I
-                </button>
-                <button
-                  className={`preview-ctrl-btn preview-ctrl-btn--text ${outPoint !== null ? 'is-active' : ''}`}
-                  onClick={handleSetOutPoint}
-                  title="Set OUT point (O)"
-                >
-                  O
-                </button>
+                {isSingleModeVideo && (
+                  <>
+                    <div className="preview-ctrl-divider" />
+                    <button
+                      className={`preview-ctrl-btn preview-ctrl-btn--text ${inPoint !== null ? 'is-active' : ''}`}
+                      onClick={handleSetInPoint}
+                      title="Set IN point (I)"
+                    >
+                      I
+                    </button>
+                    <button
+                      className={`preview-ctrl-btn preview-ctrl-btn--text ${outPoint !== null ? 'is-active' : ''}`}
+                      onClick={handleSetOutPoint}
+                      title="Set OUT point (O)"
+                    >
+                      O
+                    </button>
+                  </>
+                )}
                 {isSingleModeVideo && showSingleModeClipButton && (
                   <button
                     className={`preview-ctrl-btn ${isSingleModeClipEnabled ? 'is-active' : ''}`}

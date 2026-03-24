@@ -17,7 +17,6 @@ import {
   selectCanPaste,
   selectVaultPath,
   selectOpenVideoPreview,
-  selectOpenSequencePreview,
   selectGetCutRuntime,
   selectGetCutGroup,
   selectCreateCutFromImport,
@@ -92,7 +91,6 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden, cro
   const canPaste = useStore(selectCanPaste);
   const vaultPath = useStore(selectVaultPath);
   const openVideoPreview = useStore(selectOpenVideoPreview);
-  const openSequencePreview = useStore(selectOpenSequencePreview);
   const getCutRuntime = useStore(selectGetCutRuntime);
   const getCutGroup = useStore(selectGetCutGroup);
   const createCutFromImport = useStore(selectCreateCutFromImport);
@@ -237,11 +235,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden, cro
   const handleDoubleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (asset) {
-      if (asset.type === 'video') {
-        openVideoPreview(cut.id);
-      } else {
-        openSequencePreview(cut.id);
-      }
+      openVideoPreview(cut.id);
     }
   };
 

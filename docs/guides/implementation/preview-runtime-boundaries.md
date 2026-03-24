@@ -56,6 +56,7 @@
 - IN/OUT（Clip Range）:
   - 更新入力は playhead、基準は canonical timing。
   - 最小 range span は 1 frame とし、I/O ボタン・marker drag・keyboard nudge の全経路で同じ clamp を使う。
+  - single image は I/O surface を持たず、single video のみを range 編集対象とする。
   - marker focus は drag end で落とさず、handle は keyboard focus 可能にする。
   - IN/OUT が両方ある場合、selection は固定長 window として平行移動できる。
   - clamp/normalize/swap/reject は `clipRangeOps` の純関数に集約し、`PreviewModal.tsx` に戻さない。
