@@ -9,7 +9,7 @@ interface VideoObjectUrlState {
 
 interface UsePreviewSequenceBufferingInput {
   items: PreviewSequencePlaybackItem[];
-  currentIndex: number;
+  bufferAnchorIndex: number;
   videoObjectUrl: VideoObjectUrlState | null;
   setVideoObjectUrl: (next: VideoObjectUrlState | null) => void;
   setSequenceBuffering: (isBuffering: boolean) => void;
@@ -23,7 +23,7 @@ interface UsePreviewSequenceBufferingInput {
 
 export function usePreviewSequenceBuffering({
   items,
-  currentIndex,
+  bufferAnchorIndex,
   videoObjectUrl,
   setVideoObjectUrl,
   setSequenceBuffering,
@@ -106,11 +106,11 @@ export function usePreviewSequenceBuffering({
   const checkBufferStatus = useCallback((): { ready: boolean; neededItems: number[] } => {
     if (items.length === 0) return { ready: true, neededItems: [] };
 
-    const neededItems = getItemsInTimeWindow(currentIndex, playSafeAhead);
+    const neededItems = getItemsInTimeWindow(bufferAnchorIndex, playSafeAhead);
     const allReady = neededItems.every((idx) => isItemReady(idx));
 
     return { ready: allReady, neededItems };
-  }, [items, currentIndex, playSafeAhead, getItemsInTimeWindow, isItemReady]);
+  }, [items, bufferAnchorIndex, playSafeAhead, getItemsInTimeWindow, isItemReady]);
 
   const cleanupOldUrls = useCallback((keepFromIndex: number) => {
     const keepBackWindow = 5;
@@ -174,11 +174,11 @@ export function usePreviewSequenceBuffering({
     if (items.length === 0) return;
 
     const manageBuffer = async () => {
-      const itemsToPreload = getItemsInTimeWindow(currentIndex, preloadAhead);
+      const itemsToPreload = getItemsInTimeWindow(bufferAnchorIndex, preloadAhead);
       void preloadItems(itemsToPreload);
 
-      const currentItem = items[currentIndex];
-      const assetId = getVideoAssetId(currentIndex);
+      const currentItem = items[bufferAnchorIndex];
+      const assetId = getVideoAssetId(bufferAnchorIndex);
       const cachedUrl = assetId ? videoUrlCacheRef.current.get(assetId) : undefined;
 
       if (currentItem?.assetType === 'video') {
@@ -197,7 +197,7 @@ export function usePreviewSequenceBuffering({
       }
 
       const { ready } = checkBufferStatus();
-      const currentReady = isItemReady(currentIndex);
+      const currentReady = isItemReady(bufferAnchorIndex);
       if (sequenceIsPlaying && !ready && !sequenceIsBuffering) {
         if (!currentReady) {
           setSequenceBuffering(true);
@@ -206,13 +206,13 @@ export function usePreviewSequenceBuffering({
         setSequenceBuffering(false);
       }
 
-      cleanupOldUrls(currentIndex);
+      cleanupOldUrls(bufferAnchorIndex);
     };
 
     void manageBuffer();
   }, [
     items,
-    currentIndex,
+    bufferAnchorIndex,
     videoObjectUrl,
     preloadAhead,
     getItemsInTimeWindow,

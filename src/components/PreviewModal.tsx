@@ -788,8 +788,8 @@ function PreviewModalSequenceRoot({
 
   const { checkBufferStatus, sequenceMediaElement } = usePreviewSequenceRuntime({
     items: previewSequencePlaybackItems,
-    currentIndex,
-    sequenceCurrentIndex: sequenceState.currentIndex,
+    bufferAnchorIndex: currentIndex,
+    playbackIndex: sequenceState.currentIndex,
     videoObjectUrl,
     setVideoObjectUrl,
     setSequenceBuffering,

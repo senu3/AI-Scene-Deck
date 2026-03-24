@@ -21,7 +21,7 @@ interface HarnessProps {
 function Harness({ items, setVideoObjectUrl }: HarnessProps) {
   usePreviewSequenceBuffering({
     items,
-    currentIndex: 0,
+    bufferAnchorIndex: 0,
     videoObjectUrl: null,
     setVideoObjectUrl,
     setSequenceBuffering: vi.fn(),

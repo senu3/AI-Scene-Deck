@@ -11,7 +11,7 @@ import type { PreviewSequencePlaybackItem } from './types';
 
 interface UsePreviewSequenceMediaSourceInput {
   items: PreviewSequencePlaybackItem[];
-  currentIndex: number;
+  playbackIndex: number;
   videoObjectUrl: { assetId: string; url: string } | null;
   setSequenceSource: (source: MediaSource | null) => void;
   sequenceTick: (localTime: number) => void;
@@ -24,7 +24,7 @@ interface UsePreviewSequenceMediaSourceInput {
 
 export function usePreviewSequenceMediaSource({
   items,
-  currentIndex,
+  playbackIndex,
   videoObjectUrl,
   setSequenceSource,
   sequenceTick,
@@ -40,9 +40,9 @@ export function usePreviewSequenceMediaSource({
     setSequenceSource(null);
     setSequenceMediaElement(null);
 
-    const currentItem = items[currentIndex];
+    const currentItem = items[playbackIndex];
     if (!currentItem) return;
-    const currentSpec = previewSequenceItemByIndex.get(currentIndex);
+    const currentSpec = previewSequenceItemByIndex.get(playbackIndex);
     if (!currentSpec) return;
 
     if (currentItem.assetType === 'video') {
@@ -61,7 +61,7 @@ export function usePreviewSequenceMediaSource({
           frameTimeSec: currentItem.srcOutSec,
           duration: currentItem.normalizedDisplayTime,
           onTimeUpdate: sequenceTick,
-          onEnded: () => sequenceGoToNext(currentIndex),
+          onEnded: () => sequenceGoToNext(playbackIndex),
         });
         setSequenceSource(holdSource);
         setSequenceMediaElement(holdSource.element);
@@ -78,7 +78,7 @@ export function usePreviewSequenceMediaSource({
         inPoint: currentItem.srcInSec,
         outPoint: currentItem.srcOutSec,
         onTimeUpdate: sequenceTick,
-        onEnded: () => sequenceGoToNext(currentIndex),
+        onEnded: () => sequenceGoToNext(playbackIndex),
       });
       setSequenceSource(source);
       setSequenceMediaElement(source.element);
@@ -92,14 +92,14 @@ export function usePreviewSequenceMediaSource({
         className: 'preview-media',
         duration: currentItem.normalizedDisplayTime,
         onTimeUpdate: sequenceTick,
-        onEnded: () => sequenceGoToNext(currentIndex),
+        onEnded: () => sequenceGoToNext(playbackIndex),
       });
       setSequenceSource(source);
       setSequenceMediaElement(source.element);
     }
   }, [
     items,
-    currentIndex,
+    playbackIndex,
     videoObjectUrl,
     setSequenceSource,
     sequenceTick,

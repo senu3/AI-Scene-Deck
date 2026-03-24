@@ -9,8 +9,8 @@ import { usePreviewSequenceMediaSource } from './usePreviewSequenceMediaSource';
 
 interface UsePreviewSequenceRuntimeInput {
   items: PreviewSequencePlaybackItem[];
-  currentIndex: number;
-  sequenceCurrentIndex: number;
+  bufferAnchorIndex: number;
+  playbackIndex: number;
   videoObjectUrl: { assetId: string; url: string } | null;
   setVideoObjectUrl: (next: { assetId: string; url: string } | null) => void;
   setSequenceBuffering: (isBuffering: boolean) => void;
@@ -35,8 +35,8 @@ interface UsePreviewSequenceRuntimeInput {
 
 export function usePreviewSequenceRuntime({
   items,
-  currentIndex,
-  sequenceCurrentIndex,
+  bufferAnchorIndex,
+  playbackIndex,
   videoObjectUrl,
   setVideoObjectUrl,
   setSequenceBuffering,
@@ -60,7 +60,7 @@ export function usePreviewSequenceRuntime({
 }: UsePreviewSequenceRuntimeInput) {
   const { checkBufferStatus } = usePreviewSequenceBuffering({
     items,
-    currentIndex,
+    bufferAnchorIndex,
     videoObjectUrl,
     setVideoObjectUrl,
     setSequenceBuffering,
@@ -74,7 +74,7 @@ export function usePreviewSequenceRuntime({
 
   const { sequenceMediaElement } = usePreviewSequenceMediaSource({
     items,
-    currentIndex: sequenceCurrentIndex,
+    playbackIndex,
     videoObjectUrl,
     setSequenceSource,
     sequenceTick,

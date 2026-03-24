@@ -41,7 +41,7 @@ function Harness({ items, previewSequenceItemByIndex }: HarnessProps) {
 
   usePreviewSequenceMediaSource({
     items,
-    currentIndex: 0,
+    playbackIndex: 0,
     videoObjectUrl,
     setSequenceSource,
     sequenceTick,
