@@ -76,6 +76,23 @@ export async function buildPreviewItems(input: BuildPreviewItemsInput): Promise<
   }
 
   if (isSingleModeImage && asset) {
+    if (focusCutData) {
+      const { scene, sceneIndex, cut, cutIndex } = focusCutData;
+      const thumbnail = singleModeImageData ?? resolveClipSnapshotThumbnail(cut) ?? null;
+
+      return [{
+        cut,
+        sceneId: scene.id,
+        sceneName: scene.name,
+        sceneIndex,
+        cutIndex,
+        sceneStartAbs: 0,
+        previewOffsetSec: 0,
+        normalizedDisplayTime: resolveCutDisplayTimeSec(cut),
+        thumbnail,
+      }];
+    }
+
     const displayTime = getDisplayTimeForAsset(asset.id);
     const singleCut: Cut = {
       id: `single-${asset.id}`,
@@ -88,7 +105,7 @@ export async function buildPreviewItems(input: BuildPreviewItemsInput): Promise<
 
     return [{
       cut: singleCut,
-      sceneId: focusCutData?.scene.id || 'single',
+      sceneId: 'single',
       sceneName: asset.name ?? 'Single',
       sceneIndex: 0,
       cutIndex: 0,
