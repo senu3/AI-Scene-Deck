@@ -43,7 +43,6 @@
 
 ## 時間・音声の実装境界
 - AudioPlan / 再生同期は cut 列由来の時間軸で扱う。
-- 再生速度変更は UI capability 差として single video のみに意図的に制限し、Single Image と Sequence の parity 正本には含めない。
 - focus cut 不在時は曖昧なフォールバック再生を行わず、欠落状態を明示する。
 - 欠落状態では silent fallback せず、play 開始条件を満たさない理由を UI に出す。
 
