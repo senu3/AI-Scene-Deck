@@ -7,19 +7,25 @@ import { usePreviewKeyboardShortcuts } from '../usePreviewKeyboardShortcuts';
 interface HarnessProps {
   onPlayPause: ReturnType<typeof vi.fn>;
   onClose: ReturnType<typeof vi.fn>;
-  onSkipBack?: ReturnType<typeof vi.fn>;
-  onSkipForward?: ReturnType<typeof vi.fn>;
+  onSkipBySeconds?: ReturnType<typeof vi.fn>;
   onSetInPoint?: ReturnType<typeof vi.fn>;
   onSetOutPoint?: ReturnType<typeof vi.fn>;
+  onPrimaryClipAction?: ReturnType<typeof vi.fn>;
+  onToggleHold?: ReturnType<typeof vi.fn>;
+  onCaptureFrame?: ReturnType<typeof vi.fn>;
+  onExportFull?: ReturnType<typeof vi.fn>;
 }
 
 function Harness({
   onPlayPause,
   onClose,
-  onSkipBack,
-  onSkipForward,
+  onSkipBySeconds,
   onSetInPoint,
   onSetOutPoint,
+  onPrimaryClipAction,
+  onToggleHold,
+  onCaptureFrame,
+  onExportFull,
 }: HarnessProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -27,8 +33,7 @@ function Harness({
     modalRef,
     onClose,
     onPlayPause,
-    onSkipBack: onSkipBack ?? vi.fn(),
-    onSkipForward: onSkipForward ?? vi.fn(),
+    onSkipBySeconds: onSkipBySeconds ?? vi.fn(),
     onStepBack: vi.fn(),
     onStepForward: vi.fn(),
     onToggleFullscreen: vi.fn(),
@@ -36,6 +41,10 @@ function Harness({
     onSetInPoint,
     onSetOutPoint,
     onToggleMute: vi.fn(),
+    onPrimaryClipAction,
+    onToggleHold,
+    onCaptureFrame,
+    onExportFull,
   });
 
   return (
@@ -153,16 +162,24 @@ describe('usePreviewKeyboardShortcuts', () => {
 
     const onPlayPause = vi.fn();
     const onClose = vi.fn();
-    const onSkipBack = vi.fn();
+    const onSkipBySeconds = vi.fn();
     const onSetInPoint = vi.fn();
+    const onPrimaryClipAction = vi.fn();
+    const onToggleHold = vi.fn();
+    const onCaptureFrame = vi.fn();
+    const onExportFull = vi.fn();
 
     await act(async () => {
       root?.render(
         <Harness
           onPlayPause={onPlayPause}
           onClose={onClose}
-          onSkipBack={onSkipBack}
+          onSkipBySeconds={onSkipBySeconds}
           onSetInPoint={onSetInPoint}
+          onPrimaryClipAction={onPrimaryClipAction}
+          onToggleHold={onToggleHold}
+          onCaptureFrame={onCaptureFrame}
+          onExportFull={onExportFull}
         />,
       );
     });
@@ -188,10 +205,48 @@ describe('usePreviewKeyboardShortcuts', () => {
         cancelable: true,
         repeat: true,
       }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        bubbles: true,
+        cancelable: true,
+        shiftKey: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        bubbles: true,
+        cancelable: true,
+        altKey: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'S',
+        bubbles: true,
+        cancelable: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'H',
+        bubbles: true,
+        cancelable: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'C',
+        bubbles: true,
+        cancelable: true,
+      }));
+      previewSurface.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'E',
+        bubbles: true,
+        cancelable: true,
+      }));
     });
 
     expect(onSetInPoint).toHaveBeenCalledTimes(1);
     expect(onPlayPause).not.toHaveBeenCalled();
-    expect(onSkipBack).toHaveBeenCalledTimes(1);
+    expect(onSkipBySeconds).toHaveBeenNthCalledWith(1, -5);
+    expect(onSkipBySeconds).toHaveBeenNthCalledWith(2, 10);
+    expect(onSkipBySeconds).toHaveBeenNthCalledWith(3, -1);
+    expect(onPrimaryClipAction).toHaveBeenCalledTimes(1);
+    expect(onToggleHold).toHaveBeenCalledTimes(1);
+    expect(onCaptureFrame).toHaveBeenCalledTimes(1);
+    expect(onExportFull).toHaveBeenCalledTimes(1);
   });
 });

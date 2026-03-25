@@ -50,6 +50,8 @@
 - 操作入口（Commands）:
   - 対象は play/pause/seek/step/skip、IN/OUT、loop/mute/marker。
   - progress bar click/drag や marker drag による seek も command 入口で処理する。
+  - keyboard の時間移動は `Arrow=5s` `Shift+Arrow=10s` `Alt+Arrow=1s` `,/.=1frame` に固定し、marker focus 時も同じ単位系を使う。
+  - keyboard の capability key は mode に応じて限定し、single video は `S/H/C`、sequence は `E`、range 編集可能 mode は `I/O` を持つ。
   - 表示整形、DOM 計測、fullscreen/overlay など純UI状態は command 対象外。
 - 時間の正本（Timebase）:
   - 正本は domain 正規化後の canonical cut timing とし、Preview 側の独自再計算や Preview/Export の時間定義分岐を禁止する。

@@ -1,6 +1,7 @@
 import { act, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { FRAME_DURATION } from '../constants';
 import { PlaybackRangeMarkers } from '../parts/PlaybackRangeMarkers';
 
 interface HarnessProps {
@@ -64,8 +65,22 @@ describe('PlaybackRangeMarkers', () => {
 
     act(() => {
       inMarker?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      inMarker?.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'ArrowLeft',
+        bubbles: true,
+        shiftKey: true,
+      }));
+      inMarker?.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        bubbles: true,
+        altKey: true,
+      }));
+      inMarker?.dispatchEvent(new KeyboardEvent('keydown', { key: '.', bubbles: true }));
     });
 
-    expect(onMarkerStep).toHaveBeenCalledWith('in', 1);
+    expect(onMarkerStep).toHaveBeenNthCalledWith(1, 'in', Math.round(5 / FRAME_DURATION));
+    expect(onMarkerStep).toHaveBeenNthCalledWith(2, 'in', -Math.round(10 / FRAME_DURATION));
+    expect(onMarkerStep).toHaveBeenNthCalledWith(3, 'in', Math.round(1 / FRAME_DURATION));
+    expect(onMarkerStep).toHaveBeenNthCalledWith(4, 'in', 1);
   });
 });

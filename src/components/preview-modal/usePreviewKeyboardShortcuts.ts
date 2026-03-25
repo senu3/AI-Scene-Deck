@@ -6,8 +6,7 @@ interface UsePreviewKeyboardShortcutsInput {
   modalRef: React.RefObject<HTMLDivElement>;
   onClose: () => void;
   onPlayPause: () => void;
-  onSkipBack: () => void;
-  onSkipForward: () => void;
+  onSkipBySeconds: (seconds: number) => void;
   onStepBack: () => void;
   onStepForward: () => void;
   onToggleFullscreen: () => void;
@@ -15,6 +14,10 @@ interface UsePreviewKeyboardShortcutsInput {
   onSetInPoint?: () => void;
   onSetOutPoint?: () => void;
   onToggleMute: () => void;
+  onPrimaryClipAction?: () => void;
+  onToggleHold?: () => void;
+  onCaptureFrame?: () => void;
+  onExportFull?: () => void;
 }
 
 function isPreviewShortcutTarget(
@@ -34,8 +37,7 @@ export function usePreviewKeyboardShortcuts({
   modalRef,
   onClose,
   onPlayPause,
-  onSkipBack,
-  onSkipForward,
+  onSkipBySeconds,
   onStepBack,
   onStepForward,
   onToggleFullscreen,
@@ -43,15 +45,21 @@ export function usePreviewKeyboardShortcuts({
   onSetInPoint,
   onSetOutPoint,
   onToggleMute,
+  onPrimaryClipAction,
+  onToggleHold,
+  onCaptureFrame,
+  onExportFull,
 }: UsePreviewKeyboardShortcutsInput) {
   useEffect(() => {
     const repeatableKeys = new Set(['ArrowLeft', 'ArrowRight', ',', '.']);
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      if (!isPreviewShortcutTarget(e.target, modalRef)) return;
       const normalizedKey = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      const isArrowKey = normalizedKey === 'ArrowLeft' || normalizedKey === 'ArrowRight';
+      if (e.ctrlKey || e.metaKey) return;
+      if (e.altKey && !isArrowKey) return;
+      if (!isPreviewShortcutTarget(e.target, modalRef)) return;
       if (e.repeat && !repeatableKeys.has(normalizedKey)) return;
 
       switch (normalizedKey) {
@@ -64,11 +72,11 @@ export function usePreviewKeyboardShortcuts({
           break;
         case 'ArrowLeft':
           e.preventDefault();
-          onSkipBack();
+          onSkipBySeconds(e.altKey ? -1 : e.shiftKey ? -10 : -5);
           break;
         case 'ArrowRight':
           e.preventDefault();
-          onSkipForward();
+          onSkipBySeconds(e.altKey ? 1 : e.shiftKey ? 10 : 5);
           break;
         case ',':
           e.preventDefault();
@@ -95,6 +103,18 @@ export function usePreviewKeyboardShortcuts({
         case 'm':
           onToggleMute();
           break;
+        case 's':
+          onPrimaryClipAction?.();
+          break;
+        case 'h':
+          onToggleHold?.();
+          break;
+        case 'c':
+          onCaptureFrame?.();
+          break;
+        case 'e':
+          onExportFull?.();
+          break;
       }
     };
 
@@ -104,8 +124,7 @@ export function usePreviewKeyboardShortcuts({
     modalRef,
     onClose,
     onPlayPause,
-    onSkipBack,
-    onSkipForward,
+    onSkipBySeconds,
     onStepBack,
     onStepForward,
     onToggleFullscreen,
@@ -113,5 +132,9 @@ export function usePreviewKeyboardShortcuts({
     onSetInPoint,
     onSetOutPoint,
     onToggleMute,
+    onPrimaryClipAction,
+    onToggleHold,
+    onCaptureFrame,
+    onExportFull,
   ]);
 }

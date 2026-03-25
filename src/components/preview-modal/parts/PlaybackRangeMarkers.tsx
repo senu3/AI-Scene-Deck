@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from 'react';
 import { formatTime } from '../../../utils/timeUtils';
+import { FRAME_DURATION } from '../constants';
 import '../styles/playback-controls.css';
 
 export type FocusedMarker = 'in' | 'out' | null;
@@ -37,6 +38,9 @@ export function PlaybackRangeMarkers({
   onSelectionDragEnd,
   progressBarRef,
 }: PlaybackRangeMarkersProps) {
+  const oneSecondStep = Math.round(1 / FRAME_DURATION);
+  const fiveSecondStep = Math.round(5 / FRAME_DURATION);
+  const tenSecondStep = Math.round(10 / FRAME_DURATION);
   const dragModeRef = useRef<'in' | 'out' | 'selection' | null>(null);
   const dragStartRef = useRef<{ x: number; y: number } | null>(null);
   const selectionStartRangeRef = useRef<{ inPoint: number; outPoint: number } | null>(null);
@@ -115,12 +119,26 @@ export function PlaybackRangeMarkers({
   const handleMarkerKeyDown = useCallback((marker: 'in' | 'out', e: React.KeyboardEvent<HTMLDivElement>) => {
     switch (e.key) {
       case 'ArrowLeft':
+        e.preventDefault();
+        e.stopPropagation();
+        onMarkerStep?.(
+          marker,
+          e.altKey ? -oneSecondStep : e.shiftKey ? -tenSecondStep : -fiveSecondStep,
+        );
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        e.stopPropagation();
+        onMarkerStep?.(
+          marker,
+          e.altKey ? oneSecondStep : e.shiftKey ? tenSecondStep : fiveSecondStep,
+        );
+        break;
       case ',':
         e.preventDefault();
         e.stopPropagation();
         onMarkerStep?.(marker, -1);
         break;
-      case 'ArrowRight':
       case '.':
         e.preventDefault();
         e.stopPropagation();
@@ -133,7 +151,7 @@ export function PlaybackRangeMarkers({
         e.currentTarget.blur();
         break;
     }
-  }, [onMarkerFocus, onMarkerStep]);
+  }, [fiveSecondStep, onMarkerFocus, onMarkerStep, oneSecondStep, tenSecondStep]);
 
   const handleSelectionPointerDown = useCallback((e: React.PointerEvent) => {
     if (inPoint === null || outPoint === null) return;

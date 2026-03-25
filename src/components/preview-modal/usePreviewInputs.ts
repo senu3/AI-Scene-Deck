@@ -12,8 +12,7 @@ interface UsePreviewInputsInput {
   onSeekPercent: (percent: number) => void;
   onClose: () => void;
   onPlayPause: () => void;
-  onSkipBack: () => void;
-  onSkipForward: () => void;
+  onSkipBySeconds: (seconds: number) => void;
   onStepBack: () => void;
   onStepForward: () => void;
   onToggleFullscreen: () => void;
@@ -21,6 +20,10 @@ interface UsePreviewInputsInput {
   onSetInPoint?: () => void;
   onSetOutPoint?: () => void;
   onToggleMute: () => void;
+  onPrimaryClipAction?: () => void;
+  onToggleHold?: () => void;
+  onCaptureFrame?: () => void;
+  onExportFull?: () => void;
 }
 
 export function usePreviewInputs({
@@ -33,8 +36,7 @@ export function usePreviewInputs({
   onSeekPercent,
   onClose,
   onPlayPause,
-  onSkipBack,
-  onSkipForward,
+  onSkipBySeconds,
   onStepBack,
   onStepForward,
   onToggleFullscreen,
@@ -42,6 +44,10 @@ export function usePreviewInputs({
   onSetInPoint,
   onSetOutPoint,
   onToggleMute,
+  onPrimaryClipAction,
+  onToggleHold,
+  onCaptureFrame,
+  onExportFull,
 }: UsePreviewInputsInput) {
   const {
     isDragging,
@@ -62,8 +68,7 @@ export function usePreviewInputs({
     modalRef,
     onClose,
     onPlayPause,
-    onSkipBack,
-    onSkipForward,
+    onSkipBySeconds,
     onStepBack,
     onStepForward,
     onToggleFullscreen,
@@ -71,6 +76,10 @@ export function usePreviewInputs({
     onSetInPoint,
     onSetOutPoint,
     onToggleMute,
+    onPrimaryClipAction,
+    onToggleHold,
+    onCaptureFrame,
+    onExportFull,
   });
 
   return {

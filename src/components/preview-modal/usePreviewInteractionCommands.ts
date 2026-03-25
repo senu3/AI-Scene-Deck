@@ -12,7 +12,7 @@ import {
   resolveUiPlayheadTime,
 } from './clipRangeOps';
 
-const PREVIEW_SKIP_SECONDS = 1;
+const PREVIEW_SKIP_SECONDS = 5;
 
 interface UsePreviewInteractionCommandsInput {
   mode: 'single' | 'sequence';
@@ -363,6 +363,7 @@ export function usePreviewInteractionCommands({
 
   return {
     playPause,
+    skipBySeconds: skip,
     skipBack,
     skipForward,
     stepBack,
