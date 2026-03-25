@@ -145,6 +145,7 @@ export function PlaybackRangeMarkers({
         onMarkerStep?.(marker, 1);
         break;
       case 'Escape':
+      case 'Enter':
         e.preventDefault();
         e.stopPropagation();
         onMarkerFocus?.(null);

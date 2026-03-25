@@ -83,4 +83,34 @@ describe('PlaybackRangeMarkers', () => {
     expect(onMarkerStep).toHaveBeenNthCalledWith(3, 'in', Math.round(1 / FRAME_DURATION));
     expect(onMarkerStep).toHaveBeenNthCalledWith(4, 'in', 1);
   });
+
+  it('allows Enter to confirm marker editing and release focus', async () => {
+    const onMarkerFocus = vi.fn();
+    const onMarkerStep = vi.fn();
+
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+
+    await act(async () => {
+      root?.render(
+        <Harness onMarkerFocus={onMarkerFocus} onMarkerStep={onMarkerStep} />
+      );
+    });
+
+    const inMarker = host.querySelector('.timeline-marker.in-marker') as HTMLDivElement;
+
+    act(() => {
+      inMarker.focus();
+      inMarker.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }));
+    });
+
+    expect(onMarkerFocus).toHaveBeenCalledWith('in');
+    expect(onMarkerFocus).toHaveBeenCalledWith(null);
+    expect(document.activeElement).not.toBe(inMarker);
+  });
 });
