@@ -543,11 +543,11 @@ function PreviewModalSingleRoot({
         asset={asset}
         isAssetOnlyPreview={isAssetOnlyPreview}
         isLoading={isLoading}
-        isSingleModeVideo={isSingleModeVideo}
-        isSingleModeImage={isSingleModeImage}
+        isVideo={isSingleModeVideo}
+        isImage={isSingleModeImage}
         videoObjectUrl={videoObjectUrl}
         singleMediaElement={singleMediaElement}
-        singleModeImageData={singleModeImageData}
+        imageData={singleModeImageData}
         getViewportStyle={getViewportStyle}
         currentFraming={currentFraming}
         selectedResolution={selectedResolution}
@@ -559,9 +559,9 @@ function PreviewModalSingleRoot({
         showOverlay={showOverlay}
         inPoint={inPoint}
         outPoint={outPoint}
-        singleModePlaybackDuration={playbackDuration}
-        singleModeProgressPercent={playbackProgressPercent}
-        singleModePlaybackTime={playbackTime}
+        playbackDuration={playbackDuration}
+        playbackProgressPercent={playbackProgressPercent}
+        playbackTime={playbackTime}
         hoverTime={hoverTime}
         focusedMarker={focusedMarker}
         onMarkerFocus={interactionCommands.markerFocus}
@@ -579,14 +579,14 @@ function PreviewModalSingleRoot({
         skipBack={interactionCommands.skipBack}
         skipForward={interactionCommands.skipForward}
         togglePlay={interactionCommands.playPause}
-        handleSetInPoint={isSingleModeVideo ? interactionCommands.setInPoint : undefined}
-        handleSetOutPoint={isSingleModeVideo ? interactionCommands.setOutPoint : undefined}
-        showSingleModeClearRangeButton={showSingleModeClearRangeButton}
+        onSetInPoint={isSingleModeVideo ? interactionCommands.setInPoint : undefined}
+        onSetOutPoint={isSingleModeVideo ? interactionCommands.setOutPoint : undefined}
+        showClearRangeButton={showSingleModeClearRangeButton}
         onClearRange={interactionCommands.clearRange}
-        showSingleModeClipButton={showSingleModeClipButton}
-        isSingleModeClipEnabled={isSingleModeClipEnabled}
+        showClipButton={showSingleModeClipButton}
+        isClipEnabled={isSingleModeClipEnabled}
         onClipPrimaryAction={isSingleModeClipEnabled ? handleSingleModeClearClip : handleSingleModeSave}
-        isSingleModeClipPending={isSingleModeClipPending}
+        isClipPending={isSingleModeClipPending}
         onFrameCapture={onFrameCapture ? handleSingleModeCaptureFrame : undefined}
         showHoldButton={isSingleModeVideo && !!focusCutData?.cut?.id}
         isHoldEnabled={isHoldEnabled}
@@ -598,11 +598,11 @@ function PreviewModalSingleRoot({
         isFullscreen={isFullscreen}
         toggleFullscreen={toggleFullscreen}
         miniToastElement={miniToastElement}
-        handleSingleModeTimeUpdate={handleSingleModeTimeUpdate}
-        handleSingleModeLoadedMetadata={handleSingleModeLoadedMetadata}
-        onSingleModeVideoPlay={() => setSingleModeIsPlaying(true)}
-        onSingleModeVideoPause={() => setSingleModeIsPlaying(false)}
-        handleSingleModeVideoEnded={handleSingleModeVideoEnded}
+        onTimeUpdate={handleSingleModeTimeUpdate}
+        onLoadedMetadata={handleSingleModeLoadedMetadata}
+        onVideoPlay={() => setSingleModeIsPlaying(true)}
+        onVideoPause={() => setSingleModeIsPlaying(false)}
+        onVideoEnded={handleSingleModeVideoEnded}
       />
       <VideoHoldModal
         open={showHoldModal}

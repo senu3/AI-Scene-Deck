@@ -25,11 +25,11 @@ interface PreviewModalSingleViewProps {
   asset: PreviewableAsset;
   isAssetOnlyPreview: boolean;
   isLoading: boolean;
-  isSingleModeVideo: boolean;
-  isSingleModeImage: boolean;
+  isVideo: boolean;
+  isImage: boolean;
   videoObjectUrl: { assetId: string; url: string } | null;
   singleMediaElement: JSX.Element | null;
-  singleModeImageData: string | null;
+  imageData: string | null;
   getViewportStyle: () => { width: number; height: number; scale: number } | null;
   currentFraming: React.CSSProperties;
   selectedResolution: ResolutionPreset;
@@ -38,9 +38,9 @@ interface PreviewModalSingleViewProps {
   showOverlay: boolean;
   inPoint: number | null;
   outPoint: number | null;
-  singleModePlaybackDuration: number;
-  singleModeProgressPercent: number;
-  singleModePlaybackTime: number;
+  playbackDuration: number;
+  playbackProgressPercent: number;
+  playbackTime: number;
   hoverTime: string | null;
   focusedMarker: FocusedMarker;
   onMarkerFocus: (marker: FocusedMarker) => void;
@@ -58,14 +58,14 @@ interface PreviewModalSingleViewProps {
   skipBack: () => void;
   skipForward: () => void;
   togglePlay: () => void;
-  handleSetInPoint?: () => void;
-  handleSetOutPoint?: () => void;
-  showSingleModeClearRangeButton: boolean;
+  onSetInPoint?: () => void;
+  onSetOutPoint?: () => void;
+  showClearRangeButton: boolean;
   onClearRange: () => void;
-  showSingleModeClipButton: boolean;
-  isSingleModeClipEnabled: boolean;
+  showClipButton: boolean;
+  isClipEnabled: boolean;
   onClipPrimaryAction: () => void;
-  isSingleModeClipPending: boolean;
+  isClipPending: boolean;
   onFrameCapture?: () => void;
   showHoldButton: boolean;
   isHoldEnabled: boolean;
@@ -77,11 +77,11 @@ interface PreviewModalSingleViewProps {
   isFullscreen: boolean;
   toggleFullscreen: () => void;
   miniToastElement: React.ReactNode;
-  handleSingleModeTimeUpdate: () => void;
-  handleSingleModeLoadedMetadata: () => void;
-  onSingleModeVideoPlay: () => void;
-  onSingleModeVideoPause: () => void;
-  handleSingleModeVideoEnded: () => void;
+  onTimeUpdate: () => void;
+  onLoadedMetadata: () => void;
+  onVideoPlay: () => void;
+  onVideoPause: () => void;
+  onVideoEnded: () => void;
 }
 
 export function PreviewModalSingleView({
@@ -99,11 +99,11 @@ export function PreviewModalSingleView({
   asset,
   isAssetOnlyPreview,
   isLoading,
-  isSingleModeVideo,
-  isSingleModeImage,
+  isVideo,
+  isImage,
   videoObjectUrl,
   singleMediaElement,
-  singleModeImageData,
+  imageData,
   getViewportStyle,
   currentFraming,
   selectedResolution,
@@ -112,9 +112,9 @@ export function PreviewModalSingleView({
   showOverlay,
   inPoint,
   outPoint,
-  singleModePlaybackDuration,
-  singleModeProgressPercent,
-  singleModePlaybackTime,
+  playbackDuration,
+  playbackProgressPercent,
+  playbackTime,
   hoverTime,
   focusedMarker,
   onMarkerFocus,
@@ -132,14 +132,14 @@ export function PreviewModalSingleView({
   skipBack,
   skipForward,
   togglePlay,
-  handleSetInPoint,
-  handleSetOutPoint,
-  showSingleModeClearRangeButton,
+  onSetInPoint,
+  onSetOutPoint,
+  showClearRangeButton,
   onClearRange,
-  showSingleModeClipButton,
-  isSingleModeClipEnabled,
+  showClipButton,
+  isClipEnabled,
   onClipPrimaryAction,
-  isSingleModeClipPending,
+  isClipPending,
   onFrameCapture,
   showHoldButton,
   isHoldEnabled,
@@ -151,14 +151,14 @@ export function PreviewModalSingleView({
   isFullscreen,
   toggleFullscreen,
   miniToastElement,
-  handleSingleModeTimeUpdate,
-  handleSingleModeLoadedMetadata,
-  onSingleModeVideoPlay,
-  onSingleModeVideoPause,
-  handleSingleModeVideoEnded,
+  onTimeUpdate,
+  onLoadedMetadata,
+  onVideoPlay,
+  onVideoPause,
+  onVideoEnded,
 }: PreviewModalSingleViewProps) {
   const viewportStyle = getViewportStyle();
-  const loadingLabel = isSingleModeVideo ? 'video' : 'image';
+  const loadingLabel = isVideo ? 'video' : 'image';
   const handleModalKeyDownCapture = usePreviewFocusTrap(modalRef);
   let mediaContent: JSX.Element;
 
@@ -169,18 +169,18 @@ export function PreviewModalSingleView({
         <p>Loading {loadingLabel}...</p>
       </div>
     );
-  } else if (isSingleModeVideo && videoObjectUrl?.url) {
+  } else if (isVideo && videoObjectUrl?.url) {
     const videoNode = (
       <video
         ref={videoRef}
         src={videoObjectUrl.url}
         className="preview-media"
         onClick={togglePlay}
-        onTimeUpdate={handleSingleModeTimeUpdate}
-        onLoadedMetadata={handleSingleModeLoadedMetadata}
-        onPlay={onSingleModeVideoPlay}
-        onPause={onSingleModeVideoPause}
-        onEnded={handleSingleModeVideoEnded}
+        onTimeUpdate={onTimeUpdate}
+        onLoadedMetadata={onLoadedMetadata}
+        onPlay={onVideoPlay}
+        onPause={onVideoPause}
+        onEnded={onVideoEnded}
       />
     );
     mediaContent = viewportStyle ? videoNode : (
@@ -193,10 +193,10 @@ export function PreviewModalSingleView({
         )}
       </>
     );
-  } else if (isSingleModeImage && singleModeImageData) {
+  } else if (isImage && imageData) {
     const imageNode = singleMediaElement ?? (
       <img
-        src={singleModeImageData}
+        src={imageData}
         alt={asset.name || 'Preview'}
         className="preview-media"
       />
@@ -277,7 +277,7 @@ export function PreviewModalSingleView({
             </div>
 
             <div className="preview-overlay-row preview-overlay-row--bottom">
-              {(isSingleModeVideo || isSingleModeImage) && (
+              {(isVideo || isImage) && (
                 <div className="preview-progress">
                   <div
                     className="preview-progress-bar preview-progress-bar--scrub"
@@ -286,11 +286,11 @@ export function PreviewModalSingleView({
                     onMouseMove={onProgressBarHover}
                     onMouseLeave={onProgressBarLeave}
                   >
-                    {isSingleModeVideo && (
+                    {isVideo && (
                       <PlaybackRangeMarkers
                         inPoint={inPoint}
                         outPoint={outPoint}
-                        duration={singleModePlaybackDuration}
+                        duration={playbackDuration}
                         showMilliseconds
                         focusedMarker={focusedMarker}
                         onMarkerFocus={onMarkerFocus}
@@ -307,12 +307,12 @@ export function PreviewModalSingleView({
                     <div
                       ref={progressFillRef}
                       className="preview-progress-fill"
-                      style={{ width: `${singleModeProgressPercent}%` }}
+                      style={{ width: `${playbackProgressPercent}%` }}
                     />
                     <div
                       ref={progressHandleRef}
                       className="preview-progress-handle"
-                      style={{ left: `${singleModeProgressPercent}%` }}
+                      style={{ left: `${playbackProgressPercent}%` }}
                     />
                     {hoverTime && (
                       <div className="preview-progress-tooltip">
@@ -322,8 +322,8 @@ export function PreviewModalSingleView({
                   </div>
                   <div className="preview-progress-info">
                     <TimeDisplay
-                      currentTime={singleModePlaybackTime}
-                      totalDuration={singleModePlaybackDuration}
+                      currentTime={playbackTime}
+                      totalDuration={playbackDuration}
                       showMilliseconds
                     />
                   </div>
@@ -352,36 +352,36 @@ export function PreviewModalSingleView({
                 >
                   <SkipForward size={18} />
                 </button>
-                {isSingleModeVideo && (
+                {isVideo && (
                   <>
                     <div className="preview-ctrl-divider" />
                     <button
                       className={`preview-ctrl-btn preview-ctrl-btn--text ${inPoint !== null ? 'is-active' : ''}`}
-                      onClick={handleSetInPoint}
+                      onClick={onSetInPoint}
                       title="Set IN point (I)"
                     >
                       I
                     </button>
                     <button
                       className={`preview-ctrl-btn preview-ctrl-btn--text ${outPoint !== null ? 'is-active' : ''}`}
-                      onClick={handleSetOutPoint}
+                      onClick={onSetOutPoint}
                       title="Set OUT point (O)"
                     >
                       O
                     </button>
                   </>
                 )}
-                {isSingleModeVideo && showSingleModeClipButton && (
+                {isVideo && showClipButton && (
                   <button
-                    className={`preview-ctrl-btn ${isSingleModeClipEnabled ? 'is-active' : ''}`}
+                    className={`preview-ctrl-btn ${isClipEnabled ? 'is-active' : ''}`}
                     onClick={onClipPrimaryAction}
-                    title={isSingleModeClipEnabled ? 'Clear clip' : 'Save clip'}
-                    disabled={isSingleModeClipPending}
+                    title={isClipEnabled ? 'Clear clip' : 'Save clip'}
+                    disabled={isClipPending}
                   >
                     <Scissors size={18} />
                   </button>
                 )}
-                {isSingleModeVideo && showSingleModeClearRangeButton && (
+                {isVideo && showClearRangeButton && (
                   <button
                     className="preview-ctrl-btn"
                     onClick={onClearRange}
@@ -390,7 +390,7 @@ export function PreviewModalSingleView({
                     <MapPinOff size={16} />
                   </button>
                 )}
-                {isSingleModeVideo && showHoldButton && (
+                {isVideo && showHoldButton && (
                   <button
                     className={`preview-ctrl-btn ${isHoldEnabled ? 'is-active' : ''}`}
                     onClick={onHoldToggle}
@@ -400,7 +400,7 @@ export function PreviewModalSingleView({
                   </button>
                 )}
                 <div className="preview-ctrl-divider" />
-                {isSingleModeVideo && onFrameCapture && (
+                {isVideo && onFrameCapture && (
                   <button
                     className="preview-ctrl-btn"
                     onClick={onFrameCapture}
