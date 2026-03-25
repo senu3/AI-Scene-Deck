@@ -213,6 +213,7 @@ export function PreviewModalSingleView({
   return (
     <div
       className="preview-modal"
+      data-keyboard-scope="preview"
       ref={modalRef}
       onMouseDown={onContainerMouseDown}
       onKeyDownCapture={handleModalKeyDownCapture}

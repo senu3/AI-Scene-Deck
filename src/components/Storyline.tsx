@@ -23,6 +23,7 @@ import CutGroupCard, { ExpandedGroupContainer } from './CutGroupCard';
 import type { Asset, CutGroup, Cut } from '../types';
 import { useStorylineDragController, type PlaceholderState } from '../hooks/useStorylineDragController';
 import { useStorylinePanTool } from '../hooks/useStorylinePanTool';
+import { useStorylineKeyboardShortcuts } from '../hooks/useStorylineKeyboardShortcuts';
 import './Storyline.css';
 
 // Scene color palette - uses --timeline-scene-* tokens to match SceneDurationBar
@@ -35,6 +36,8 @@ const SCENE_COLORS = [
 ];
 
 const getSceneColor = (index: number) => SCENE_COLORS[index % SCENE_COLORS.length];
+const STORYLINE_SHORTCUT_CAPABILITIES = { hasCommandShortcuts: false } as const;
+const STORYLINE_SHORTCUT_COMMANDS = {};
 
 export type SceneEmptyStateVariant = 'primary' | 'secondary' | null;
 
@@ -90,7 +93,14 @@ export default function Storyline({
   const closeDetailsPanel = useStore(selectCloseDetailsPanel);
   const { executeCommand } = useHistoryStore();
   const storylineRef = useRef<HTMLDivElement>(null);
-  const { isPanModeReady, isPanning, bind: panBind } = useStorylinePanTool(storylineRef);
+  const [isScopeFocused, setIsScopeFocused] = useState(false);
+  const {
+    isPointerInside,
+    isHandToolActive,
+    isPanModeReady,
+    isPanning,
+    bind: panBind,
+  } = useStorylinePanTool(storylineRef);
   // --- DND: dnd-kit (reorder) ---
   const { active, over } = useDndContext();
 
@@ -133,14 +143,34 @@ export default function Storyline({
     }
   }, [selectedSceneId]);
 
+  useStorylineKeyboardShortcuts({
+    containerRef: storylineRef,
+    isCommandScopeActive: isScopeFocused,
+    isPointerInside,
+    isHandToolActive,
+    commands: STORYLINE_SHORTCUT_COMMANDS,
+    capabilities: STORYLINE_SHORTCUT_CAPABILITIES,
+  });
+
   return (
     <div
       ref={storylineRef}
+      data-keyboard-scope="storyline"
+      tabIndex={0}
+      aria-label="Storyline"
       className={[
         'storyline',
         isPanModeReady ? 'storyline--pan-ready storyline--pan-lock' : '',
         isPanning ? 'storyline--panning' : '',
       ].filter(Boolean).join(' ')}
+      onFocusCapture={() => setIsScopeFocused(true)}
+      onBlurCapture={(e) => {
+        const nextTarget = e.relatedTarget;
+        if (nextTarget instanceof Node && e.currentTarget.contains(nextTarget)) {
+          return;
+        }
+        setIsScopeFocused(false);
+      }}
       onClick={handleBackgroundClick}
       onDragEnter={handleStorylineDragEnter}
       onDragOver={handleStorylineDragOver}

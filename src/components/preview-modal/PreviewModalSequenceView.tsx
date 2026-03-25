@@ -133,7 +133,7 @@ export function PreviewModalSequenceView({
 
   if (items.length === 0) {
     return (
-      <div className="preview-modal" ref={modalRef} onKeyDownCapture={handleModalKeyDownCapture}>
+      <div className="preview-modal" data-keyboard-scope="preview" ref={modalRef} onKeyDownCapture={handleModalKeyDownCapture}>
         <div className="preview-backdrop" onClick={onClose} />
         <div className="preview-container">
           <div className="preview-header preview-header--static">
@@ -180,6 +180,7 @@ export function PreviewModalSequenceView({
   return (
     <div
       className="preview-modal"
+      data-keyboard-scope="preview"
       ref={modalRef}
       onMouseDown={onContainerMouseDown}
       onKeyDownCapture={handleModalKeyDownCapture}

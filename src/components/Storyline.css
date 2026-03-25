@@ -5,6 +5,11 @@
   padding: 16px;
 }
 
+.storyline:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
 .storyline.storyline--pan-ready {
   cursor: grab;
 }

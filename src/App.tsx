@@ -75,6 +75,7 @@ import {
 } from './features/platform/electronGateway';
 import { buildSequencePlan, type SequencePlan } from './utils/sequencePlan';
 import { resolveCutAsset } from './utils/assetResolve';
+import { getKeyboardScopeOwner, isSurfaceLocalAppShortcut } from './utils/keyboardScope';
 import { useBanner, useToast } from './ui';
 import './styles/App.css';
 
@@ -194,6 +195,7 @@ function App() {
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Check if user is typing in an input field
       const target = e.target as HTMLElement;
+      const localScopeOwner = getKeyboardScopeOwner(target);
       if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
         return;
       }
@@ -270,10 +272,9 @@ function App() {
         }
       }
 
-      // Tab key to toggle asset drawer
-      if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
-        const target = e.target as HTMLElement | null;
-        if (target?.closest('.preview-modal')) {
+      // Surface-local shortcuts belong to the owning keyboard scope, not App.
+      if (isSurfaceLocalAppShortcut(e)) {
+        if (localScopeOwner) {
           return;
         }
         e.preventDefault();

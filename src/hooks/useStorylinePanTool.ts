@@ -11,6 +11,8 @@ interface StorylinePanBind {
 
 export interface StorylinePanToolState {
   isSpaceHeld: boolean;
+  isPointerInside: boolean;
+  isHandToolActive: boolean;
   isPanModeReady: boolean;
   isPanning: boolean;
   bind: StorylinePanBind;
@@ -188,6 +190,8 @@ export function useStorylinePanTool(
 
   return {
     isSpaceHeld,
+    isPointerInside: isHovered,
+    isHandToolActive: isPanModeReady,
     isPanModeReady,
     isPanning,
     bind,
