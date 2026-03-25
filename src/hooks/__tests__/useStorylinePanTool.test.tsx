@@ -202,6 +202,76 @@ describe('useStorylinePanTool', () => {
     host.remove();
   });
 
+  it('does not claim Space from interactive targets while hovered', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(<PanToolProbe />);
+    });
+
+    const el = host.querySelector('[data-testid="storyline"]') as HTMLDivElement;
+    act(() => {
+      hoverEnter(el);
+    });
+
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+
+    let notPrevented = true;
+    act(() => {
+      notPrevented = dispatchSpaceKey('keydown', button);
+    });
+
+    expect(notPrevented).toBe(true);
+    expect(el.dataset.ready).toBe('false');
+
+    button.remove();
+    act(() => {
+      root.unmount();
+    });
+    host.remove();
+  });
+
+  it('releases hover ownership when focus moves outside storyline', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    const root = createRoot(host);
+
+    act(() => {
+      root.render(<PanToolProbe />);
+    });
+
+    const el = host.querySelector('[data-testid="storyline"]') as HTMLDivElement;
+    act(() => {
+      hoverEnter(el);
+    });
+
+    const previewModal = document.createElement('div');
+    previewModal.className = 'preview-modal';
+    previewModal.tabIndex = -1;
+    document.body.appendChild(previewModal);
+
+    act(() => {
+      previewModal.dispatchEvent(new Event('focusin', { bubbles: true }));
+    });
+
+    let notPrevented = true;
+    act(() => {
+      notPrevented = dispatchSpaceKey('keydown');
+    });
+
+    expect(notPrevented).toBe(true);
+    expect(el.dataset.ready).toBe('false');
+
+    previewModal.remove();
+    act(() => {
+      root.unmount();
+    });
+    host.remove();
+  });
+
   it('stops panning when window loses focus', () => {
     const host = document.createElement('div');
     document.body.appendChild(host);

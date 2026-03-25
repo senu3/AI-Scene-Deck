@@ -20,7 +20,7 @@
 - Must: Scene系操作は `sceneId` 直指定で解決する。
 - Must: Storyline は D&D の主受け口として scene-targeted drop を処理する。
 - Must: 空の scene は scene 内 drop hint で image/video 投入を案内する。
-- Must: Storyline は hover 中の `Space` 押下で横パン（hand tool）を有効化する。
+- Must: Storyline は hover 中の `Space` 押下で横パン（hand tool）を有効化し、shortcut scope 内でのみ `Space` を消費する。
 - Must: hand tool 有効中は Storyline 内の click/D&D を一時抑止し、パンを優先する。
 - Must: `SceneDurationBar` は scene選択イベント通知に限定する。
 - Must: 外部D&Dは image/video のみを受理し、audio は受理しない。
