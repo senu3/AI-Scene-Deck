@@ -32,6 +32,7 @@
 - `docs/guides/implementation/gate-checks.md`
 - `docs/guides/implementation/commit-rules.md`
 - `docs/guides/implementation/ui-components.md`
+- `docs/guides/implementation/details-panel-same-cut-undo-redo.md`
 - `docs/guides/implementation/color-system.md`
 - `docs/guides/implementation/debug-overlay.md`
 - `docs/guides/implementation/preview-runtime-boundaries.md`
