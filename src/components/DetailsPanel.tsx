@@ -1,89 +1,55 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
-  Settings,
-  Link,
-  Music,
-  Trash2,
-  Clock,
-  Volume2,
-  FileImage,
-  Film,
-  Plus,
-  Minus,
-  StickyNote,
-  X,
-  Layers,
-  Play,
-  Scissors,
-  FolderOpen,
   ChevronDown,
   ChevronRight,
+  Clock,
   Edit2,
+  FolderOpen,
+  Layers,
+  Music,
+  Plus,
+  StickyNote,
+  Trash2,
+  X,
 } from "lucide-react";
 import { useStore } from "../store/useStore";
 import {
-  selectScenes,
-  selectSelectedSceneId,
-  selectSelectedCutId,
-  selectSelectedCutIds,
-  selectSelectionType,
-  selectSelectedGroupId,
   selectGetAsset,
+  selectGetAttachedAudioForGroup,
+  selectGetAttachedAudioForScene,
   selectGetSelectedCuts,
   selectGetSelectedGroup,
-  selectToggleGroupCollapsed,
-  selectCacheAsset,
-  selectVaultPath,
   selectMetadataStore,
-  selectAttachAudioToCut,
-  selectDetachAudioFromCut,
-  selectGetAttachedAudioForScene,
-  selectGetAttachedAudioForGroup,
-  selectGetAttachedAudioForCut,
-  selectUpdateCutAudioOffset,
-  selectSetCutUseEmbeddedAudio,
-  selectCreateStoreEventOperation,
-  selectRelinkCutAsset,
+  selectScenes,
+  selectSelectedCutId,
+  selectSelectedCutIds,
+  selectSelectedGroupId,
+  selectSelectedSceneId,
+  selectSelectionType,
+  selectToggleGroupCollapsed,
 } from "../store/selectors";
 import { useHistoryStore } from "../store/historyStore";
 import {
-  UpdateDisplayTimeCommand,
-  RemoveCutCommand,
   BatchUpdateDisplayTimeCommand,
-  AddCutCommand,
-  AddSceneNoteCommand,
   CreateGroupCommand,
   DeleteGroupCommand,
+  RemoveCutCommand,
   RemoveSceneNoteCommand,
   RenameGroupCommand,
   SetGroupAttachAudioCommand,
   SetSceneAttachAudioCommand,
+  AddSceneNoteCommand,
 } from "../store/commands";
 import {
   getAssetThumbnail,
   resolveCutThumbnailFromCache,
 } from "../features/thumbnails/api";
-import { selectAndImportAssetToVault } from "../features/asset/import";
-import { useAssetMetadataHydration } from "../features/metadata/useAssetMetadataHydration";
-import {
-  ensureVaultStagingFolderBridge,
-  extractVideoFrameBridge,
-  getFileInfoBridge,
-} from "../features/platform/electronGateway";
-import { clearPreviewClipPoints, savePreviewClipPoints } from "../features/cut/previewClipUpdate";
 import { resolveCutAsset } from "../utils/assetResolve";
-import { importFileToVault } from "../utils/assetPath";
-// Note: getAudioDuration was removed - duration comes from asset.duration after import
-import PreviewModal from "./PreviewModal";
+import type { Asset } from "../types";
 import AssetModal from "./AssetModal";
-import type { Asset, PreviewableAsset } from "../types";
-import { v4 as uuidv4 } from "uuid";
-import { Toggle } from "../ui";
+import CutDetailsPanel from "./details-panel/CutDetailsPanel";
+import DetailsPanelFrame from "./details-panel/DetailsPanelFrame";
 import "./DetailsPanel.css";
-
-function isPreviewableAsset(asset: Asset | null | undefined): asset is PreviewableAsset {
-  return asset?.type === "image" || asset?.type === "video";
-}
 
 export default function DetailsPanel() {
   const scenes = useStore(selectScenes);
@@ -96,97 +62,36 @@ export default function DetailsPanel() {
   const getSelectedCuts = useStore(selectGetSelectedCuts);
   const getSelectedGroup = useStore(selectGetSelectedGroup);
   const toggleGroupCollapsed = useStore(selectToggleGroupCollapsed);
-  const cacheAsset = useStore(selectCacheAsset);
-  const vaultPath = useStore(selectVaultPath);
   const metadataStore = useStore(selectMetadataStore);
-  const attachAudioToCut = useStore(selectAttachAudioToCut);
-  const detachAudioFromCut = useStore(selectDetachAudioFromCut);
   const getAttachedAudioForScene = useStore(selectGetAttachedAudioForScene);
   const getAttachedAudioForGroup = useStore(selectGetAttachedAudioForGroup);
-  const getAttachedAudioForCut = useStore(selectGetAttachedAudioForCut);
-  const updateCutAudioOffset = useStore(selectUpdateCutAudioOffset);
-  const setCutUseEmbeddedAudio = useStore(selectSetCutUseEmbeddedAudio);
-  const createStoreEventOperation = useStore(selectCreateStoreEventOperation);
-  const relinkCutAsset = useStore(selectRelinkCutAsset);
-
   const { executeCommand } = useHistoryStore();
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
-  const [localDisplayTime, setLocalDisplayTime] = useState("2.0");
-  const [batchDisplayTime, setBatchDisplayTime] = useState("2.0");
+
   const [noteText, setNoteText] = useState("");
-  const [showSinglePreview, setShowSinglePreview] = useState(false);
-  const [showAssetModal, setShowAssetModal] = useState(false);
+  const [batchDisplayTime, setBatchDisplayTime] = useState("2.0");
   const [showSceneAudioModal, setShowSceneAudioModal] = useState(false);
   const [showGroupAudioModal, setShowGroupAudioModal] = useState(false);
   const [groupThumbnail, setGroupThumbnail] = useState<string | null>(null);
+  const [editingGroupName, setEditingGroupName] = useState(false);
+  const [groupNameInput, setGroupNameInput] = useState("");
 
-  // Attached audio state
-  const [attachedAudio, setAttachedAudio] = useState<Asset | undefined>(undefined);
-  const [attachedAudioDuration, setAttachedAudioDuration] = useState<number | null>(null);
-  const [audioOffset, setAudioOffset] = useState("0.0");
-
-  // Find selected scene
   const selectedScene = selectedSceneId
-    ? scenes.find((s) => s.id === selectedSceneId)
+    ? scenes.find((scene) => scene.id === selectedSceneId)
     : null;
 
-  // Find selected cut
-  const selectedCutData = (() => {
-    if (!selectedCutId) return null;
-
-    for (const scene of scenes) {
-      const cut = scene.cuts.find((c) => c.id === selectedCutId);
-      if (cut) {
-        return { scene, cut };
-      }
-    }
-    return null;
-  })();
-
-  const cut = selectedCutData?.cut;
-  const cutScene = selectedCutData?.scene;
-  const asset = cut ? resolveCutAsset(cut, getAsset) : null;
-  const { asset: hydratedAsset } = useAssetMetadataHydration({
-    asset,
-    requirements: asset?.type === "video"
-      ? { duration: true, dimensions: true, fileSize: true }
-      : asset?.type === "image"
-        ? { dimensions: true, fileSize: true }
-        : {},
-    cacheAsset,
-  });
-  const activeAsset = hydratedAsset ?? asset;
-  const metadata = activeAsset?.metadata ?? null;
-  const preferredThumbnail = cut
-    ? resolveCutThumbnailFromCache('details-panel', {
-      cutId: cut.id,
-      kind: cut.isClip ? 'clip' : 'cut',
-      assetId: activeAsset?.id ?? cut.assetId,
-      assetPath: activeAsset?.path,
-      assetType: activeAsset?.type,
-      inPointSec: cut.inPoint,
-      outPointSec: cut.outPoint,
-      assetSnapshotThumbnail: activeAsset?.thumbnail,
-    }, {
-      includeAssetSnapshotFallback: !cut.isClip,
-    })
-    : null;
-  const primaryAudioBinding = cut?.audioBindings?.[0];
-  const useEmbeddedAudio = cut?.useEmbeddedAudio ?? true;
-  const isClipDurationLocked = !!(cut?.isClip && typeof cut?.inPoint === "number" && typeof cut?.outPoint === "number");
-  const attachedAudioSourceName =
-    primaryAudioBinding?.sourceName || attachedAudio?.name || "Unknown";
-  const hasAttachedAudio = !!primaryAudioBinding?.audioAssetId;
-  const sceneAudioBinding = selectedScene ? metadataStore?.sceneMetadata?.[selectedScene.id]?.attachAudio : undefined;
-  const attachedSceneAudio = selectedScene ? getAttachedAudioForScene(selectedScene.id) : undefined;
-
-  // Check for multi-selection
   const isMultiSelection = selectedCutIds.size > 1;
   const selectedCuts = isMultiSelection ? getSelectedCuts() : [];
-  const hasClipInSelection = selectedCuts.some(({ cut: selectedCut }) => !!selectedCut.isClip);
+  const hasClipInSelection = selectedCuts.some(({ cut }) => !!cut.isClip);
+  const allSameScene = selectedCuts.length > 0
+    && selectedCuts.every(({ scene }) => scene.id === selectedCuts[0].scene.id);
 
-  // Check if a group is selected
   const selectedGroupData = getSelectedGroup();
+  const sceneAudioBinding = selectedScene
+    ? metadataStore?.sceneMetadata?.[selectedScene.id]?.attachAudio
+    : undefined;
+  const attachedSceneAudio = selectedScene
+    ? getAttachedAudioForScene(selectedScene.id)
+    : undefined;
 
   useEffect(() => {
     let isActive = true;
@@ -199,13 +104,13 @@ export default function DetailsPanel() {
       const firstCutId = selectedGroupData.group.cutIds[0];
       if (!firstCutId) return;
 
-      const firstCut = selectedGroupData.scene.cuts.find((c) => c.id === firstCutId);
+      const firstCut = selectedGroupData.scene.cuts.find((cut) => cut.id === firstCutId);
       if (!firstCut) return;
 
       const firstAsset = resolveCutAsset(firstCut, getAsset);
-      const firstThumbnail = resolveCutThumbnailFromCache('details-panel', {
+      const firstThumbnail = resolveCutThumbnailFromCache("details-panel", {
         cutId: firstCut.id,
-        kind: firstCut.isClip ? 'clip' : 'cut',
+        kind: firstCut.isClip ? "clip" : "cut",
         assetId: firstAsset?.id ?? firstCut.assetId,
         assetPath: firstAsset?.path,
         assetType: firstAsset?.type,
@@ -216,23 +121,27 @@ export default function DetailsPanel() {
         includeAssetSnapshotFallback: !firstCut.isClip,
       });
       if (firstThumbnail) {
-        if (isActive) setGroupThumbnail(firstThumbnail);
+        if (isActive) {
+          setGroupThumbnail(firstThumbnail);
+        }
         return;
       }
 
-      if (firstAsset?.path && (firstAsset.type === "image" || firstAsset.type === "video")) {
-        try {
-          const cached = await getAssetThumbnail('details-panel', {
-            assetId: firstAsset.id,
-            path: firstAsset.path,
-            type: firstAsset.type,
-          });
-          if (isActive && cached) {
-            setGroupThumbnail(cached);
-          }
-        } catch {
-          // ignore
+      if (!firstAsset?.path || (firstAsset.type !== "image" && firstAsset.type !== "video")) {
+        return;
+      }
+
+      try {
+        const cached = await getAssetThumbnail("details-panel", {
+          assetId: firstAsset.id,
+          path: firstAsset.path,
+          type: firstAsset.type,
+        });
+        if (isActive && cached) {
+          setGroupThumbnail(cached);
         }
+      } catch {
+        // ignore
       }
     };
 
@@ -242,226 +151,61 @@ export default function DetailsPanel() {
     };
   }, [selectedGroupData, getAsset]);
 
-  // State for group name editing
-  const [editingGroupName, setEditingGroupName] = useState(false);
-  const [groupNameInput, setGroupNameInput] = useState("");
-
-  // Load cut display time
-  useEffect(() => {
-    if (cut) {
-      setLocalDisplayTime(cut.displayTime.toFixed(1));
-    }
-  }, [cut?.displayTime, cut]);
-
-  // Load attached audio info
-  useEffect(() => {
-    const loadAttachedAudio = async () => {
-      setAttachedAudio(undefined);
-      setAttachedAudioDuration(null);
-
-      if (!cutScene?.id || !cut?.id) return;
-
-      const audio = getAttachedAudioForCut(cutScene.id, cut.id);
-      setAttachedAudio(audio);
-
-      setAudioOffset((primaryAudioBinding?.offsetSec ?? 0).toFixed(1));
-
-      // Use duration from asset (set during import)
-      setAttachedAudioDuration(audio?.duration ?? null);
-    };
-
-    loadAttachedAudio();
-  }, [cutScene?.id, cut?.id, getAttachedAudioForCut, primaryAudioBinding?.offsetSec]);
-
-  // Load thumbnail and metadata
-  useEffect(() => {
-    const loadAssetData = async () => {
-      setThumbnail(null);
-
-      if (preferredThumbnail) {
-        setThumbnail(preferredThumbnail);
-      }
-
-      if (!activeAsset?.path) return;
-
-      // Keep Details preview in thumbnail flow; use larger profile for readability.
-      if (!preferredThumbnail && activeAsset.type === 'image' && activeAsset.path) {
-        try {
-          const cached = await getAssetThumbnail('details-panel', {
-            assetId: activeAsset.id,
-            path: activeAsset.path,
-            type: 'image',
-          });
-          if (cached) {
-            setThumbnail(cached);
-          }
-        } catch {
-          // Failed to load
-        }
-      } else if (!preferredThumbnail && activeAsset.type === 'video' && activeAsset.path) {
-        try {
-          const cached = await getAssetThumbnail('details-panel', {
-            assetId: activeAsset.id,
-            path: activeAsset.path,
-            type: activeAsset.type,
-          });
-          if (cached) {
-            setThumbnail(cached);
-          }
-        } catch {
-          // Failed to load
-        }
-      }
-    };
-
-    loadAssetData();
-  }, [activeAsset?.id, activeAsset?.path, activeAsset?.type, preferredThumbnail]);
-
-  const handleDisplayTimeChange = (value: string) => {
-    if (isClipDurationLocked) return;
-    setLocalDisplayTime(value);
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && numValue > 0 && cutScene && cut) {
-      executeCommand(
-        new UpdateDisplayTimeCommand(cutScene.id, cut.id, numValue),
-      ).catch((error) => {
-        console.error("Failed to update display time:", error);
-      });
-    }
-  };
-
   const handleAddNote = () => {
-    if (selectedScene && noteText.trim()) {
-      executeCommand(new AddSceneNoteCommand(selectedScene.id, {
-        type: "text",
-        content: noteText.trim(),
-      })).catch((error) => {
-        console.error("Failed to add scene note:", error);
-      });
-      setNoteText("");
-    }
+    if (!selectedScene || !noteText.trim()) return;
+
+    executeCommand(new AddSceneNoteCommand(selectedScene.id, {
+      type: "text",
+      content: noteText.trim(),
+    })).catch((error) => {
+      console.error("Failed to add scene note:", error);
+    });
+    setNoteText("");
   };
 
   const handleDeleteNote = (noteId: string) => {
-    if (selectedScene) {
-      executeCommand(new RemoveSceneNoteCommand(selectedScene.id, noteId)).catch((error) => {
-        console.error("Failed to remove scene note:", error);
-      });
-    }
-  };
-
-  // Batch operations for multi-select
-  const handleBatchDisplayTimeChange = (value: string) => {
-    setBatchDisplayTime(value);
+    if (!selectedScene) return;
+    executeCommand(new RemoveSceneNoteCommand(selectedScene.id, noteId)).catch((error) => {
+      console.error("Failed to remove scene note:", error);
+    });
   };
 
   const handleApplyBatchDisplayTime = () => {
     if (hasClipInSelection) return;
     const numValue = parseFloat(batchDisplayTime);
-    if (isNaN(numValue) || numValue <= 0) return;
+    if (Number.isNaN(numValue) || numValue <= 0) return;
 
-    const updates = selectedCuts.map(({ scene, cut: c }) => ({
+    const updates = selectedCuts.map(({ scene, cut }) => ({
       sceneId: scene.id,
-      cutId: c.id,
+      cutId: cut.id,
       newTime: numValue,
     }));
 
-    if (updates.length > 0) {
-      executeCommand(new BatchUpdateDisplayTimeCommand(updates)).catch(
-        (error) => {
-          console.error("Failed to batch update display time:", error);
-        },
-      );
-    }
+    if (updates.length === 0) return;
+
+    executeCommand(new BatchUpdateDisplayTimeCommand(updates)).catch((error) => {
+      console.error("Failed to batch update display time:", error);
+    });
   };
 
   const handleBatchDelete = () => {
-    // Delete all selected cuts
-    for (const { scene, cut: c } of selectedCuts) {
-      executeCommand(new RemoveCutCommand(scene.id, c.id)).catch((error) => {
+    for (const { scene, cut } of selectedCuts) {
+      executeCommand(new RemoveCutCommand(scene.id, cut.id)).catch((error) => {
         console.error("Failed to remove cut:", error);
       });
     }
   };
 
-  const handleSaveClip = async (
-    inPoint: number,
-    outPoint: number,
-    options?: { expectedClipRevision?: number },
-  ) => {
-    if (cutScene && cut && activeAsset) {
-      await savePreviewClipPoints(
-        {
-          sceneId: cutScene.id,
-          cutId: cut.id,
-          isClip: !!cut.isClip,
-          asset: activeAsset,
-        },
-        inPoint,
-        outPoint,
-        {
-          executeCommand,
-          getCurrentCut: (sceneId, cutId) => {
-            const targetScene = useStore.getState().scenes.find((s) => s.id === sceneId);
-            return targetScene?.cuts.find((c) => c.id === cutId);
-          },
-          getCurrentClipRevision: (cutId) => useStore.getState().getCutRuntime(cutId)?.clipRevision ?? 0,
-          thumbnailProfile: "details-panel",
-        },
-        options,
-      );
+  const handleCreateGroup = async () => {
+    if (!allSameScene || selectedCuts.length < 2) return;
+
+    const sceneId = selectedCuts[0].scene.id;
+    const cutIds = selectedCuts.map(({ cut }) => cut.id);
+    try {
+      await executeCommand(new CreateGroupCommand(sceneId, cutIds, `Group ${Date.now()}`));
+    } catch (error) {
+      console.error("Failed to create group:", error);
     }
-  };
-
-  const handleClearClip = async () => {
-    if (cutScene && cut && activeAsset) {
-      await clearPreviewClipPoints(
-        {
-          sceneId: cutScene.id,
-          cutId: cut.id,
-          isClip: !!cut.isClip,
-          asset: activeAsset,
-        },
-        {
-          executeCommand,
-          getCurrentCut: (sceneId, cutId) => {
-            const targetScene = useStore.getState().scenes.find((s) => s.id === sceneId);
-            return targetScene?.cuts.find((c) => c.id === cutId);
-          },
-          getCurrentClipRevision: (cutId) => useStore.getState().getCutRuntime(cutId)?.clipRevision ?? 0,
-          thumbnailProfile: "details-panel",
-        },
-      );
-    }
-  };
-
-  // Attach audio handler - opens AssetModal with audio filter
-  const handleAttachAudio = () => {
-    if (hasAttachedAudio) {
-      return;
-    }
-    setShowAssetModal(true);
-  };
-
-  const handleReplaceAudio = () => {
-    setShowAssetModal(true);
-  };
-
-  // Handle audio selection from AssetModal
-  const handleAssetModalConfirm = (selectedAsset: Asset) => {
-    if (cutScene && cut) {
-      attachAudioToCut(cutScene.id, cut.id, selectedAsset);
-    }
-    setShowAssetModal(false);
-  };
-
-  const handleAssetModalClose = () => {
-    setShowAssetModal(false);
-  };
-
-  const handleSceneAttachAudio = () => {
-    if (!selectedScene) return;
-    setShowSceneAudioModal(true);
   };
 
   const handleSceneAudioModalConfirm = async (selectedAsset: Asset) => {
@@ -473,11 +217,6 @@ export default function DetailsPanel() {
   const handleSceneDetachAudio = async () => {
     if (!selectedScene) return;
     await executeCommand(new SetSceneAttachAudioCommand(selectedScene.id, null));
-  };
-
-  const handleGroupAttachAudio = () => {
-    if (!selectedGroupData) return;
-    setShowGroupAudioModal(true);
   };
 
   const handleGroupAudioModalConfirm = async (selectedAsset: Asset) => {
@@ -499,179 +238,12 @@ export default function DetailsPanel() {
     ));
   };
 
-  // Detach audio handler
-  const handleDetachAudio = async () => {
-    if (!cutScene || !cut) return;
-    detachAudioFromCut(cutScene.id, cut.id);
-  };
-
-  // Relink file handler
-  const handleRelinkFile = async () => {
-    if (!cutScene || !cut || !vaultPath) return;
-
-    try {
-      const importedAsset = await selectAndImportAssetToVault({
-        vaultPath,
-        filterType: 'all',
-        dialogTitle: 'Select New File',
-      });
-      if (!importedAsset) {
-        return;
-      }
-
-      const newAsset: Asset = {
-        ...importedAsset,
-      };
-
-      // Load thumbnail for images or generate for videos
-      const thumbnail = await getAssetThumbnail('timeline-card', {
-        assetId: newAsset.id,
-        path: newAsset.path,
-        type: newAsset.type === 'video' ? 'video' : 'image',
-      });
-      if (thumbnail) {
-        newAsset.thumbnail = thumbnail;
-      }
-
-      // Relink cut to new asset
-      relinkCutAsset(cutScene.id, cut.id, newAsset, {
-        eventContext: createStoreEventOperation('user'),
-      });
-    } catch (error) {
-      console.error('Failed to relink file:', error);
-      alert(`Failed to relink file: ${error}`);
-    }
-  };
-
-  // Audio offset handlers
-  const handleAudioOffsetChange = (value: string) => {
-    setAudioOffset(value);
-    const numValue = parseFloat(value);
-    if (!isNaN(numValue) && cutScene && cut) {
-      updateCutAudioOffset(cutScene.id, cut.id, numValue);
-    }
-  };
-
-  const handleAudioOffsetStep = (delta: number) => {
-    const currentOffset = parseFloat(audioOffset) || 0;
-    const newOffset = (currentOffset + delta).toFixed(1);
-    handleAudioOffsetChange(newOffset);
-  };
-
-  const handleUseEmbeddedAudioToggle = (enabled: boolean) => {
-    if (!cutScene || !cut) return;
-    setCutUseEmbeddedAudio(cutScene.id, cut.id, enabled);
-  };
-
-  const handleFrameCapture = async (timestamp: number): Promise<string | void> => {
-    if (!cutScene || !cut || !activeAsset?.path || !vaultPath) {
-      throw new Error('Cannot capture frame: missing required data');
-    }
-
-    try {
-      // Ensure assets folder exists
-      const stagingFolder = await ensureVaultStagingFolderBridge(vaultPath);
-      if (!stagingFolder) {
-        throw new Error('Failed to access vault staging folder');
-      }
-
-      // Generate unique filename: {video_name}_frame_{timestamp}_{uuid}.png
-      const baseName = activeAsset.name.replace(/\.[^/.]+$/, "");
-      const timeStr = timestamp.toFixed(2).replace(".", "_");
-      const uniqueId = uuidv4().substring(0, 8);
-      const frameFileName = `${baseName}_frame_${timeStr}_${uniqueId}.png`;
-      const outputPath = `${stagingFolder}/${frameFileName}`.replace(/\\/g, "/");
-
-      // Extract frame using ffmpeg
-      const result = await extractVideoFrameBridge({
-        sourcePath: activeAsset.path,
-        outputPath,
-        timestamp,
-      });
-
-      if (!result.success) {
-        throw new Error(`Failed to capture frame: ${result.error}`);
-      }
-
-      // Read the captured image as base64 for thumbnail
-      const thumbnailBase64 = await getAssetThumbnail('timeline-card', {
-        path: outputPath,
-        type: 'image',
-      });
-
-      let fileSize: number | undefined;
-      const info = await getFileInfoBridge(outputPath);
-      fileSize = info?.size;
-
-      // Create new asset for the captured frame
-      const newAssetId = uuidv4();
-      const sourceLabel = `${baseName} @ ${formatClipTime(timestamp)}`;
-      const baseAsset: Asset = {
-        id: newAssetId,
-        name: sourceLabel,
-        path: outputPath,
-        type: "image",
-        thumbnail: thumbnailBase64 || undefined,
-        fileSize,
-      };
-
-      const importedAsset = await importFileToVault(outputPath, vaultPath, newAssetId, baseAsset);
-      const finalAsset = importedAsset ?? baseAsset;
-
-      // Cache the new asset
-      cacheAsset(finalAsset);
-
-      // Add new cut with the captured frame just below the current cut
-      const currentIndex = cutScene.cuts.findIndex((c) => c.id === cut.id);
-      const insertIndex = currentIndex >= 0 ? currentIndex + 1 : undefined;
-      await executeCommand(new AddCutCommand(cutScene.id, finalAsset, undefined, insertIndex));
-
-      return `Captured frame: ${sourceLabel}`;
-    } catch (error) {
-      console.error("Frame capture failed:", error);
-      throw error;
-    }
-  };
-
-  const formatClipTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    const ms = Math.floor((seconds % 1) * 100);
-    return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
-  };
-
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  // Check if all selected cuts are in the same scene (for grouping)
-  const allSameScene = selectedCuts.length > 0 &&
-    selectedCuts.every(({ scene }) => scene.id === selectedCuts[0].scene.id);
-
-  // Handler to create a group from selected cuts
-  const handleCreateGroup = async () => {
-    if (!allSameScene || selectedCuts.length < 2) return;
-
-    const sceneId = selectedCuts[0].scene.id;
-    const cutIds = selectedCuts.map(({ cut: c }) => c.id);
-
-    try {
-      await executeCommand(new CreateGroupCommand(sceneId, cutIds, `Group ${Date.now()}`));
-    } catch (error) {
-      console.error("Failed to create group:", error);
-    }
-  };
-
-  // Show group details if a group is selected
   if (selectedGroupId && selectedGroupData) {
     const { scene, group } = selectedGroupData;
     const groupCuts = group.cutIds
-      .map(id => scene.cuts.find(c => c.id === id))
-      .filter((c): c is typeof scene.cuts[0] => c !== undefined);
-
-    const totalDuration = groupCuts.reduce((acc, c) => acc + c.displayTime, 0);
+      .map((id) => scene.cuts.find((cut) => cut.id === id))
+      .filter((cut): cut is typeof scene.cuts[0] => cut !== undefined);
+    const totalDuration = groupCuts.reduce((acc, cut) => acc + cut.displayTime, 0);
     const groupAudioBinding = metadataStore?.sceneMetadata?.[scene.id]?.groupAudioBindings?.[group.id];
     const attachedGroupAudio = getAttachedAudioForGroup(scene.id, group.id);
 
@@ -694,12 +266,7 @@ export default function DetailsPanel() {
     };
 
     return (
-      <aside className="details-panel">
-        <div className="details-header">
-          <Settings size={18} />
-          <span>DETAILS</span>
-        </div>
-
+      <DetailsPanelFrame>
         <div className="details-content">
           <div className="selected-info group-info">
             <span className="selected-label">GROUP</span>
@@ -708,10 +275,10 @@ export default function DetailsPanel() {
                 <input
                   type="text"
                   value={groupNameInput}
-                  onChange={(e) => setGroupNameInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") handleRenameGroup();
-                    if (e.key === "Escape") setEditingGroupName(false);
+                  onChange={(event) => setGroupNameInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void handleRenameGroup();
+                    if (event.key === "Escape") setEditingGroupName(false);
                   }}
                   onBlur={() => setEditingGroupName(false)}
                   autoFocus
@@ -721,7 +288,7 @@ export default function DetailsPanel() {
               <span
                 className="selected-value editable"
                 onClick={() => {
-                  setGroupNameInput(group.name || '');
+                  setGroupNameInput(group.name || "");
                   setEditingGroupName(true);
                 }}
               >
@@ -756,7 +323,6 @@ export default function DetailsPanel() {
             </div>
           </div>
 
-          {/* Group cuts preview list */}
           <div className="group-cuts-list">
             <span className="breakdown-label">Cuts in Group:</span>
             {groupCuts.map((groupCut, idx) => (
@@ -781,14 +347,14 @@ export default function DetailsPanel() {
               <div className="attached-audio-actions">
                 <button
                   className="audio-btn edit"
-                  onClick={handleGroupAttachAudio}
+                  onClick={() => setShowGroupAudioModal(true)}
                   title="Replace group audio"
                 >
                   Replace
                 </button>
                 <button
                   className="audio-btn remove"
-                  onClick={handleGroupDetachAudio}
+                  onClick={() => void handleGroupDetachAudio()}
                   title="Clear group audio"
                 >
                   Clear
@@ -802,7 +368,7 @@ export default function DetailsPanel() {
                 <span>Group Audio</span>
               </div>
               <div className="details-actions">
-                <button className="action-btn secondary" onClick={handleGroupAttachAudio}>
+                <button className="action-btn secondary" onClick={() => setShowGroupAudioModal(true)}>
                   <Music size={16} />
                   <span>ATTACH GROUP AUDIO</span>
                 </button>
@@ -821,7 +387,7 @@ export default function DetailsPanel() {
           </div>
 
           <div className="details-footer">
-            <button className="delete-btn" onClick={handleDissolveGroup}>
+            <button className="delete-btn" onClick={() => void handleDissolveGroup()}>
               <FolderOpen size={14} />
               <span>Dissolve Group</span>
             </button>
@@ -836,28 +402,19 @@ export default function DetailsPanel() {
             allowImport={true}
           />
         </div>
-      </aside>
+      </DetailsPanelFrame>
     );
   }
 
-  // Show multi-selection details
   if (isMultiSelection && selectionType === "cut") {
-    const totalDuration = selectedCuts.reduce(
-      (acc, { cut: c }) => acc + c.displayTime,
-      0,
-    );
+    const totalDuration = selectedCuts.reduce((acc, { cut }) => acc + cut.displayTime, 0);
     const sceneGroups = new Map<string, number>();
     selectedCuts.forEach(({ scene }) => {
       sceneGroups.set(scene.name, (sceneGroups.get(scene.name) || 0) + 1);
     });
 
     return (
-      <aside className="details-panel">
-        <div className="details-header">
-          <Settings size={18} />
-          <span>DETAILS</span>
-        </div>
-
+      <DetailsPanelFrame>
         <div className="details-content">
           <div className="selected-info multi-select">
             <span className="selected-label">MULTI-SELECT</span>
@@ -891,10 +448,9 @@ export default function DetailsPanel() {
             ))}
           </div>
 
-          {/* Group creation button - only when all cuts are in same scene */}
           {allSameScene && selectedCuts.length >= 2 && (
             <div className="details-actions">
-              <button className="action-btn create-group" onClick={handleCreateGroup}>
+              <button className="action-btn create-group" onClick={() => void handleCreateGroup()}>
                 <Layers size={16} />
                 <span>CREATE GROUP</span>
               </button>
@@ -911,7 +467,7 @@ export default function DetailsPanel() {
                 <input
                   type="number"
                   value={batchDisplayTime}
-                  onChange={(e) => handleBatchDisplayTimeChange(e.target.value)}
+                  onChange={(event) => setBatchDisplayTime(event.target.value)}
                   step="0.1"
                   min="0.1"
                   max="60"
@@ -942,19 +498,13 @@ export default function DetailsPanel() {
             </button>
           </div>
         </div>
-      </aside>
+      </DetailsPanelFrame>
     );
   }
 
-  // Show scene details
   if (selectionType === "scene" && selectedScene) {
     return (
-      <aside className="details-panel">
-        <div className="details-header">
-          <Settings size={18} />
-          <span>DETAILS</span>
-        </div>
-
+      <DetailsPanelFrame>
         <div className="details-content">
           <div className="selected-info">
             <span className="selected-label">SELECTED SCENE</span>
@@ -969,9 +519,7 @@ export default function DetailsPanel() {
             <div className="stat-item">
               <Clock size={16} />
               <span>
-                {selectedScene.cuts
-                  .reduce((acc, c) => acc + c.displayTime, 0)
-                  .toFixed(1)}
+                {selectedScene.cuts.reduce((acc, cut) => acc + cut.displayTime, 0).toFixed(1)}
                 s total
               </span>
             </div>
@@ -991,14 +539,14 @@ export default function DetailsPanel() {
               <div className="attached-audio-actions">
                 <button
                   className="audio-btn edit"
-                  onClick={handleSceneAttachAudio}
+                  onClick={() => setShowSceneAudioModal(true)}
                   title="Replace scene audio"
                 >
                   Replace
                 </button>
                 <button
                   className="audio-btn remove"
-                  onClick={handleSceneDetachAudio}
+                  onClick={() => void handleSceneDetachAudio()}
                   title="Clear scene audio"
                 >
                   Clear
@@ -1012,7 +560,7 @@ export default function DetailsPanel() {
                 <span>Scene Audio</span>
               </div>
               <div className="details-actions">
-                <button className="action-btn secondary" onClick={handleSceneAttachAudio}>
+                <button className="action-btn secondary" onClick={() => setShowSceneAudioModal(true)}>
                   <Music size={16} />
                   <span>ATTACH SCENE AUDIO</span>
                 </button>
@@ -1030,7 +578,7 @@ export default function DetailsPanel() {
               <textarea
                 placeholder="Add a note..."
                 value={noteText}
-                onChange={(e) => setNoteText(e.target.value)}
+                onChange={(event) => setNoteText(event.target.value)}
                 rows={3}
               />
               <button
@@ -1069,275 +617,19 @@ export default function DetailsPanel() {
             allowImport={true}
           />
         </div>
-      </aside>
+      </DetailsPanelFrame>
     );
   }
 
-  // Show cut details
-  if (selectionType === "cut" && cut && activeAsset) {
-    const isVideo = activeAsset.type === "video";
-    const previewAsset = isPreviewableAsset(activeAsset) ? activeAsset : null;
-    const previewImage = thumbnail;
-
-    return (
-      <aside className="details-panel">
-        <div className="details-header">
-          <Settings size={18} />
-          <span>DETAILS</span>
-        </div>
-
-        <div className="details-content">
-          <div className="selected-info">
-            <span className="selected-label">
-              SELECTED
-            </span>
-            <span className="selected-value">
-              {cutScene?.name} / Cut {(cut.order || 0) + 1}
-            </span>
-          </div>
-
-          <div
-            className="details-preview clickable"
-            onClick={() => previewAsset && setShowSinglePreview(true)}
-            title="Click to preview"
-          >
-            {previewImage ? (
-              <>
-                <img
-                  src={previewImage}
-                  alt={activeAsset.name}
-                  className="preview-image"
-                />
-                {isVideo && (
-                  <div className="preview-play-overlay">
-                    <Play size={32} />
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="preview-placeholder">
-                {isVideo ? <Film size={48} /> : <FileImage size={48} />}
-              </div>
-            )}
-          </div>
-
-          <div className="details-info">
-            <div className="info-row">
-              <span className="info-label">
-                <Clock size={14} />
-                Display Time:
-              </span>
-              <div className="time-input-group">
-                <input
-                  type="number"
-                  value={localDisplayTime}
-                  onChange={(e) => handleDisplayTimeChange(e.target.value)}
-                  step="0.1"
-                  min="0.1"
-                  max="60"
-                  className="time-input"
-                  disabled={isClipDurationLocked}
-                  title={isClipDurationLocked ? "Display time is locked for clip cuts" : undefined}
-                />
-                <span className="time-unit">seconds</span>
-              </div>
-            </div>
-            {isVideo && (
-              <div className="info-row">
-                <span className="info-label">
-                  <Volume2 size={14} />
-                  Audio from the video:
-                </span>
-                <Toggle
-                  checked={useEmbeddedAudio}
-                  onChange={handleUseEmbeddedAudioToggle}
-                  size="sm"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* Clip Info Section (for video clips) */}
-          {isVideo &&
-            cut?.isClip &&
-            cut.inPoint !== undefined &&
-            cut.outPoint !== undefined && (
-              <div className="clip-info-section">
-                <div className="clip-info-header">
-                  <Scissors size={14} />
-                  <span>Video Clip</span>
-                </div>
-                <div className="clip-info-content">
-                  <div className="clip-times">
-                    <span className="clip-time-label">IN:</span>
-                    <span className="clip-time-value">
-                      {formatClipTime(cut.inPoint)}
-                    </span>
-                    <span className="clip-time-separator">→</span>
-                    <span className="clip-time-label">OUT:</span>
-                    <span className="clip-time-value">
-                      {formatClipTime(cut.outPoint)}
-                    </span>
-                  </div>
-                  <div className="clip-actions">
-                    <button
-                      className="clip-edit-btn"
-                      onClick={() => setShowSinglePreview(true)}
-                      title="Edit clip points"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="clip-clear-btn"
-                      onClick={handleClearClip}
-                      title="Clear clip (use full video)"
-                    >
-                      Clear
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          {metadata?.prompt && (
-            <div className="metadata-section">
-              <div className="metadata-header">Prompt</div>
-              <div className="metadata-content prompt-text">
-                {metadata.prompt}
-              </div>
-              {metadata.negativePrompt && (
-                <>
-                  <div className="metadata-header negative">
-                    Negative Prompt
-                  </div>
-                  <div className="metadata-content prompt-text negative">
-                    {metadata.negativePrompt}
-                  </div>
-                </>
-              )}
-              {(metadata.model || metadata.seed) && (
-                <div className="metadata-params">
-                  {metadata.model && <span>Model: {metadata.model}</span>}
-                  {metadata.seed && <span>Seed: {metadata.seed}</span>}
-                  {metadata.steps && <span>Steps: {metadata.steps}</span>}
-                  {metadata.cfg && <span>CFG: {metadata.cfg}</span>}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Attached Audio Section */}
-          {hasAttachedAudio && (
-            <div className="attached-audio-section">
-              <div className="attached-audio-header">
-                <Music size={14} />
-                <span>Attached Audio</span>
-              </div>
-              <div className="attached-audio-info">
-                <span className="audio-name">{attachedAudioSourceName}</span>
-              </div>
-              {attachedAudioDuration !== null && (
-                <div className="attached-audio-duration">
-                  Duration: {formatDuration(attachedAudioDuration)}
-                </div>
-              )}
-              <div className="audio-offset-control">
-                <label>Offset:</label>
-                <button
-                  className="audio-offset-btn"
-                  onClick={() => handleAudioOffsetStep(-0.1)}
-                  title="Decrease offset"
-                >
-                  <Minus size={12} />
-                </button>
-                <input
-                  type="number"
-                  value={audioOffset}
-                  onChange={(e) => handleAudioOffsetChange(e.target.value)}
-                  step="0.1"
-                  className="offset-input"
-                />
-                <span className="offset-unit">s</span>
-                <button
-                  className="audio-offset-btn"
-                  onClick={() => handleAudioOffsetStep(0.1)}
-                  title="Increase offset"
-                >
-                  <Plus size={12} />
-                </button>
-              </div>
-              <div className="attached-audio-actions">
-                <button
-                  className="audio-btn edit"
-                  onClick={handleReplaceAudio}
-                  title="Replace audio"
-                >
-                  Replace
-                </button>
-                <button
-                  className="audio-btn remove"
-                  onClick={handleDetachAudio}
-                  title="Clear audio"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="details-actions">
-            <button className="action-btn secondary" onClick={handleAttachAudio}>
-              <Music size={16} />
-              <span>ATTACH AUDIO</span>
-            </button>
-          </div>
-
-          <div className="details-footer">
-            <button className="relink-btn" onClick={handleRelinkFile}>
-              <Link size={14} />
-              <span>Relink File</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Single Preview Modal */}
-        {showSinglePreview && previewAsset && (
-          <PreviewModal
-            mode="single"
-            asset={previewAsset}
-            focusCutId={cut?.id}
-            onClose={() => setShowSinglePreview(false)}
-            initialInPoint={cut?.inPoint}
-            initialOutPoint={cut?.outPoint}
-            onClipSave={isVideo ? handleSaveClip : undefined}
-            onClipClear={isVideo ? handleClearClip : undefined}
-            onFrameCapture={isVideo ? handleFrameCapture : undefined}
-          />
-        )}
-
-        {/* Asset Modal for attaching audio */}
-        <AssetModal
-          open={showAssetModal}
-          onClose={handleAssetModalClose}
-          onConfirm={handleAssetModalConfirm}
-          title="Select Audio"
-          initialFilterType="audio"
-          allowImport={true}
-        />
-      </aside>
-    );
+  if (selectionType === "cut" && selectedCutId) {
+    return <CutDetailsPanel cutId={selectedCutId} />;
   }
 
-  // Default empty state
   return (
-    <aside className="details-panel">
-      <div className="details-header">
-        <Settings size={18} />
-        <span>DETAILS</span>
-      </div>
+    <DetailsPanelFrame>
       <div className="details-empty">
         <p>Select a scene or cut to view details</p>
       </div>
-    </aside>
+    </DetailsPanelFrame>
   );
 }
