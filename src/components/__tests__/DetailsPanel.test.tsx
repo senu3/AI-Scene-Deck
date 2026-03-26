@@ -183,4 +183,79 @@ describe("DetailsPanel", () => {
       root.unmount();
     });
   });
+
+  it("hides attach audio while audio is attached and shows it again after clear", async () => {
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    const attachedAudio: Asset = {
+      id: "audio-1",
+      name: "voice.wav",
+      path: "/tmp/voice.wav",
+      type: "audio",
+      duration: 12,
+    };
+
+    useStore.setState(initialState, true);
+    useStore.setState({
+      scenes: [buildScene({
+        audioBindings: [{
+          id: "binding-1",
+          audioAssetId: attachedAudio.id,
+          sourceName: attachedAudio.name,
+          offsetSec: 0,
+          enabled: true,
+          kind: "voice.other",
+        }],
+      })],
+      sceneOrder: ["scene-1"],
+      assetCache: new Map([
+        ["asset-1", {
+          id: "asset-1",
+          name: "clip.mp4",
+          path: "/tmp/clip.mp4",
+          type: "video",
+          thumbnail: "asset-thumb",
+        } satisfies Asset],
+        [attachedAudio.id, attachedAudio],
+      ]),
+      selectedSceneId: null,
+      selectedCutId: "cut-1",
+      selectedCutIds: new Set(["cut-1"]),
+      selectedGroupId: null,
+      selectionType: "cut",
+    });
+
+    await act(async () => {
+      root.render(<DetailsPanel />);
+    });
+
+    expect(host.textContent).toContain("voice.wav");
+    expect(host.textContent).not.toContain("ATTACH AUDIO");
+
+    await act(async () => {
+      useStore.setState((state) => ({
+        scenes: state.scenes.map((scene) => (
+          scene.id !== "scene-1"
+            ? scene
+            : {
+                ...scene,
+                cuts: scene.cuts.map((cut) => (
+                  cut.id !== "cut-1"
+                    ? cut
+                    : {
+                        ...cut,
+                        audioBindings: [],
+                      }
+                )),
+              }
+        )),
+      }));
+    });
+
+    expect(host.textContent).toContain("ATTACH AUDIO");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
 });

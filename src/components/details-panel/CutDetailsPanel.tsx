@@ -432,12 +432,14 @@ const CutDetailsAudioSection = memo(function CutDetailsAudioSection({
               size="sm"
             />
           </div>
-          <div className="details-actions">
-            <button className="action-btn secondary" onClick={onAttachAudio}>
-              <Music size={16} />
-              <span>ATTACH AUDIO</span>
-            </button>
-          </div>
+          {!hasAttachedAudio && (
+            <div className="details-actions">
+              <button className="action-btn secondary" onClick={onAttachAudio}>
+                <Music size={16} />
+                <span>ATTACH AUDIO</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -499,7 +501,7 @@ const CutDetailsAudioSection = memo(function CutDetailsAudioSection({
         </div>
       )}
 
-      {!isVideo && (
+      {!isVideo && !hasAttachedAudio && (
         <div className="details-actions">
           <button className="action-btn secondary" onClick={onAttachAudio}>
             <Music size={16} />
