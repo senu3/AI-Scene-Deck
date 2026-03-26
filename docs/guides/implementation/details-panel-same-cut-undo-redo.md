@@ -8,7 +8,7 @@
 
 **目的**: `DetailsPanel` の Section 分割に先立ち、single-cut panel における same-cut Undo/Redo の最小追従仕様を固定する。  
 **適用範囲**: `src/components/DetailsPanel.tsx` と、その後継となる single-cut details UI。  
-**関連ファイル**: `docs/guides/cut-history.md`, `docs/guides/implementation/thumbnail-profiles.md`, `docs/notes/details-panel-current-status-2026-03-04.md`。  
+**関連ファイル**: `docs/guides/cut-history.md`, `docs/guides/implementation/thumbnail-profiles.md`。  
 **更新頻度**: 中。
 
 ## Must / Must Not
