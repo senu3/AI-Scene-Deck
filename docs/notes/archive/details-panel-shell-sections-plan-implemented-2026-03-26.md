@@ -1,4 +1,10 @@
-# DetailsPanel Shell + Sections 移行計画 (2026-03-26)
+# DetailsPanel Shell + Sections Plan Implemented (2026-03-26)
+
+## 状態
+- `DetailsPanel.tsx` は selection shell / router として維持する。
+- 初回スコープでは single-cut panel だけを `CutDetailsPanel` へ分離した。
+- scene / group / multi-cut の分岐は `DetailsPanel.tsx` に残しており、これは意図通りの停止点である。
+- 本ノートの scoped work は完了したため archive へ移動する。
 
 ## TL;DR
 - `DetailsPanel` を selection shell と view別 panel に分離し、single-cut 表示だけをさらに section 分割する。
