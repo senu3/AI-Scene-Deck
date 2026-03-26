@@ -174,6 +174,7 @@ describe("DetailsPanel", () => {
 
     expect(host.textContent).toContain("Scene 1 / Cut 1");
     expect(host.querySelector(".details-preview.clickable")).not.toBeNull();
+    expect(host.querySelector(".preview-play-overlay")).not.toBeNull();
 
     const previewImage = host.querySelector(".details-preview img") as HTMLImageElement | null;
     expect(previewImage?.getAttribute("src")).toBe("thumb-image");

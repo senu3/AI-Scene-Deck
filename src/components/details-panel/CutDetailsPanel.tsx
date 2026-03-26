@@ -188,7 +188,7 @@ const CutDetailsThumbSection = memo(function CutDetailsThumbSection({
             alt={assetName}
             className="preview-image"
           />
-          {isVideo && (
+          {canPreview && (
             <div className="preview-play-overlay">
               <Play size={32} />
             </div>
