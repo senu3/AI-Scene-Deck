@@ -205,14 +205,11 @@ const CutDetailsThumbSection = memo(function CutDetailsThumbSection({
 
 const CutDetailsInfoSection = memo(function CutDetailsInfoSection({
   cutId,
-  isVideo,
 }: {
   cutId: string;
-  isVideo: boolean;
 }) {
   const selector = useMemo(() => makeSelectCutInfoFields(cutId), [cutId]);
   const fields = useStore(useShallow(selector));
-  const setCutUseEmbeddedAudio = useStore(selectSetCutUseEmbeddedAudio);
   const { executeCommand } = useHistoryStore();
   const [localDisplayTime, setLocalDisplayTime] = useState("2.0");
 
@@ -246,12 +243,6 @@ const CutDetailsInfoSection = memo(function CutDetailsInfoSection({
     });
   };
 
-  const handleUseEmbeddedAudioToggle = (enabled: boolean) => {
-    const selected = getCutSelectionSnapshot(cutId);
-    if (!selected) return;
-    setCutUseEmbeddedAudio(selected.scene.id, selected.cut.id, enabled);
-  };
-
   return (
     <div className="details-info">
       <div className="info-row">
@@ -274,19 +265,6 @@ const CutDetailsInfoSection = memo(function CutDetailsInfoSection({
           <span className="time-unit">seconds</span>
         </div>
       </div>
-      {isVideo && (
-        <div className="info-row">
-          <span className="info-label">
-            <Volume2 size={14} />
-            Audio from the video:
-          </span>
-          <Toggle
-            checked={fields.useEmbeddedAudio}
-            onChange={handleUseEmbeddedAudioToggle}
-            size="sm"
-          />
-        </div>
-      )}
     </div>
   );
 });
@@ -391,11 +369,13 @@ const CutDetailsMetadataSection = memo(function CutDetailsMetadataSection({
 });
 
 const CutDetailsAudioSection = memo(function CutDetailsAudioSection({
+  isVideo,
   cutId,
   onAttachAudio,
   onReplaceAudio,
   onDetachAudio,
 }: {
+  isVideo: boolean;
   cutId: string;
   onAttachAudio: () => void;
   onReplaceAudio: () => void;
@@ -403,6 +383,7 @@ const CutDetailsAudioSection = memo(function CutDetailsAudioSection({
 }) {
   const selector = useMemo(() => makeSelectCutAudioFields(cutId), [cutId]);
   const audioFields = useStore(useShallow(selector));
+  const setCutUseEmbeddedAudio = useStore(selectSetCutUseEmbeddedAudio);
   const updateCutAudioOffset = useStore(selectUpdateCutAudioOffset);
   const [audioOffset, setAudioOffset] = useState("0.0");
 
@@ -430,8 +411,36 @@ const CutDetailsAudioSection = memo(function CutDetailsAudioSection({
     handleAudioOffsetChange(newOffset);
   };
 
+  const handleUseEmbeddedAudioToggle = (enabled: boolean) => {
+    const selected = getCutSelectionSnapshot(cutId);
+    if (!selected) return;
+    setCutUseEmbeddedAudio(selected.scene.id, selected.cut.id, enabled);
+  };
+
   return (
     <>
+      {isVideo && (
+        <div className="details-info">
+          <div className="info-row">
+            <span className="info-label">
+              <Volume2 size={14} />
+              Audio from the video:
+            </span>
+            <Toggle
+              checked={audioFields?.useEmbeddedAudio ?? true}
+              onChange={handleUseEmbeddedAudioToggle}
+              size="sm"
+            />
+          </div>
+          <div className="details-actions">
+            <button className="action-btn secondary" onClick={onAttachAudio}>
+              <Music size={16} />
+              <span>ATTACH AUDIO</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {hasAttachedAudio && (
         <div className="attached-audio-section">
           <div className="attached-audio-header">
@@ -490,12 +499,14 @@ const CutDetailsAudioSection = memo(function CutDetailsAudioSection({
         </div>
       )}
 
-      <div className="details-actions">
-        <button className="action-btn secondary" onClick={onAttachAudio}>
-          <Music size={16} />
-          <span>ATTACH AUDIO</span>
-        </button>
-      </div>
+      {!isVideo && (
+        <div className="details-actions">
+          <button className="action-btn secondary" onClick={onAttachAudio}>
+            <Music size={16} />
+            <span>ATTACH AUDIO</span>
+          </button>
+        </div>
+      )}
     </>
   );
 });
@@ -728,7 +739,15 @@ export default function CutDetailsPanel({ cutId }: CutDetailsPanelProps) {
           onOpenPreview={() => setShowSinglePreview(true)}
         />
 
-        <CutDetailsInfoSection cutId={cutId} isVideo={isVideo} />
+        <CutDetailsInfoSection cutId={cutId} />
+
+        <CutDetailsAudioSection
+          isVideo={isVideo}
+          cutId={cutId}
+          onAttachAudio={handleAttachAudio}
+          onReplaceAudio={handleReplaceAudio}
+          onDetachAudio={handleDetachAudio}
+        />
 
         <CutDetailsClipSection
           cutId={cutId}
@@ -740,13 +759,6 @@ export default function CutDetailsPanel({ cutId }: CutDetailsPanelProps) {
         />
 
         <CutDetailsMetadataSection metadata={metadata} />
-
-        <CutDetailsAudioSection
-          cutId={cutId}
-          onAttachAudio={handleAttachAudio}
-          onReplaceAudio={handleReplaceAudio}
-          onDetachAudio={handleDetachAudio}
-        />
 
         <div className="details-footer">
           <button className="relink-btn" onClick={() => void handleRelinkFile()}>

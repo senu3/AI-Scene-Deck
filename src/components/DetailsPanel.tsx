@@ -365,7 +365,7 @@ export default function DetailsPanel() {
             <div className="scene-notes-section">
               <div className="notes-header">
                 <Music size={16} />
-                <span>Group Audio</span>
+                <span>Audio</span>
               </div>
               <div className="details-actions">
                 <button className="action-btn secondary" onClick={() => setShowGroupAudioModal(true)}>
@@ -557,7 +557,7 @@ export default function DetailsPanel() {
             <div className="scene-notes-section">
               <div className="notes-header">
                 <Music size={16} />
-                <span>Scene Audio</span>
+                <span>Audio</span>
               </div>
               <div className="details-actions">
                 <button className="action-btn secondary" onClick={() => setShowSceneAudioModal(true)}>

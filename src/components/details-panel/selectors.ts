@@ -51,7 +51,6 @@ export function makeSelectCutInfoFields(cutId: string) {
         && typeof selected.cut.inPoint === "number"
         && typeof selected.cut.outPoint === "number"
       ),
-      useEmbeddedAudio: selected.cut.useEmbeddedAudio ?? true,
     };
   };
 }
@@ -80,6 +79,7 @@ export function makeSelectCutAudioFields(cutId: string) {
       : undefined;
 
     return {
+      useEmbeddedAudio: selected.cut.useEmbeddedAudio ?? true,
       primaryAudioBinding,
       attachedAudio,
     };
