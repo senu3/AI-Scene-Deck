@@ -29,7 +29,7 @@ vi.mock("../AssetModal", () => ({
   default: () => null,
 }));
 
-function buildScene(): Scene {
+function buildScene(overrides?: Partial<Scene["cuts"][0]>): Scene {
   return {
     id: "scene-1",
     name: "Scene 1",
@@ -47,6 +47,7 @@ function buildScene(): Scene {
         outPoint: 4,
         useEmbeddedAudio: true,
         audioBindings: [],
+        ...overrides,
       },
     ],
   };
@@ -58,6 +59,9 @@ describe("DetailsPanel", () => {
     mockGetAssetThumbnail.mockReset();
     mockResolveCutThumbnailFromCache.mockImplementation((profile, input) => {
       void profile;
+      if (input.assetType === "image") {
+        return "thumb-image";
+      }
       return `thumb-${input.inPointSec}-${input.outPointSec}`;
     });
     mockGetAssetThumbnail.mockResolvedValue(null);
@@ -131,6 +135,48 @@ describe("DetailsPanel", () => {
     const updatedImage = host.querySelector(".details-preview img") as HTMLImageElement | null;
     expect(updatedImage?.getAttribute("src")).toBe("thumb-1-4");
     expect(mockResolveCutThumbnailFromCache).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("routes image cuts through the single-cut panel path", async () => {
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    const imageAsset: Asset = {
+      id: "asset-1",
+      name: "still.png",
+      path: "/tmp/still.png",
+      type: "image",
+      thumbnail: "asset-thumb",
+    };
+
+    useStore.setState(initialState, true);
+    useStore.setState({
+      scenes: [buildScene({
+        isClip: false,
+        inPoint: undefined,
+        outPoint: undefined,
+      })],
+      sceneOrder: ["scene-1"],
+      assetCache: new Map([[imageAsset.id, imageAsset]]),
+      selectedSceneId: null,
+      selectedCutId: "cut-1",
+      selectedCutIds: new Set(["cut-1"]),
+      selectedGroupId: null,
+      selectionType: "cut",
+    });
+
+    await act(async () => {
+      root.render(<DetailsPanel />);
+    });
+
+    expect(host.textContent).toContain("Scene 1 / Cut 1");
+    expect(host.querySelector(".details-preview.clickable")).not.toBeNull();
+
+    const previewImage = host.querySelector(".details-preview img") as HTMLImageElement | null;
+    expect(previewImage?.getAttribute("src")).toBe("thumb-image");
 
     await act(async () => {
       root.unmount();
