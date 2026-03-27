@@ -26,8 +26,9 @@ let closeApprovalTimer: NodeJS.Timeout | null = null;
 let autosaveFlushInProgress = false;
 let autosaveFlushTimer: NodeJS.Timeout | null = null;
 let runtimeLogPathCache: string | null = null;
+let rendererCloseHandshakeReady = false;
 
-const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
+const isDev = !app.isPackaged;
 
 // Register custom scheme as privileged BEFORE app is ready
 // This MUST be called before app.whenReady()
@@ -618,6 +619,7 @@ function createWindow() {
     platform: process.platform,
     appVersion: app.getVersion(),
   });
+  rendererCloseHandshakeReady = false;
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -641,12 +643,31 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererCloseHandshakeReady = true;
+    writeRuntimeLog('INFO', 'webcontents-did-finish-load', {
+      url: mainWindow?.webContents.getURL() ?? null,
+    });
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL, isMainFrame) => {
+    rendererCloseHandshakeReady = false;
+    writeRuntimeLog('ERROR', 'webcontents-did-fail-load', {
+      errorCode,
+      errorDescription,
+      validatedURL,
+      isMainFrame,
+    });
+  });
+
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    rendererCloseHandshakeReady = false;
     console.error('[Crash] WebContents render process gone:', details);
     writeRuntimeLog('ERROR', 'webcontents-render-process-gone', { details: details as unknown as Record<string, unknown> });
   });
 
   mainWindow.webContents.on('unresponsive', () => {
+    rendererCloseHandshakeReady = false;
     console.error('[Crash] WebContents unresponsive');
     writeRuntimeLog('ERROR', 'webcontents-unresponsive');
   });
@@ -682,6 +703,12 @@ function createWindow() {
       isQuitting = true;
       mainWindow.close();
     };
+
+    const canUseRendererCloseHandshake =
+      !!mainWindow &&
+      !mainWindow.isDestroyed() &&
+      !mainWindow.webContents.isDestroyed() &&
+      rendererCloseHandshakeReady;
 
     const beginAutosaveFlushOrClose = () => {
       if (!autosaveEnabled) {
@@ -725,10 +752,22 @@ function createWindow() {
       clearCloseApproval();
     }, 5000);
 
+    if (!canUseRendererCloseHandshake) {
+      writeRuntimeLog('WARN', 'app-close-without-renderer-handshake', {
+        rendererCloseHandshakeReady,
+        hasMainWindow: Boolean(mainWindow),
+        mainWindowDestroyed: mainWindow?.isDestroyed() ?? true,
+        webContentsDestroyed: mainWindow?.webContents.isDestroyed() ?? true,
+      });
+      finalizeClose();
+      return;
+    }
+
     mainWindow?.webContents.send(IPC_APP_CLOSE_REQUEST);
   });
 
   mainWindow.on('closed', () => {
+    rendererCloseHandshakeReady = false;
     writeRuntimeLog('INFO', 'window-closed');
     mainWindow = null;
   });
