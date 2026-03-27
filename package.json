@@ -10,6 +10,8 @@
     "dev:main": "electron .",
     "build": "tsc && vite build",
     "build:electron": "tsc -p tsconfig.main.json",
+    "dist:app": "npm run build && npm run build:electron && node scripts/run-electron-builder.cjs --publish never",
+    "dist:app:dir": "npm run build && npm run build:electron && node scripts/run-electron-builder.cjs --dir --publish never",
     "preview": "vite preview",
     "electron": "electron .",
     "test": "vitest run",
@@ -99,6 +101,39 @@
   ],
   "author": "",
   "license": "MIT",
+  "build": {
+    "appId": "local.scene-deck-builder",
+    "productName": "Scene Deck Builder",
+    "beforePack": "./scripts/electron-builder-before-pack.cjs",
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": [
+        "zip"
+      ]
+    },
+    "win": {
+      "target": [
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "zip"
+      ],
+      "category": "Utility"
+    },
+    "electronDist": "node_modules/electron/dist",
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "!**/*.map"
+    ],
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ]
+  },
   "devDependencies": {
     "@commitlint/cli": "^20.4.2",
     "@commitlint/config-conventional": "^20.4.2",
@@ -111,6 +146,7 @@
     "concurrently": "^8.2.2",
     "cz-git": "^1.12.0",
     "electron": "^40.4.1",
+    "electron-builder": "^26.8.1",
     "husky": "^9.1.7",
     "jsdom": "^28.0.0",
     "typescript": "^5.3.3",
