@@ -408,7 +408,24 @@ function runFfmpegWithResult(ffmpegBinary: string, args: string[], options: RunF
   }));
 }
 
-const ffmpegBinaryPath = ffmpegPath as string | null;
+function getFfmpegBinaryPath(): string | null {
+  const binaryPath = ffmpegPath as string | null;
+  if (!binaryPath) {
+    return null;
+  }
+
+  if (!app.isPackaged) {
+    return binaryPath;
+  }
+
+  const unpackedPath = binaryPath.replace(
+    `${path.sep}app.asar${path.sep}`,
+    `${path.sep}app.asar.unpacked${path.sep}`,
+  );
+  return fs.existsSync(unpackedPath) ? unpackedPath : binaryPath;
+}
+
+const ffmpegBinaryPath = getFfmpegBinaryPath();
 const ffmpegController = ffmpegBinaryPath ? createFfmpegController(ffmpegBinaryPath) : null;
 const thumbnailService = ffmpegController
   ? createThumbnailService(ffmpegController, { getStderrMaxBytes: () => ffmpegLimits.stderrMaxBytes })
@@ -611,9 +628,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
-      // TEMPORARY: Disable web security for development to allow local file access
-      // TODO: Fix custom protocol implementation before release
-      webSecurity: false,
+      webSecurity: true,
     },
     titleBarStyle: 'hiddenInset',
     frame: process.platform !== 'darwin',
@@ -1157,7 +1172,7 @@ ipcMain.handle('set-ffmpeg-limits', async (_, next: Partial<FfmpegLimits>) => {
 
 // Decode audio to PCM (s16le) via ffmpeg and return buffer + format
 ipcMain.handle('read-audio-pcm', async (_, filePath: string) => {
-  const ffmpegBinary = ffmpegPath as string | null;
+  const ffmpegBinary = getFfmpegBinaryPath();
   if (!ffmpegBinary) {
     console.error('[Audio] ffmpeg not found');
     return { success: false, error: 'ffmpeg not found' };
@@ -1284,7 +1299,7 @@ ipcMain.handle('get-video-metadata', async (_, filePath: string) => {
   try {
     const stats = fs.statSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
-    const ffmpegBinary = ffmpegPath as string | null;
+    const ffmpegBinary = getFfmpegBinaryPath();
     let duration: number | undefined;
     let width: number | undefined;
     let height: number | undefined;
@@ -1839,7 +1854,7 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
   const { sourcePath, outputPath, inPoint, outPoint, reverse } = options;
 
   // Get ffmpeg path - it can be null if not found
-  const ffmpegBinary = ffmpegPath as string | null;
+  const ffmpegBinary = getFfmpegBinaryPath();
   if (!ffmpegBinary) {
     return { success: false, error: 'ffmpeg not found' };
   }
@@ -1890,7 +1905,7 @@ ipcMain.handle('finalize-clip', async (_, options: FinalizeClipOptions) => {
 });
 
 ipcMain.handle('extract-audio', async (_, options: ExtractAudioOptions): Promise<ExtractAudioResult> => {
-  const ffmpegBinary = ffmpegPath as string | null;
+  const ffmpegBinary = getFfmpegBinaryPath();
   if (!ffmpegBinary) {
     return { success: false, error: 'ffmpeg not found' };
   }
@@ -1956,7 +1971,7 @@ interface CropImageResult {
 }
 
 ipcMain.handle('crop-image-to-aspect', async (_, options: CropImageOptions): Promise<CropImageResult> => {
-  const ffmpegBinary = ffmpegPath as string | null;
+  const ffmpegBinary = getFfmpegBinaryPath();
   if (!ffmpegBinary) {
     return { success: false, error: 'ffmpeg not found' };
   }
@@ -2303,7 +2318,7 @@ ipcMain.handle('export-sequence', async (_, options: ExportSequenceOptions): Pro
     exportMasterWithAudio: options.exportMasterWithAudio === true,
   });
 
-  const ffmpegBinary = ffmpegPath as string | null;
+  const ffmpegBinary = getFfmpegBinaryPath();
   if (!ffmpegBinary) {
     writeRuntimeLog('ERROR', 'export-sequence-ffmpeg-missing', { outputPath });
     return { success: false, error: 'ffmpeg not found' };
@@ -2563,7 +2578,7 @@ ipcMain.handle('extract-video-frame', async (_, options: ExtractFrameOptions): P
   const { sourcePath, outputPath, timestamp } = options;
 
   // Get ffmpeg path
-  const ffmpegBinary = ffmpegPath as string | null;
+  const ffmpegBinary = getFfmpegBinaryPath();
   if (!ffmpegBinary) {
     return { success: false, error: 'ffmpeg not found' };
   }
