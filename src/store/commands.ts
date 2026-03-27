@@ -21,6 +21,13 @@ import type { ThumbnailProfile } from '../utils/thumbnailCache';
 import { normalizeGroupsInScenes } from '../utils/cutGroupOps';
 import { getAssetDisplayName } from '../utils/assetDisplayName';
 
+function cloneAsset(asset: Asset): Asset {
+  return {
+    ...asset,
+    metadata: asset.metadata ? { ...asset.metadata } : undefined,
+  };
+}
+
 function restoreCutState(
   store: ReturnType<typeof useStore.getState>,
   sceneId: string,
@@ -56,7 +63,9 @@ function addCutFromReference(
 function cloneCut(cut: Cut): Cut {
   return {
     ...cut,
+    asset: cut.asset ? cloneAsset(cut.asset) : undefined,
     audioBindings: cut.audioBindings?.map((binding) => ({ ...binding })) || [],
+    framing: cut.framing ? { ...cut.framing } : undefined,
   };
 }
 
@@ -566,6 +575,54 @@ export class DuplicateSceneCommand implements Command {
 
     const store = useStore.getState();
     store.removeScene(this.newSceneId);
+  }
+}
+
+export class RelinkCutAssetCommand implements Command {
+  type = 'RELINK_CUT_ASSET';
+  description: string;
+
+  private sceneId: string;
+  private cutId: string;
+  private newAsset: Asset;
+  private previousCut?: Cut;
+  private previousAsset?: Asset;
+
+  constructor(sceneId: string, cutId: string, newAsset: Asset) {
+    this.sceneId = sceneId;
+    this.cutId = cutId;
+    this.newAsset = cloneAsset(newAsset);
+    this.description = `Relink cut: ${getAssetDisplayName(newAsset)}`;
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    const scene = store.scenes.find((entry) => entry.id === this.sceneId);
+    const cut = scene?.cuts.find((entry) => entry.id === this.cutId);
+    if (!cut) {
+      throw new Error(`Failed to find cut ${this.cutId} in scene ${this.sceneId}.`);
+    }
+
+    if (!this.previousCut) {
+      const resolvedPreviousAsset = resolveCutAsset(store, cut);
+      if (!resolvedPreviousAsset) {
+        throw new Error(`Failed to resolve current asset for cut ${this.cutId}.`);
+      }
+      this.previousCut = cloneCut(cut);
+      this.previousAsset = cloneAsset(resolvedPreviousAsset);
+    }
+
+    store.relinkCutAsset(this.sceneId, this.cutId, this.newAsset);
+  }
+
+  async undo(): Promise<void> {
+    if (!this.previousCut || !this.previousAsset) {
+      return;
+    }
+
+    const store = useStore.getState();
+    store.relinkCutAsset(this.sceneId, this.cutId, this.previousAsset);
+    restoreCutState(store, this.sceneId, this.cutId, this.previousCut);
   }
 }
 

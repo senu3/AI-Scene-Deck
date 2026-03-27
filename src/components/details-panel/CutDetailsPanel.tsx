@@ -18,9 +18,7 @@ import { useStore } from "../../store/useStore";
 import {
   selectAttachAudioToCut,
   selectCacheAsset,
-  selectCreateStoreEventOperation,
   selectDetachAudioFromCut,
-  selectRelinkCutAsset,
   selectSetCutUseEmbeddedAudio,
   selectUpdateCutAudioOffset,
   selectVaultPath,
@@ -28,6 +26,7 @@ import {
 import { useHistoryStore } from "../../store/historyStore";
 import {
   AddCutCommand,
+  RelinkCutAssetCommand,
   UpdateDisplayTimeCommand,
 } from "../../store/commands";
 import {
@@ -520,8 +519,6 @@ export default function CutDetailsPanel({ cutId }: CutDetailsPanelProps) {
   const vaultPath = useStore(selectVaultPath);
   const attachAudioToCut = useStore(selectAttachAudioToCut);
   const detachAudioFromCut = useStore(selectDetachAudioFromCut);
-  const createStoreEventOperation = useStore(selectCreateStoreEventOperation);
-  const relinkCutAsset = useStore(selectRelinkCutAsset);
   const { executeCommand } = useHistoryStore();
   const [showSinglePreview, setShowSinglePreview] = useState(false);
   const [showAssetModal, setShowAssetModal] = useState(false);
@@ -712,9 +709,7 @@ export default function CutDetailsPanel({ cutId }: CutDetailsPanelProps) {
         newAsset.thumbnail = thumbnail;
       }
 
-      relinkCutAsset(selected.scene.id, selected.cut.id, newAsset, {
-        eventContext: createStoreEventOperation("user"),
-      });
+      await executeCommand(new RelinkCutAssetCommand(selected.scene.id, selected.cut.id, newAsset));
     } catch (error) {
       console.error("Failed to relink file:", error);
       alert(`Failed to relink file: ${error}`);

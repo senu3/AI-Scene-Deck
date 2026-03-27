@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Command } from '../historyStore';
+import { RelinkCutAssetCommand } from '../commands';
 import { useHistoryStore } from '../historyStore';
 import { useStore } from '../useStore';
 import { resetElectronMocks } from '../../test/setup.renderer';
@@ -100,16 +100,7 @@ describe('store events', () => {
       },
     });
 
-    const relinkCommand: Command = {
-      type: 'relink',
-      description: 'relink cut asset',
-      execute: () => {
-        useStore.getState().relinkCutAsset('scene-1', 'cut-1', NEW_ASSET);
-      },
-      undo: () => {
-        useStore.getState().relinkCutAsset('scene-1', 'cut-1', OLD_ASSET);
-      },
-    };
+    const relinkCommand = new RelinkCutAssetCommand('scene-1', 'cut-1', NEW_ASSET);
 
     await useHistoryStore.getState().executeCommand(relinkCommand);
     await useHistoryStore.getState().undo();

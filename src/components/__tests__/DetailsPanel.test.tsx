@@ -2,12 +2,14 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DetailsPanel from "../DetailsPanel";
+import { useHistoryStore } from "../../store/historyStore";
 import { useStore } from "../../store/useStore";
 import type { Asset, Scene } from "../../types";
 
 const initialState = useStore.getState();
 const mockResolveCutThumbnailFromCache = vi.fn();
 const mockGetAssetThumbnail = vi.fn();
+const mockSelectAndImportAssetToVault = vi.fn();
 
 vi.mock("../../features/metadata/useAssetMetadataHydration", () => ({
   useAssetMetadataHydration: ({ asset }: { asset: Asset | null }) => ({
@@ -22,12 +24,23 @@ vi.mock("../../features/thumbnails/api", () => ({
 }));
 
 vi.mock("../PreviewModal", () => ({
-  default: () => null,
+  default: ({ asset }: { asset: Asset }) => (
+    <div data-testid="preview-modal-asset">{asset.id}</div>
+  ),
 }));
 
 vi.mock("../AssetModal", () => ({
   default: () => null,
 }));
+
+vi.mock("../../features/asset/import", () => ({
+  selectAndImportAssetToVault: (...args: unknown[]) => mockSelectAndImportAssetToVault(...args),
+}));
+
+async function flushPromises() {
+  await Promise.resolve();
+  await Promise.resolve();
+}
 
 function buildScene(overrides?: Partial<Scene["cuts"][0]>): Scene {
   return {
@@ -55,6 +68,8 @@ function buildScene(overrides?: Partial<Scene["cuts"][0]>): Scene {
 
 describe("DetailsPanel", () => {
   beforeEach(() => {
+    useHistoryStore.getState().clear();
+    mockSelectAndImportAssetToVault.mockReset();
     mockResolveCutThumbnailFromCache.mockReset();
     mockGetAssetThumbnail.mockReset();
     mockResolveCutThumbnailFromCache.mockImplementation((profile, input) => {
@@ -78,6 +93,7 @@ describe("DetailsPanel", () => {
     useStore.setState({
       scenes: [buildScene()],
       sceneOrder: ["scene-1"],
+      vaultPath: "C:/vault",
       assetCache: new Map([[asset.id, asset]]),
       selectedSceneId: null,
       selectedCutId: "cut-1",
@@ -88,6 +104,7 @@ describe("DetailsPanel", () => {
   });
 
   afterEach(() => {
+    useHistoryStore.getState().clear();
     useStore.setState(initialState, true);
   });
 
@@ -253,6 +270,57 @@ describe("DetailsPanel", () => {
     });
 
     expect(host.textContent).toContain("ATTACH AUDIO");
+
+    await act(async () => {
+      root.unmount();
+    });
+  });
+
+  it("relinks from details panel and restores asset + preview target on undo", async () => {
+    const host = document.createElement("div");
+    const root = createRoot(host);
+    const importedAsset: Asset = {
+      id: "asset-2",
+      name: "replacement.png",
+      path: "C:/vault/assets/replacement.png",
+      type: "image",
+    };
+
+    mockSelectAndImportAssetToVault.mockResolvedValue(importedAsset);
+    mockGetAssetThumbnail.mockResolvedValue("replacement-thumb");
+
+    await act(async () => {
+      root.render(<DetailsPanel />);
+    });
+
+    const preview = host.querySelector(".details-preview.clickable");
+    expect(preview).not.toBeNull();
+
+    await act(async () => {
+      preview?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(host.querySelector('[data-testid="preview-modal-asset"]')?.textContent).toBe("asset-1");
+
+    const relinkButton = host.querySelector(".relink-btn");
+    expect(relinkButton).not.toBeNull();
+
+    await act(async () => {
+      relinkButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await flushPromises();
+    });
+
+    expect(useStore.getState().scenes[0]?.cuts[0]?.assetId).toBe("asset-2");
+    expect(host.querySelector('[data-testid="preview-modal-asset"]')?.textContent).toBe("asset-2");
+
+    await act(async () => {
+      await useHistoryStore.getState().undo();
+      await flushPromises();
+    });
+
+    expect(useStore.getState().scenes[0]?.cuts[0]?.assetId).toBe("asset-1");
+    expect(host.querySelector('[data-testid="preview-modal-asset"]')?.textContent).toBe("asset-1");
+    expect((host.querySelector(".details-preview img") as HTMLImageElement | null)?.getAttribute("alt")).toBe("clip.mp4");
 
     await act(async () => {
       root.unmount();
