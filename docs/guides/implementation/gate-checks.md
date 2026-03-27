@@ -48,6 +48,8 @@
 - Gate 6:
   - `useStore.setState(` の許可リスト外検出
   - `set(...scenes:...)` の許可リスト外検出
+  - `createCutFromImport` / `selectCreateCutFromImport` の残存検出
+  - `buildAssetForCut` の command 境界外 import 検出
 - Gate 7:
   - `src/utils` 配下の `window.electronAPI` 直呼び検出（platform bridge 経由へ統一）
   - `AssetPanel` / `DetailsPanel` の metadata API（`getVideoMetadata` / `readImageMetadata` / `readAssetIndex`）直呼び検出
@@ -77,6 +79,7 @@
   - 監査は `PreviewModal` の `displayTime` 手計算再流入検出（Gate 3/4 proxy）中心。
 - Gate 6:
   - `useStore.setState` / `set(...scenes:...)` 以外の間接更新（helper経由やslice内派生更新）は静的に取りこぼす可能性がある。
+  - import / crop / finalize / drag-drop の Undo 単位整合は static grep だけでは保証できないため、store/history テストで補完する。
 - Gate 7:
   - 現状は `src/utils` + metadata対象UI + `src/store/slices` の限定監査。renderer 全域の直呼び検出は未導入。
   - `src/store/slices` は allowlist を持たず、新規直呼びは strict fail とする。

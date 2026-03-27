@@ -70,6 +70,9 @@ const gate6AllowedScenesSetRules = [
   { path: 'src/store/slices/groupSlice.ts', reason: 'group operations on timeline structure' },
   { path: 'src/store/slices/projectSlice.ts', reason: 'project load/restore normalization path (ADR-0003 exception)' },
 ];
+const gate6AllowedCutImportUseFiles = new Set([
+  'src/store/commands.ts',
+]);
 const gate6AllowedUseStoreSetStateFiles = new Set(gate6AllowedUseStoreSetStateRules.map((rule) => rule.path));
 const gate6AllowedScenesSetFiles = new Set(gate6AllowedScenesSetRules.map((rule) => rule.path));
 const gate10HotpathFiles = new Set([
@@ -252,6 +255,32 @@ for (const file of files) {
         message: 'set(...scenes:...) outside Gate6 allowlist',
       });
     }
+  }
+
+  // 3) Legacy imported-cut helpers must not reappear outside tests.
+  for (const m of findAll(src, /\b(createCutFromImport|selectCreateCutFromImport)\b/g)) {
+    warnings.push({
+      gate: 'Gate6',
+      file: r,
+      line: lineOf(src, m.index),
+      message: 'legacy imported-cut helper referenced outside tests',
+    });
+  }
+
+  // 4) Imported-cut I/O must stay behind command boundary.
+  for (const m of findAll(src, /import\s*\{([^}]*)\}\s*from\s*['"][^'"]*cutImport['"]/g)) {
+    const imported = (m.text.match(/\{([^}]*)\}/)?.[1] || '')
+      .split(',')
+      .map((token) => token.trim().split(/\s+as\s+/i)[0]?.trim())
+      .filter(Boolean);
+    if (!imported.includes('buildAssetForCut')) continue;
+    if (gate6AllowedCutImportUseFiles.has(r)) continue;
+    warnings.push({
+      gate: 'Gate6',
+      file: r,
+      line: lineOf(src, m.index),
+      message: 'buildAssetForCut import outside command boundary',
+    });
   }
 
   // Gate 7: utils layer should not directly reference electronAPI.
