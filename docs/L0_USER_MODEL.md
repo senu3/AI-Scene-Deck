@@ -14,28 +14,35 @@
 
 ## 2. 画面単位の責務
 
-### Project View
-- Scene の並び替え
-- Cut の配置・順序調整
-- Group の作成・編集
+### Workspace
+- Asset Workspace で Vault asset と source folder を参照する
+- Project View で Scene / Cut / Group を編集する
+- Details Panel で選択中の Scene / Cut / Group の補助情報を編集する
+- Header から preview / export / save / duration goal / close を起動する
 
-### Sequence Preview
-- 最終映像の流れ確認
-- 再生制御（再生・停止・シーク）
+### Preview
+- Single Preview で単一 cut / asset の確認と clip 調整を行う
+- Sequence Preview で scene 単位または全体の流れを確認する
 
 ### Export
 - 書き出し設定の確認
-- 出力実行と結果確認
+- 全体または scene 単位の出力実行
+
+### Recovery
+- load 時の missing asset に対して relink / delete / skip を選択する
 
 ## 3. UI操作 -> ドメイン変更対応
 
 | 操作 | 変更対象 | 備考 |
 |------|----------|------|
 | Scene 並び替え | sceneOrder | 表示順と編集順を同期 |
+| Asset 取り込み | asset entity / cut entity | Vault 登録後に Scene へ配置できる |
 | Cut 追加 | cut entity | 追加先 Scene の順序に従う |
 | Cut 並び替え | cut.order | 並び替え後に再採番 |
+| Cut clip 調整 | cut entity | `inPoint` / `outPoint` / `isClip` を更新する |
 | Group 作成 | group.cutIds | Cut 所属を定義 |
 | Asset 再リンク | assetId | 参照切れ時の復旧経路 |
+| Missing asset 対応 | assetId / cut entity | relink / delete / skip を選択する |
 
 ## 4. このドキュメントの役割
 

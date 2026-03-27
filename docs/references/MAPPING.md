@@ -27,12 +27,13 @@
 | Group Audio | `SceneMetadata.groupAudioBindings[groupId]`（`GroupAudioBinding`）。 | `setGroupAudioBinding` / `SetGroupAttachAudioCommand`（更新時に `.metadata.json` へ保存）。 | `DetailsPanel`（Group選択時） |
 | アセット参照グラフ | `AssetRef` / `AssetRefKind`。 | `collectAssetRefs` / `findDanglingAssetRefs` / `getBlockingRefsForAssetIds`。 | `AssetPanel`、`Header`(save validation) |
 | アセット削除ポリシー | （store action） | `assetActions.runAssetDelete` -> `deleteAssetWithPolicy`（参照チェック + trash + index/metadata整合）。 | `AssetPanel` |
-| アセットパネル | `Asset` / `AssetIndexEntry`。 | `readAssetIndex` / `getFolderContents` / `metadataStore` 集計 + `assetActions` 経由の Asset 操作（Finalize/Reverse/Extract/Delete）+ 外部DnD（`startAssetFileDrag`）。 | `AssetPanel`, `features/asset/actions.ts`, `electron/preload.ts`, `electron/main.ts` |
+| アセットパネル | `Asset` / `AssetIndexEntry`。 | `readAssetIndex` / `getFolderContents` / `metadataStore` 集計 + `assetActions` 経由の Asset 操作（Finalize/Reverse/Extract/Delete）+ 外部DnD（`startAssetDragOut`）。 | `AssetPanel`, `features/asset/actions.ts`, `src/features/platform/osDragGateway.ts`, `electron/preload.ts`, `electron/main.ts` |
 | アセットモーダル | `Asset`（選択結果）。 | `AssetPanel` をモーダルでラップ。 | `AssetModal` |
 | ストーリーライン | （専用TS型なし）Scene/Cut構造（編集軸: `StoryTimeline`）。 | D&D・外部投入・vault 取込（主処理は `Storyline`、ワークスペース全体に `App` フォールバックあり）。 | `Storyline`、`SceneDurationBar`、`App` |
 | プレビュー | `PreviewMode`（scene/all）。 | `setPreviewMode`。 | `PreviewModal` |
 | プレビュー制御 | `PlaybackState`。 | Sequence制御: `useSequencePlaybackController` / 操作入口: `usePreviewInteractionCommands` / internal concept: `SequenceClock`。 | `PreviewModal` |
 | プレビューメディアソース | `MediaSource`（Preview専用 abstraction）。 | `createVideoMediaSource` / `createImageMediaSource`。 | `PreviewModal` |
+| 欠損アセット復旧 | `RecoveryAssessment` / `RecoveryDecision`。 | `openSelectedProject` / `useHeaderProjectController` / `finalizePendingProjectLoad`。 | `MissingAssetRecoveryModal`、`Header` |
 | シーケンス計画 | `SequencePlan`。 | `buildSequencePlan`。 | `PreviewModal`、`App` |
 | エクスポート実行計画 | `ExportPlan` / `Mp4ExportPlan`。 | `resolveExportPlan`。 | `ExportModal`、`App` |
 | エクスポート出力シーケンス | `ExportSequenceItem`。 | `SequencePlan.exportItems`（主経路） / `buildSequenceItemsForCuts` / `buildSequenceItemsForExport`（補助）。 | `PreviewModal`、`App` |

@@ -68,7 +68,7 @@
   - `opId` 生成は固定方式ではないが、UUID v4 を推奨実装とする。
 - 購読者 allowlist:
   - `SubscriberName` は `ui` | `preview-cache` | `telemetry` を正規値とする。
-  - 購読登録は集中 `registerSubscriber` API 経由に限定し、allowlist 外は reject する。
+  - 購読登録は集中 `registerStoreEventSubscriber` API 経由に限定し、allowlist 外は reject する。
 - emitter API 配置:
   - `CUT_RELINKED` emit の共通 API は store 層（イベント基盤側）に配置する。
   - 呼び出しは command 実行器と recovery/import 実行器から同一 API を通して行う。

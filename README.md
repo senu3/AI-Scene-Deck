@@ -1,58 +1,115 @@
-# Scene Deck Builder
+# SceneDeck
 
-動画制作のためのアセット管理・ストーリーボード編集アプリです。  
-素材をシーン／カット単位で整理しながら、映像全体の流れをリアルタイムにプレビューして制作を進められます。
+**メディア素材からストーリー構造を組み立てるためのビジュアルツール**
 
-## アプリ概要
+SceneDeck は、画像・動画などの素材を **Scene と Cut 単位で整理し、映像の流れを視覚的に構築するためのアプリケーション**です。
 
-- **1プロジェクト＝1本の動画** として管理します
-- Storyline（カンバン型 UI）でシーンとカットを視覚的に編集できます
-- 下部のプレビューで単体再生とシーケンス再生を切り替えて確認できます
-- ワークスペース（Vault）とローカルフォルダを同期して運用します
+動画編集を始める前の段階で、素材を並べ替えながら **ストーリー構造や構成の流れを確認する** ことを目的としています。
+
+## どんなツールか
+
+動画制作では、素材が増えるほど次の問題が起きます。
+
+- 素材がフォルダに散らばる
+- 映像の構成が頭の中にしかない
+- 編集前にストーリーの流れを確認しづらい
+
+SceneDeck は、素材を **Scene（シーン）と Cut（カット）として並べることで、映像構造を視覚的に整理** できるツールです。
+
+```text
+Media Asset
+      ↓
+     Cut
+      ↓
+    Scene
+      ↓
+  Storyline
+```
+
+素材を並べ替えながら、映像全体の流れをプレビューできます。
 
 ## 主な機能
 
-### ローカル同期型のアセット管理
+### 素材からカットを作成
 
-- ワークスペースは `vault/` 配下の実フォルダと同期します
-- アセットは `vault/assets` に保存され、`assets/.index.json` で一元管理されます
-- 表示時間、音声解析、シーンノートなどの付随情報は `.metadata.json` に保存されます
-- 削除したアセットは `.trash/.trash.json` で管理され、あとから復元できます
+画像や動画ファイルをドラッグすると、カットとしてストーリーラインに追加できます。
 
-### Storyline 編集（シーン／カット）
+```text
+Drag media
+↓
+Create cut
+↓
+Add to scene
+```
 
-- シーンを横軸、カットを縦方向に配置して全体の構成を編集できます
-- 画像や動画アセットをドラッグ＆ドロップで投入できます
-- カットの移動、複数選択での一括移動、グループ化に対応しています
-- Timeline の構造変更は Command パターンを通じて処理され、Undo／Redo の整合性が維持されます
+### シーン単位で構成を整理
 
-### プレビュー（シミュレーション）
+カットを並び替えながら、シーンの流れを組み立てられます。
 
-- Single Mode（単体再生）と Sequence Mode（シーケンス再生）の 2 つのモードを備えています
-- 画像と動画が混在したシーケンスもそのままプレビューできます
-- シーン単位・全体単位の流れをその場で確認できます
-- キーボードショートカット（`Space`, `←/→`, `F`, `Esc`）で素早く操作できます
+- シーン追加
+- カットの並び替え
+- シーン間移動
+- グループ化によるまとまり管理
 
-### エクスポート
+### ストーリーの流れをプレビュー
 
-- MP4 形式でのエクスポートに対応しています
-- `manifest.json` / `timeline.txt` をサイドカーファイルとして出力します
-- プレビューとエクスポートでフレーミングの解決ロジックを統一しています
+並べたカットをそのまま再生し、映像の流れを確認できます。
 
-### 自動保存
+- Single Preview で単体 cut / asset を確認
+- Sequence Preview で scene 単位または全体の流れを確認
+- 構成確認用のプレビューとして利用
 
-- プロジェクトの変更を監視し、デバウンス処理を挟んで `project.sdp` に自動保存します
-- アプリ終了時には保存完了を待ってから終了します
+### ローカルファイルと同期する設計
 
-## 技術スタック
+SceneDeck は **ローカルファイルと同期する構造** になっています。
 
-- Electron
-- React 18
-- TypeScript
-- Zustand
-- dnd-kit
-- Vite
-- Vitest
+主な特徴:
+
+- すべての素材はローカル保存
+- プロジェクトはファイルとして復元可能
+- アプリ外からも素材を管理可能
+
+アセットは `vault` フォルダで管理され、インデックスにより素材とカットの対応関係が保持されます。
+
+### プロジェクトに素材をコピーして管理
+
+SceneDeck に素材を追加すると、ファイルはプロジェクトの保管フォルダに **コピー** されます。
+
+これは元ファイルへのリンクではありません。
+
+```text
+Drag media
+↓
+Copy into project vault
+↓
+Manage as cut
+```
+
+この方式により、次の利点があります。
+
+- 元ファイルを移動してもリンク切れが起きない
+- プロジェクトをそのままバックアップできる
+- フォルダ単位でプロジェクトを共有しやすい
+
+### 補助機能
+
+- MP4 エクスポート
+- `manifest.json` / `timeline.txt` の sidecar 出力
+- `project.sdp` への autosave
+- missing asset の recovery 導線
+
+## プロジェクト構成
+
+代表的な保存ファイル:
+
+- `project.sdp`
+  - ストーリーライン全体の保存データ
+- `vault/assets/.index.json`
+  - asset と実体ファイルの対応
+- `vault/.metadata.json`
+  - 補助メタ情報
+- `vault/.trash/.trash.json`
+  - 削除・退避ログ
 
 ## セットアップ
 
@@ -61,7 +118,7 @@
 - Node.js 18 以上
 - npm
 
-Packaging は `electron-builder` の検証対象として Node.js 20.x を推奨します
+Packaging は `electron-builder` の検証対象として Node.js 20.x を推奨します。
 
 ### インストールと起動
 
@@ -71,29 +128,9 @@ npm run build:electron
 npm run dev
 ```
 
-### 主な開発コマンド
+## ドキュメント
 
-```bash
-npm run dev:renderer   # Renderer プロセスの開発サーバー起動
-npm run dev:main       # Main プロセスの開発モード起動
-npm run build          # プロダクションビルド
-npm run build:electron # Electron Main/Preload のビルド
-npm run build-win      # Windows host 上で Windows 用 zip を作成
-npm run dist:app       # electron-builder で prototype 配布 zip を作成
-npm run dist:app:dir   # unpacked app を作成
-npm run preview        # ビルド結果のプレビュー
-npm test               # テスト実行
-```
-
-## ディレクトリ構成
-
-```text
-scene-deck-builder/
-├── electron/           # Electron Main / Preload
-├── src/                # React Renderer
-├── dist/               # ビルド出力
-└── package.json
-```
+設計・仕様ドキュメントの入口は `docs/INDEX.md` です。開発用の詳細な運用ルールや補助コマンドは docs 側を参照してください。
 
 ## ライセンス
 

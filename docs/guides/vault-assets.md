@@ -7,7 +7,8 @@
 - asset は `assetId` で解決する
 - asset index が実体ファイル対応の正本
 - 削除は trash + log による履歴管理
-- `.index.json` / `.trash.json` は人間が読める recovery clue を優先する
+- `.index.json` の現行 usage summary は save 時に再構成される `usageRefs` を正本とする
+- より豊かな human-readable recovery clue は note/TODO で追跡する
 - JSON + Vault から recovery できる
 詳細：実装分岐は implementation を参照
 
@@ -25,9 +26,8 @@
 - Must: asset index は asset 解決（`assetId -> filename`）の正本として扱う。
 - Must: Vault への正式登録は finalize transaction 相当の単一 gateway write 入口でのみ行う。
 - Must: managed asset の at-rest filename は hash を正本とし、UI 表示名は `originalName` を正本とする。
-- Must: `.index.json` / `.trash.json` は、program 用の内部 dump ではなく、人間が読める recovery clue を優先する。
-- Must: `.index.json` の usage 情報は、scene/cut の位置だけでなく asset ref graph に含まれる主要参照種別を要約できる形を目指す。
-- Must: 人間向け timing 情報が必要な場合は、`inPointSec` / `outPointSec` / `holdSec` / `displayTimeSec` のような秒ベースの flat field を使う。
+- Must: `.index.json` の現行 `usageRefs` は save 時に再構成される scene/cut 位置情報として扱う。
+- Must: `.index.json` / `.trash.json` の richer clue 契約を将来案として書く場合は、現行実装と混同せず `docs/notes/index-trash-human-readable-plan-2026-03-12.md` と `docs/TODO_MASTER.md` に分離する。
 - Must: `.trash/.trash.json` は、削除時点の構成推測に必要な最小情報を 1 entry で読める形を維持する。
 - Must Not: `.metadata.json` を asset index の代替として使わない。
 - Must Not: Vault 内 asset を再コピーして二重登録しない。
@@ -35,6 +35,7 @@
 - Must Not: renderer が trash move 後に delete 用の index 更新を二重実行しない。
 - Must Not: `.index.json` / `.trash.json` を、内部都合の field 名や多重ネストで人間に読みづらくしない。
 - Must Not: `.index.json` を timeline 完全復元の正本として案内しない。
+- Must Not: cut audio / scene audio / group audio / timing clue を `.index.json` の現行保存契約として案内しない。
 
 ## 復元ポリシー
 - 復元は次の順序で行う。
@@ -51,19 +52,19 @@
 ## 正本ファイルの責務
 - `.index.json`:
   - Asset識別と実体ファイル対応の正本。
-  - 人間向けには「この asset がどこで使われていたか」を推測するための summary を持ってよい。
+  - 人間向けには「この asset がどこで使われていたか」を推測するための current summary として `usageRefs` を持つ。
   - repair は全再生成ではなく、referenced entry 補修と `usageRefs` 再構成に留める。
-  - 保持情報例: assetId / filename / hash / type / importedAt / human-readable usage summary
-  - `usage` は flat な JSON を優先し、1-based の scene/cut index、scene 名、参照 role、必要時の timing 秒数を持てる形を許容する。
-  - `usage` は cut 参照だけに閉じず、cut audio / scene audio / group audio も段階的に扱ってよい。
+  - 保持情報例: assetId / filename / hash / type / importedAt / `usageRefs`
+  - 現行 `usageRefs` は `sceneId` / `sceneName` / `sceneOrder` / `cutId` / `cutOrder` / `cutIndex` を持つ cut ベース summary。
+  - cut audio / scene audio / group audio / timing clue を含む richer clue は現行保存契約ではなく、必要時は `docs/notes/index-trash-human-readable-plan-2026-03-12.md` を参照する。
   - 注意: `.index.json` 単独では group / notes / full timeline の完全復元は保証しない
 - `.metadata.json`:
   - Asset/Scene の補助メタ情報を保持する。
   - 例: audio attachment / analysis / scene notes
 - `.trash/.trash.json`:
   - 削除・退避の監査ログを保持する。
-  - 人間向けには「いつ / なぜ / 何を / どこから / どこへ移したか」を 1 entry で読める形を優先する。
-  - 単数/複数の重複 field より、`assets[]` のような統一構造を優先する。
+  - 現行 entry は `assetId` / `assetIds` / `originalPath` / `trashRelativePath` / `reason` / `originRefs` / `indexEntry` / `indexEntries` を保持しうる。
+  - 人間向け読みやすさの改善や entry shape 整理は `docs/notes/index-trash-human-readable-plan-2026-03-12.md` と `docs/TODO_MASTER.md` で追跡する。
 
 ## 参照整合ルール
 - Asset参照グラフは、cut参照と audio参照を一貫して追跡する。
@@ -71,7 +72,7 @@
 - 削除時は「物理移動」「index更新」「参照掃除」を同一方針で実行する。
 - 物理移動と index 更新の write 責務は同一 gateway 経路に集約し、renderer は返却結果に応じて metadata 掃除だけを続行する。
 - 資産解決順は `assetId -> index -> filename` を正とする。
-- `.index.json` の人間向け usage summary は、save 時に再構成される派生情報として扱う。
+- `.index.json` の現行 `usageRefs` summary は、save 時に再構成される派生情報として扱う。
 - `.trash/.trash.json` は削除時点の index snapshot を保持してよいが、読みやすさを損なう冗長 field は増やさない。
 
 ## 実装ルール
@@ -101,5 +102,6 @@
 - Export canonical flow の正本: `docs/guides/export.md`
 - media I/O と queue 運用: `docs/guides/media-handling.md`
 - Vault ingest policy: `docs/DECISIONS/ADR-0008-vault-ingest-finalize-policy.md`
+- human-readable recovery clue の将来案: `docs/notes/index-trash-human-readable-plan-2026-03-12.md`
 - store/UI/feature にじみ防止の移行計画: `docs/notes/archive/store-ui-feature-effects-migration-plan-implemented-2026-03-05.md`
 - 詳細運用・経緯メモ: `docs/notes/`
