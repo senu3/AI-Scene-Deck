@@ -33,6 +33,7 @@
 - `docs/notes/archive/sequence-plan-timing-inventory-implemented-2026-03-10.md`
 - `docs/notes/archive/group-audio-continuous-playback-plan-implemented-2026-03-10.md`
 - `docs/notes/archive/electron40-smoke-observability-archived-2026-03-12.md`
+- `docs/notes/archive/electron-builder-packaging-2026-03-27.md`
 - `docs/notes/archive/recovery-flow-minimum-plan-implemented-2026-03-12.md`
 - `docs/notes/archive/vault-ingest-unification-plan-implemented-2026-03-18.md`
 - `docs/notes/archive/details-panel-shell-sections-plan-implemented-2026-03-26.md`

@@ -41,6 +41,7 @@
 - `docs/guides/implementation/autoclip-simple.md`
 - `docs/guides/implementation/dnd-import.md`
 - `docs/guides/implementation/cut-variant-guideline.md`
+- `docs/guides/implementation/electron-packaging.md`
 
 ここには思想ではなく、実装上の判断基準・制約を記載する。
 
