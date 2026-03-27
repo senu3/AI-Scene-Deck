@@ -54,6 +54,7 @@ import VideoHoldModal from './preview-modal/VideoHoldModal';
 import { resolveCutAudioBinding } from './preview-modal/audioBinding';
 import { usePreviewSingleRuntime } from './preview-modal/usePreviewSingleRuntime';
 import { usePreviewItemsState } from './preview-modal/usePreviewItemsState';
+import { isVideoHoldEnabled } from '../utils/featureFlags';
 import './PreviewModal.css';
 import './preview-modal/styles/playback-controls.css';
 
@@ -161,6 +162,7 @@ function PreviewModalSingleRoot({
   } = usePreviewModalProjectState(focusCutId);
   const isSingleModeVideo = asset.type === 'video';
   const isSingleModeImage = asset.type === 'image';
+  const videoHoldEnabled = isVideoHoldEnabled();
   const hasCutContext = !!focusCutData?.cut;
   const isAssetOnlyPreview = !hasCutContext;
   const singleModeInitialInPoint = isSingleModeVideo ? initialInPoint : undefined;
@@ -588,7 +590,7 @@ function PreviewModalSingleRoot({
         onClipPrimaryAction={isSingleModeClipEnabled ? handleSingleModeClearClip : handleSingleModeSave}
         isClipPending={isSingleModeClipPending}
         onFrameCapture={onFrameCapture ? handleSingleModeCaptureFrame : undefined}
-        showHoldButton={isSingleModeVideo && !!focusCutData?.cut?.id}
+        showHoldButton={videoHoldEnabled && isSingleModeVideo && !!focusCutData?.cut?.id}
         isHoldEnabled={isHoldEnabled}
         onHoldToggle={handleSingleModeHoldToggle}
         isLooping={singleModeIsLooping}
@@ -604,15 +606,17 @@ function PreviewModalSingleRoot({
         onVideoPause={() => setSingleModeIsPlaying(false)}
         onVideoEnded={handleSingleModeVideoEnded}
       />
-      <VideoHoldModal
-        open={showHoldModal}
-        initialDurationSec={currentFocusHold?.durationMs ? currentFocusHold.durationMs / 1000 : 1}
-        onClose={() => setShowHoldModal(false)}
-        onConfirm={handleSingleModeHoldApply}
-      />
-    </>
-  );
-}
+      {videoHoldEnabled && (
+        <VideoHoldModal
+          open={showHoldModal}
+          initialDurationSec={currentFocusHold?.durationMs ? currentFocusHold.durationMs / 1000 : 1}
+          onClose={() => setShowHoldModal(false)}
+          onConfirm={handleSingleModeHoldApply}
+        />
+      )}
+      </>
+    );
+  }
 
 function PreviewModalSequenceRoot({
   onClose,

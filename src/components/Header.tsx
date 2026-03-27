@@ -354,11 +354,15 @@ export default function Header({ onOpenSettings, onPreview, onExport, isExportin
                     <ArrowLeft size={16} />
                     <span>Close Project</span>
                   </button>
-                  <div className="menu-divider" />
-                  <button onClick={() => { onOpenSettings?.(); setShowMoreMenu(false); }} title="Settings">
-                    <Settings size={16} />
-                    <span>Environment Settings</span>
-                  </button>
+                  {onOpenSettings && (
+                    <>
+                      <div className="menu-divider" />
+                      <button onClick={() => { onOpenSettings(); setShowMoreMenu(false); }} title="Settings">
+                        <Settings size={16} />
+                        <span>Environment Settings</span>
+                      </button>
+                    </>
+                  )}
                   <div className="menu-divider" />
 
                   <button onClick={() => { handleCloseApp(); setShowMoreMenu(false); }} className="danger" title="Exit App">

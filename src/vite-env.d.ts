@@ -2,6 +2,17 @@
 
 export {};
 
+interface ImportMetaEnv {
+  readonly VITE_DISABLE_AUTOSAVE?: '0' | '1';
+  readonly VITE_DND_DEBUG_HUD?: '0' | '1';
+  readonly VITE_ENABLE_ENVIRONMENT_SETTINGS?: '0' | '1';
+  readonly VITE_ENABLE_VIDEO_HOLD?: '0' | '1';
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 interface FileItem {
   name: string;
   path: string;

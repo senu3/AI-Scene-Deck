@@ -54,6 +54,7 @@ import { getAssetThumbnail } from './features/thumbnails/api';
 import { clearPreviewClipPoints, savePreviewClipPoints } from './features/cut/previewClipUpdate';
 import { importFileToVault } from './utils/assetPath';
 import { getDragKind, isDndDebugEnabled, logDragDebug, queueExternalFilesToScene, setDndDebugEnabled } from './utils/dragDrop';
+import { isEnvironmentSettingsEnabled, isNotificationTestToolsEnabled } from './utils/featureFlags';
 import { getCutIdsInTimelineOrder, getCutsInTimelineOrder, getScenesAndCutsInTimelineOrder } from './utils/timelineOrder';
 import { getFirstSceneId, getSceneIndex, getScenesInOrder, resolveSceneById } from './utils/sceneOrder';
 import { insertCutIdsIntoGroupOrder } from './utils/cutGroupOps';
@@ -157,6 +158,8 @@ function App() {
   const [showEnvironmentSettings, setShowEnvironmentSettings] = useState(false);
   const [showNotificationTests, setShowNotificationTests] = useState(false);
   const dndDebugEnabled = isDndDebugEnabled();
+  const environmentSettingsEnabled = isEnvironmentSettingsEnabled();
+  const notificationTestToolsEnabled = isNotificationTestToolsEnabled();
   const [exportResolution, setExportResolution] = useState({ name: 'Free', width: 0, height: 0 });
   const [isExporting, setIsExporting] = useState(false);
   const [scenePreviewRequest, setScenePreviewRequest] = useState<{ sceneId: string; sceneName: string; cuts: Cut[] } | null>(null);
@@ -1015,7 +1018,7 @@ function App() {
         <div className="app">
           <AssetDrawer />
           <Header
-            onOpenSettings={() => setShowEnvironmentSettings(true)}
+            onOpenSettings={environmentSettingsEnabled ? () => setShowEnvironmentSettings(true) : undefined}
             onPreview={() => setShowPreview(true)}
             onExport={handleExportFromControls}
             isExporting={isExporting}
@@ -1107,15 +1110,19 @@ function App() {
               statsOverride={exportModalRequest?.kind === 'scene' ? exportModalRequest.stats : undefined}
               onExport={handleExport}
             />
-            <EnvironmentSettingsModal
-              open={showEnvironmentSettings}
-              onClose={() => setShowEnvironmentSettings(false)}
-              onOpenNotificationTests={handleOpenNotificationTests}
-            />
-            <NotificationTestModal
-              open={showNotificationTests}
-              onClose={() => setShowNotificationTests(false)}
-            />
+            {environmentSettingsEnabled && (
+              <EnvironmentSettingsModal
+                open={showEnvironmentSettings}
+                onClose={() => setShowEnvironmentSettings(false)}
+                onOpenNotificationTests={notificationTestToolsEnabled ? handleOpenNotificationTests : undefined}
+              />
+            )}
+            {notificationTestToolsEnabled && (
+              <NotificationTestModal
+                open={showNotificationTests}
+                onClose={() => setShowNotificationTests(false)}
+              />
+            )}
           </Suspense>
           {import.meta.env.DEV && dndDebugEnabled && (
             <Suspense fallback={null}>
