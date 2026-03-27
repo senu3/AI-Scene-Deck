@@ -26,6 +26,8 @@ import { hasElectronBridge } from '../features/platform/electronGateway';
 import { getAssetThumbnail, getCachedAssetThumbnail } from '../features/thumbnails/api';
 import { getCuttableMediaType } from '../utils/mediaType';
 import { getFirstSceneId } from '../utils/sceneOrder';
+import { useHistoryStore } from '../store/historyStore';
+import { ImportAddCutCommand } from '../store/commands';
 import './Sidebar.css';
 
 export default function Sidebar() {
@@ -410,7 +412,8 @@ interface FileItemComponentProps {
 }
 
 function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailVersion, viewMode }: FileItemComponentProps) {
-  const { scenes, sceneOrder, selectedSceneId, createCutFromImport } = useStore();
+  const { scenes, sceneOrder, selectedSceneId } = useStore();
+  const { executeCommand } = useHistoryStore();
   const [thumbnail, setThumbnail] = useState<string | null>(
     getCachedAssetThumbnail('asset-grid', { path: item.path }) || null
   );
@@ -456,13 +459,16 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailVer
     const assetId = uuidv4();
     const sourceType = mediaType || 'image';
 
-    createCutFromImport(targetSceneId, {
-      assetId,
-      name: item.name,
-      sourcePath: item.path,
-      type: sourceType,
-      preferredThumbnail: thumbnail || undefined,
-    })
+    executeCommand(new ImportAddCutCommand({
+      sceneId: targetSceneId,
+      source: {
+        assetId,
+        name: item.name,
+        sourcePath: item.path,
+        type: sourceType,
+        preferredThumbnail: thumbnail || undefined,
+      },
+    }))
       .catch(() => {})
       .finally(() => {
         setIsImporting(false);

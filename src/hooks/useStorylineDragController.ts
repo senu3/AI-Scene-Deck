@@ -20,12 +20,12 @@ interface UseStorylineDragControllerOptions {
   active: DragStartEvent['active'] | null;
   over: DragEndEvent['over'] | null;
   vaultPath: string | null;
-  createCutFromImport: (
+  importCut: (
     sceneId: string,
     source: CutImportSource,
     insertIndex?: number,
     vaultPathOverride?: string | null
-  ) => Promise<string>;
+  ) => Promise<void>;
   closeDetailsPanel: () => void;
   executeCommand: (command: Command) => Promise<void>;
 }
@@ -35,7 +35,7 @@ export function useStorylineDragController({
   active,
   over,
   vaultPath,
-  createCutFromImport,
+  importCut,
   closeDetailsPanel,
   executeCommand,
 }: UseStorylineDragControllerOptions) {
@@ -120,7 +120,7 @@ export function useStorylineDragController({
         // If vault path is set and asset has originalPath (dragged from Sidebar), import to vault first
         if (vaultPath && asset.originalPath && !asset.vaultRelativePath) {
           // Create empty loading cut card immediately
-          createCutFromImport(sceneId, {
+          importCut(sceneId, {
             assetId: asset.id,
             name: asset.name,
             sourcePath: asset.originalPath,
@@ -158,7 +158,7 @@ export function useStorylineDragController({
       queueExternalFilesToScene({
         sceneId,
         files: Array.from(e.dataTransfer.files),
-        createCutFromImport,
+        importCut,
         insertIndex,
         vaultPathOverride: vaultPath,
       });

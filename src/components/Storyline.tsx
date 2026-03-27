@@ -1,7 +1,7 @@
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { Plus, MoreHorizontal, Edit2, Trash2, Play, Download, Clapperboard } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useStore } from '../store/useStore';
 import {
   selectScenes,
@@ -9,7 +9,6 @@ import {
   selectSelectedSceneId,
   selectSelectScene,
   selectVaultPath,
-  selectCreateCutFromImport,
   selectCloseDetailsPanel,
   selectSelectedGroupId,
   selectSelectGroup,
@@ -17,13 +16,14 @@ import {
 } from '../store/selectors';
 import { getScenesInOrder } from '../utils/sceneOrder';
 import { useHistoryStore } from '../store/historyStore';
-import { AddSceneCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
+import { AddSceneCommand, ImportAddCutCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
 import CutCard from './CutCard';
 import CutGroupCard, { ExpandedGroupContainer } from './CutGroupCard';
 import type { Asset, CutGroup, Cut } from '../types';
 import { useStorylineDragController, type PlaceholderState } from '../hooks/useStorylineDragController';
 import { useStorylinePanTool } from '../hooks/useStorylinePanTool';
 import { useStorylineKeyboardShortcuts } from '../hooks/useStorylineKeyboardShortcuts';
+import type { CutImportSource } from '../utils/cutImport';
 import './Storyline.css';
 
 // Scene color palette - uses --timeline-scene-* tokens to match SceneDurationBar
@@ -89,7 +89,6 @@ export default function Storyline({
   const selectedSceneId = useStore(selectSelectedSceneId);
   const selectScene = useStore(selectSelectScene);
   const vaultPath = useStore(selectVaultPath);
-  const createCutFromImport = useStore(selectCreateCutFromImport);
   const closeDetailsPanel = useStore(selectCloseDetailsPanel);
   const { executeCommand } = useHistoryStore();
   const storylineRef = useRef<HTMLDivElement>(null);
@@ -115,6 +114,18 @@ export default function Storyline({
     selectScene(null);
   };
 
+  const importCut = useCallback((
+    sceneId: string,
+    source: CutImportSource,
+    insertIndex?: number,
+    vaultPathOverride?: string | null,
+  ) => executeCommand(new ImportAddCutCommand({
+    sceneId,
+    source,
+    insertIndex,
+    vaultPathOverride,
+  })), [executeCommand]);
+
   const {
     placeholder,
     sourceSceneId,
@@ -128,7 +139,7 @@ export default function Storyline({
     active,
     over,
     vaultPath,
-    createCutFromImport,
+    importCut,
     closeDetailsPanel,
     executeCommand,
   });

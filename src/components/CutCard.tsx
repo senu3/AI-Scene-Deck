@@ -14,13 +14,12 @@ import {
   selectSceneOrder,
   selectGetSelectedCuts,
   selectCopySelectedCuts,
-  selectCanPaste,
-  selectVaultPath,
-  selectOpenSinglePreview,
-  selectGetCutRuntime,
-  selectGetCutGroup,
-  selectCreateCutFromImport,
-} from '../store/selectors';
+    selectCanPaste,
+    selectVaultPath,
+    selectOpenSinglePreview,
+    selectGetCutRuntime,
+    selectGetCutGroup,
+  } from '../store/selectors';
 import { getScenesInOrder } from '../utils/sceneOrder';
 import { useHistoryStore } from '../store/historyStore';
 import type { Asset, CutAudioBinding } from '../types';
@@ -43,6 +42,7 @@ import {
   AutoClipSimpleCommand,
   CreateGroupCommand,
   DeleteGroupCommand,
+  ImportAddCutCommand,
   MoveCutsToSceneCommand,
   PasteCutsCommand,
   RemoveCutsCommand,
@@ -93,7 +93,6 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden, cro
   const openSinglePreview = useStore(selectOpenSinglePreview);
   const getCutRuntime = useStore(selectGetCutRuntime);
   const getCutGroup = useStore(selectGetCutGroup);
-  const createCutFromImport = useStore(selectCreateCutFromImport);
   const { executeCommand } = useHistoryStore();
   const { toast } = useToast();
   const { banner } = useBanner();
@@ -365,10 +364,14 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden, cro
         asset: asset ?? undefined,
         reverseOutput,
         vaultPath,
-        createCutFromImport,
-        getCutGroup,
-        updateGroupCutOrder: (targetSceneId, groupId, cutIds) =>
-          executeCommand(new UpdateGroupCutOrderCommand(targetSceneId, groupId, cutIds)),
+        addImportedCut: ({ sceneId: targetSceneId, source, insertIndex, vaultPathOverride, syncGroupWithSourceCutId }) =>
+          executeCommand(new ImportAddCutCommand({
+            sceneId: targetSceneId,
+            source,
+            insertIndex,
+            vaultPathOverride,
+            syncGroupWithSourceCutId,
+          })),
       });
 
       if (result.success) {
@@ -485,10 +488,14 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden, cro
         anchorY: config.anchorY,
         preferredThumbnail: thumbnail || undefined,
         vaultPath,
-        createCutFromImport,
-        getCutGroup,
-        updateGroupCutOrder: (targetSceneId, groupId, cutIds) =>
-          executeCommand(new UpdateGroupCutOrderCommand(targetSceneId, groupId, cutIds)),
+        addImportedCut: ({ sceneId: targetSceneId, source, insertIndex, vaultPathOverride, syncGroupWithSourceCutId }) =>
+          executeCommand(new ImportAddCutCommand({
+            sceneId: targetSceneId,
+            source,
+            insertIndex,
+            vaultPathOverride,
+            syncGroupWithSourceCutId,
+          })),
       });
 
       if (!result.success) {

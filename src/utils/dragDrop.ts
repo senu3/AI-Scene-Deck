@@ -170,12 +170,12 @@ export function logDragDebug(
 interface QueueExternalFilesToSceneOptions {
   sceneId: string;
   files: File[];
-  createCutFromImport: (
+  importCut: (
     sceneId: string,
     source: CutImportSource,
     insertIndex?: number,
     vaultPathOverride?: string | null
-  ) => Promise<string>;
+  ) => Promise<void>;
   insertIndex?: number;
   vaultPathOverride?: string | null;
 }
@@ -199,7 +199,7 @@ function enqueueImportTask(task: () => Promise<void>): void {
 export function queueExternalFilesToScene({
   sceneId,
   files,
-  createCutFromImport,
+  importCut,
   insertIndex,
   vaultPathOverride,
 }: QueueExternalFilesToSceneOptions): void {
@@ -214,7 +214,7 @@ export function queueExternalFilesToScene({
     offset += 1;
 
     enqueueImportTask(async () => {
-      await createCutFromImport(sceneId, {
+      await importCut(sceneId, {
         assetId,
         name: file.name,
         sourcePath: filePath,

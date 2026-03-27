@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  createDerivedCutAndSyncGroup,
   cropImageAndAddCut,
   extractAudioAndRegisterAsset,
   finalizeClipAndAddCut,
@@ -11,36 +10,6 @@ import {
 } from '../actions';
 
 describe('cut actions', () => {
-  it('syncs new derived cut into source group', async () => {
-    const createCutFromImport = vi.fn(async () => 'new-cut');
-    const getCutGroup = vi.fn(() => ({
-      id: 'group-1',
-      name: 'G1',
-      cutIds: ['cut-a', 'cut-b'],
-      isCollapsed: false,
-    }));
-    const updateGroupCutOrder = vi.fn();
-
-    await createDerivedCutAndSyncGroup({
-      sceneId: 'scene-1',
-      sourceCutId: 'cut-a',
-      insertIndex: 1,
-      source: {
-        assetId: 'asset-1',
-        name: 'derived.png',
-        sourcePath: 'C:/tmp/derived.png',
-        type: 'image',
-      },
-      vaultPath: 'C:/vault',
-      createCutFromImport,
-      getCutGroup,
-      updateGroupCutOrder,
-    });
-
-    expect(createCutFromImport).toHaveBeenCalledTimes(1);
-    expect(updateGroupCutOrder).toHaveBeenCalledWith('scene-1', 'group-1', ['cut-a', 'new-cut', 'cut-b']);
-  });
-
   it('finalizes clip and creates derived cut', async () => {
     const finalizeClip = vi.fn(async (_options: { outputPath: string }) => ({ success: true, fileSize: 1024 * 1024 }));
     const ensureVaultStagingFolder = vi.fn(async () => 'C:/vault/.staging');
@@ -52,9 +21,7 @@ describe('cut actions', () => {
       writable: true,
     });
 
-    const createCutFromImport = vi.fn(async () => 'new-cut');
-    const getCutGroup = vi.fn(() => undefined);
-    const updateGroupCutOrder = vi.fn();
+    const addImportedCut = vi.fn(async () => undefined);
 
     const result = await finalizeClipAndAddCut({
       sceneId: 'scene-1',
@@ -66,14 +33,18 @@ describe('cut actions', () => {
       outPoint: 3,
       reverseOutput: false,
       vaultPath: 'C:/vault',
-      createCutFromImport,
-      getCutGroup,
-      updateGroupCutOrder,
+      addImportedCut,
     });
 
     expect(result.success).toBe(true);
     expect(finalizeClip).toHaveBeenCalledTimes(1);
-    expect(createCutFromImport).toHaveBeenCalledTimes(1);
+    expect(addImportedCut).toHaveBeenCalledTimes(1);
+    expect(addImportedCut).toHaveBeenCalledWith(expect.objectContaining({
+      sceneId: 'scene-1',
+      insertIndex: 1,
+      vaultPathOverride: 'C:/vault',
+      syncGroupWithSourceCutId: 'cut-a',
+    }));
   });
 
   it('finalizes clip and registers derived asset without creating cut', async () => {
@@ -125,9 +96,7 @@ describe('cut actions', () => {
       writable: true,
     });
 
-    const createCutFromImport = vi.fn(async () => 'new-cut');
-    const getCutGroup = vi.fn(() => undefined);
-    const updateGroupCutOrder = vi.fn();
+    const addImportedCut = vi.fn(async () => undefined);
 
     const result = await cropImageAndAddCut({
       sceneId: 'scene-1',
@@ -141,14 +110,18 @@ describe('cut actions', () => {
       anchorY: 0.5,
       preferredThumbnail: 'data:image/png;base64,aaa',
       vaultPath: 'C:/vault',
-      createCutFromImport,
-      getCutGroup,
-      updateGroupCutOrder,
+      addImportedCut,
     });
 
     expect(result.success).toBe(true);
     expect(cropImageToAspect).toHaveBeenCalledTimes(1);
-    expect(createCutFromImport).toHaveBeenCalledTimes(1);
+    expect(addImportedCut).toHaveBeenCalledTimes(1);
+    expect(addImportedCut).toHaveBeenCalledWith(expect.objectContaining({
+      sceneId: 'scene-1',
+      insertIndex: 1,
+      vaultPathOverride: 'C:/vault',
+      syncGroupWithSourceCutId: 'cut-a',
+    }));
   });
 
   it('extracts audio and registers as derived asset only', async () => {
@@ -198,9 +171,7 @@ describe('cut actions', () => {
       writable: true,
     });
 
-    const createCutFromImport = vi.fn(async () => 'new-cut');
-    const getCutGroup = vi.fn(() => undefined);
-    const updateGroupCutOrder = vi.fn();
+    const addImportedCut = vi.fn(async () => undefined);
 
     const result = await finalizeClipAndAddCut({
       sceneId: 'scene-1',
@@ -212,9 +183,7 @@ describe('cut actions', () => {
       outPoint: 1,
       reverseOutput: false,
       vaultPath: 'C:/vault',
-      createCutFromImport,
-      getCutGroup,
-      updateGroupCutOrder,
+      addImportedCut,
     });
 
     expect(result.success).toBe(true);
@@ -271,9 +240,7 @@ describe('cut actions', () => {
       asset: { path: 'C:/assets/src.mp4', name: 'src.mp4' },
       reverseOutput: false,
       vaultPath: null,
-      createCutFromImport: vi.fn(async () => 'new-cut'),
-      getCutGroup: vi.fn(() => undefined),
-      updateGroupCutOrder: vi.fn(),
+      addImportedCut: vi.fn(async () => undefined),
     });
 
     expect(result.success).toBe(false);
@@ -289,9 +256,7 @@ describe('cut actions', () => {
       asset: { path: 'C:/assets/src.mp4', name: 'src.mp4' },
       reverseOutput: false,
       vaultPath: 'C:/vault',
-      createCutFromImport: vi.fn(async () => 'new-cut'),
-      getCutGroup: vi.fn(() => undefined),
-      updateGroupCutOrder: vi.fn(),
+      addImportedCut: vi.fn(async () => undefined),
     });
 
     expect(result.success).toBe(false);

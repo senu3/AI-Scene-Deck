@@ -15,6 +15,8 @@ import { generateVideoClipThumbnail } from '../features/cut/clipThumbnail';
 import { buildRegenThumbnailsEffect } from '../features/cut/thumbnailEffects';
 import { hydrateAssetWithCanonicalMetadata } from '../features/metadata/assetHydration';
 import { resolveCutAsset as resolveCutAssetById } from '../utils/assetResolve';
+import type { CutImportSource } from '../utils/cutImport';
+import { buildAssetForCut } from '../utils/cutImport';
 import type { ThumbnailProfile } from '../utils/thumbnailCache';
 import { normalizeGroupsInScenes } from '../utils/cutGroupOps';
 import { getAssetDisplayName } from '../utils/assetDisplayName';
@@ -64,6 +66,36 @@ function cloneScene(scene: Scene): Scene {
     cuts: scene.cuts.map((cut) => cloneCut(cut)),
     groups: scene.groups?.map((group) => ({ ...group, cutIds: [...group.cutIds] })),
     notes: scene.notes?.map((note) => ({ ...note })) || [],
+  };
+}
+
+function syncImportedCutIntoSourceGroup(
+  store: ReturnType<typeof useStore.getState>,
+  sceneId: string,
+  sourceCutId: string | undefined,
+  importedCutId: string
+): { groupId?: string; previousCutIds?: string[] } {
+  if (!sourceCutId) {
+    return {};
+  }
+
+  const latestGroup = store.getCutGroup(sceneId, sourceCutId);
+  if (!latestGroup || latestGroup.cutIds.includes(importedCutId)) {
+    return {};
+  }
+
+  const sourceIndex = latestGroup.cutIds.indexOf(sourceCutId);
+  if (sourceIndex < 0) {
+    return {};
+  }
+
+  const nextOrder = [...latestGroup.cutIds];
+  nextOrder.splice(sourceIndex + 1, 0, importedCutId);
+  store.updateGroupCutOrder(sceneId, latestGroup.id, nextOrder);
+
+  return {
+    groupId: latestGroup.id,
+    previousCutIds: [...latestGroup.cutIds],
   };
 }
 
@@ -124,6 +156,104 @@ export class AddCutCommand implements Command {
 
     const store = useStore.getState();
     store.removeCut(this.sceneId, this.cutId);
+  }
+}
+
+export class ImportAddCutCommand implements Command {
+  type = 'IMPORT_ADD_CUT';
+  description: string;
+
+  private sceneId: string;
+  private source: CutImportSource;
+  private insertIndex?: number;
+  private vaultPathOverride?: string | null;
+  private syncGroupWithSourceCutId?: string;
+  private cutId?: string;
+  private importedAsset?: Asset;
+  private importedDisplayTime?: number;
+  private syncedGroupId?: string;
+  private previousGroupCutIds?: string[];
+
+  constructor(params: {
+    sceneId: string;
+    source: CutImportSource;
+    insertIndex?: number;
+    vaultPathOverride?: string | null;
+    syncGroupWithSourceCutId?: string;
+  }) {
+    this.sceneId = params.sceneId;
+    this.source = {
+      ...params.source,
+      existingAsset: params.source.existingAsset ? { ...params.source.existingAsset } : undefined,
+    };
+    this.insertIndex = params.insertIndex;
+    this.vaultPathOverride = params.vaultPathOverride;
+    this.syncGroupWithSourceCutId = params.syncGroupWithSourceCutId;
+    this.description = `Import cut: ${params.source.name}`;
+  }
+
+  async execute(): Promise<void> {
+    const store = useStore.getState();
+    this.syncedGroupId = undefined;
+    this.previousGroupCutIds = undefined;
+
+    if (this.importedAsset) {
+      this.cutId = store.addCutToScene(this.sceneId, this.importedAsset, this.insertIndex);
+      if (!this.cutId) {
+        throw new Error(`Failed to add imported cut to scene ${this.sceneId}.`);
+      }
+      if (this.importedDisplayTime !== undefined) {
+        store.updateCutDisplayTime(this.sceneId, this.cutId, this.importedDisplayTime);
+      }
+      const sync = syncImportedCutIntoSourceGroup(
+        store,
+        this.sceneId,
+        this.syncGroupWithSourceCutId,
+        this.cutId
+      );
+      this.syncedGroupId = sync.groupId;
+      this.previousGroupCutIds = sync.previousCutIds;
+      return;
+    }
+
+    this.cutId = store.addLoadingCutToScene(this.sceneId, this.source.assetId, this.source.name, this.insertIndex);
+    if (!this.cutId) {
+      throw new Error(`Failed to create loading cut for import target scene ${this.sceneId}.`);
+    }
+
+    try {
+      const vaultPath = this.vaultPathOverride ?? store.vaultPath;
+      const { asset, displayTime } = await buildAssetForCut(this.source, vaultPath);
+      this.importedAsset = asset;
+      this.importedDisplayTime = displayTime;
+      store.updateCutWithAsset(this.sceneId, this.cutId, asset, displayTime);
+      const sync = syncImportedCutIntoSourceGroup(
+        store,
+        this.sceneId,
+        this.syncGroupWithSourceCutId,
+        this.cutId
+      );
+      this.syncedGroupId = sync.groupId;
+      this.previousGroupCutIds = sync.previousCutIds;
+    } catch (error) {
+      if (this.cutId) {
+        store.removeCut(this.sceneId, this.cutId);
+      }
+      this.cutId = undefined;
+      throw error;
+    }
+  }
+
+  async undo(): Promise<void> {
+    if (!this.cutId) return;
+
+    const store = useStore.getState();
+    const removedCutId = this.cutId;
+    store.removeCut(this.sceneId, removedCutId);
+    if (this.syncedGroupId && this.previousGroupCutIds) {
+      store.updateGroupCutOrder(this.sceneId, this.syncedGroupId, this.previousGroupCutIds);
+    }
+    this.cutId = undefined;
   }
 }
 

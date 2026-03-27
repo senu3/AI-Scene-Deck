@@ -17,7 +17,6 @@ import {
   selectSequencePreviewCutId,
   selectCloseSequencePreview,
   selectCacheAssetAction,
-  selectCreateCutFromImport,
   selectToggleAssetDrawer,
   selectSidebarOpen,
   selectToggleSidebar,
@@ -34,8 +33,9 @@ import {
 } from './store/selectors';
 import { useHistoryStore } from './store/historyStore';
 import {
-  AddCutCommand,
-  MoveCutBetweenScenesCommand,
+    AddCutCommand,
+    ImportAddCutCommand,
+    MoveCutBetweenScenesCommand,
   MoveCutsToSceneCommand,
   PasteCutsCommand,
   RemoveCutCommand,
@@ -131,7 +131,6 @@ function App() {
   const sequencePreviewCutId = useStore(selectSequencePreviewCutId);
   const closeSequencePreview = useStore(selectCloseSequencePreview);
   const cacheAsset = useStore(selectCacheAssetAction);
-  const createCutFromImport = useStore(selectCreateCutFromImport);
   const toggleAssetDrawer = useStore(selectToggleAssetDrawer);
   const sidebarOpen = useStore(selectSidebarOpen);
   const toggleSidebar = useStore(selectToggleSidebar);
@@ -574,10 +573,16 @@ function App() {
     queueExternalFilesToScene({
       sceneId: targetSceneId,
       files: Array.from(e.dataTransfer.files),
-      createCutFromImport,
+      importCut: (sceneId, source, insertIndex, vaultPathOverride) =>
+        executeCommand(new ImportAddCutCommand({
+          sceneId,
+          source,
+          insertIndex,
+          vaultPathOverride,
+        })),
     });
     logDragDebug('workspace.drop.externalQueued', e.dataTransfer, { targetSceneId });
-  }, [selectedSceneId, scenes, sceneOrder, createCutFromImport]);
+  }, [executeCommand, sceneOrder, scenes, selectedSceneId]);
 
   // Open export modal from controls
   const handleExportFromControls = useCallback(() => {

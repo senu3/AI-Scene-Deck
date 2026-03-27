@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { Scene, Cut, CutRuntimeState } from '../../types';
 import { upsertSceneMetadata, removeSceneMetadata } from '../../utils/metadataStore';
-import { buildAssetForCut } from '../../utils/cutImport';
 import { getScenesAndCutsInTimelineOrder } from '../../utils/timelineOrder';
 import { normalizeSceneOrder } from '../../utils/sceneOrder';
 import { resolveCutAsset } from '../../utils/assetResolve';
@@ -362,20 +361,6 @@ export function createCutTimelineSlice(set: SliceSet, get: SliceGet): CutTimelin
           cutRuntimeById: nextCutRuntimeById,
         };
       });
-    },
-
-    createCutFromImport: async (sceneId, source, insertIndex, vaultPathOverride) => {
-      const cutId = get().addLoadingCutToScene(sceneId, source.assetId, source.name, insertIndex);
-      try {
-        const vaultPath = vaultPathOverride ?? get().vaultPath;
-        const { asset, displayTime } = await buildAssetForCut(source, vaultPath);
-        get().updateCutWithAsset(sceneId, cutId, asset, displayTime);
-      } catch (error) {
-        console.error('Failed to import file:', error);
-        get().removeCut(sceneId, cutId);
-        throw error;
-      }
-      return cutId;
     },
 
     removeCut: (sceneId, cutId) => {

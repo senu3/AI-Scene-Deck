@@ -41,7 +41,6 @@ export const selectClearCutRuntime = (s: AppState) => s.clearCutRuntime;
 export const selectOpenSinglePreview = (s: AppState) => s.openSinglePreview;
 export const selectOpenSequencePreview = (s: AppState) => s.openSequencePreview;
 export const selectCreateGroup = (s: AppState) => s.createGroup;
-export const selectCreateCutFromImport = (s: AppState) => s.createCutFromImport;
 export const selectUpdateGroupCutOrder = (s: AppState) => s.updateGroupCutOrder;
 export const selectToggleGroupCollapsed = (s: AppState) => s.toggleGroupCollapsed;
 export const selectSelectGroup = (s: AppState) => s.selectGroup;

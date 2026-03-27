@@ -16,7 +16,6 @@ import type {
   SourceViewMode,
   SourcePanelState,
 } from '../types';
-import type { CutImportSource } from '../utils/cutImport';
 import type { AssetRef } from '../utils/assetRefs';
 import type { AppEffectWarning } from '../features/platform/effects';
 import type { PersistedProjectSnapshot } from '../features/project/persistedSnapshot';
@@ -73,12 +72,6 @@ export interface CutTimelineSliceContract {
   addCutToScene: (sceneId: string, asset: Asset, insertIndex?: number) => string;
   addLoadingCutToScene: (sceneId: string, assetId: string, loadingName: string, insertIndex?: number) => string;
   updateCutWithAsset: (sceneId: string, cutId: string, asset: Asset, displayTime?: number) => void;
-  createCutFromImport: (
-    sceneId: string,
-    source: CutImportSource,
-    insertIndex?: number,
-    vaultPathOverride?: string | null
-  ) => Promise<string>;
   removeCut: (sceneId: string, cutId: string) => Cut | null;
   updateCutDisplayTime: (sceneId: string, cutId: string, time: number) => void;
   updateCutClipPoints: (sceneId: string, cutId: string, inPoint: number, outPoint: number) => void;

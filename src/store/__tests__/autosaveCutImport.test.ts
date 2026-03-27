@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { ImportAddCutCommand } from '../commands';
+import { useHistoryStore } from '../historyStore';
 import { useStore } from '../useStore';
 import { createAutosaveController, subscribeProjectChanges } from '../../utils/autosave';
 import { buildAssetForCut } from '../../utils/cutImport';
@@ -23,6 +25,7 @@ async function flushPromises() {
 
 describe('autosave + cut import', () => {
   beforeEach(() => {
+    useHistoryStore.getState().clear();
     useStore.getState().clearProject();
     useStore.getState().initializeProject({
       name: 'Test',
@@ -37,12 +40,15 @@ describe('autosave + cut import', () => {
     const controller = createAutosaveController({ debounceMs: 1, save });
     const unsubscribe = subscribeProjectChanges(useStore as any, () => controller.schedule());
 
-    await useStore.getState().createCutFromImport('scene-1', {
-      assetId: 'asset-1',
-      name: 'img.png',
-      sourcePath: 'C:/src/img.png',
-      type: 'image',
-    });
+    await useHistoryStore.getState().executeCommand(new ImportAddCutCommand({
+      sceneId: 'scene-1',
+      source: {
+        assetId: 'asset-1',
+        name: 'img.png',
+        sourcePath: 'C:/src/img.png',
+        type: 'image',
+      },
+    }));
 
     vi.advanceTimersByTime(1);
     await flushPromises();

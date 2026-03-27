@@ -1,6 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { CutImportSource } from '../../utils/cutImport';
-import type { CutGroup } from '../../types';
 import { importFileToVault } from '../../utils/assetPath';
 import {
   cropImageToAspectBridge,
@@ -52,50 +51,40 @@ function buildDerivedFileName(
   return `${baseName}_${operation}${extraPart}_${timestamp}_${unique}.${extension}`;
 }
 
-interface GroupSyncDeps {
-  getCutGroup: (sceneId: string, cutId: string) => CutGroup | undefined;
-  updateGroupCutOrder: (sceneId: string, groupId: string, cutIds: string[]) => Promise<void> | void;
+interface AddImportedCutDeps {
+  addImportedCut: (input: {
+    sceneId: string;
+    source: CutImportSource;
+    insertIndex?: number;
+    vaultPathOverride?: string | null;
+    syncGroupWithSourceCutId?: string;
+  }) => Promise<void>;
 }
 
-interface CreateDerivedCutDeps extends GroupSyncDeps {
-  createCutFromImport: (
-    sceneId: string,
-    source: CutImportSource,
-    insertIndex?: number,
-    vaultPathOverride?: string | null
-  ) => Promise<string>;
-}
-
-export interface CreateDerivedCutParams extends CreateDerivedCutDeps {
-  sceneId: string;
-  sourceCutId: string;
-  insertIndex: number;
-  source: CutImportSource;
-  vaultPath: string;
-}
-
-export async function createDerivedCutAndSyncGroup({
+async function addDerivedImportedCut({
+  addImportedCut,
   sceneId,
   sourceCutId,
   insertIndex,
   source,
   vaultPath,
-  createCutFromImport,
-  getCutGroup,
-  updateGroupCutOrder,
-}: CreateDerivedCutParams): Promise<string> {
-  const newCutId = await createCutFromImport(sceneId, source, insertIndex, vaultPath);
-  const latestGroup = getCutGroup(sceneId, sourceCutId);
-  if (latestGroup && !latestGroup.cutIds.includes(newCutId)) {
-    const insertAt = Math.max(0, latestGroup.cutIds.indexOf(sourceCutId) + 1);
-    const nextOrder = [...latestGroup.cutIds];
-    nextOrder.splice(insertAt, 0, newCutId);
-    await updateGroupCutOrder(sceneId, latestGroup.id, nextOrder);
-  }
-  return newCutId;
+}: AddImportedCutDeps & {
+  sceneId: string;
+  sourceCutId: string;
+  insertIndex: number;
+  source: CutImportSource;
+  vaultPath: string;
+}): Promise<void> {
+  await addImportedCut({
+    sceneId,
+    source,
+    insertIndex,
+    vaultPathOverride: vaultPath,
+    syncGroupWithSourceCutId: sourceCutId,
+  });
 }
 
-export interface FinalizeClipAddCutParams extends CreateDerivedCutDeps {
+export interface FinalizeClipAddCutParams extends AddImportedCutDeps {
   sceneId: string;
   sourceCutId: string;
   insertIndex: number;
@@ -280,7 +269,7 @@ interface FinalizeAssetLike {
   name?: string;
 }
 
-export interface FinalizeClipFromContextParams extends CreateDerivedCutDeps {
+export interface FinalizeClipFromContextParams extends AddImportedCutDeps {
   sceneId: string;
   sourceCutId: string;
   insertIndex: number;
@@ -298,9 +287,7 @@ export async function finalizeClipFromContext({
   asset,
   reverseOutput,
   vaultPath,
-  createCutFromImport,
-  getCutGroup,
-  updateGroupCutOrder,
+  addImportedCut,
 }: FinalizeClipFromContextParams): Promise<FinalizeClipAddCutResult> {
   if (!vaultPath) {
     return {
@@ -334,9 +321,7 @@ export async function finalizeClipFromContext({
     outPoint: cut.outPoint,
     reverseOutput,
     vaultPath,
-    createCutFromImport,
-    getCutGroup,
-    updateGroupCutOrder,
+    addImportedCut,
   });
 }
 
@@ -350,9 +335,7 @@ export async function finalizeClipAndAddCut({
   outPoint,
   reverseOutput,
   vaultPath,
-  createCutFromImport,
-  getCutGroup,
-  updateGroupCutOrder,
+  addImportedCut,
 }: FinalizeClipAddCutParams): Promise<FinalizeClipAddCutResult> {
   const finalized = await finalizeClipToDerivedFile({
     sourceAssetPath,
@@ -370,7 +353,7 @@ export async function finalizeClipAndAddCut({
     };
   }
 
-  await createDerivedCutAndSyncGroup({
+  await addDerivedImportedCut({
     sceneId,
     sourceCutId,
     insertIndex,
@@ -383,9 +366,7 @@ export async function finalizeClipAndAddCut({
       preferredDuration: finalized.clipDuration,
     },
     vaultPath,
-    createCutFromImport,
-    getCutGroup,
-    updateGroupCutOrder,
+    addImportedCut,
   });
 
   return {
@@ -395,7 +376,7 @@ export async function finalizeClipAndAddCut({
   };
 }
 
-export interface CropImageAddCutParams extends CreateDerivedCutDeps {
+export interface CropImageAddCutParams extends AddImportedCutDeps {
   sceneId: string;
   sourceCutId: string;
   insertIndex: number;
@@ -556,9 +537,7 @@ export async function cropImageAndAddCut({
   anchorY,
   preferredThumbnail,
   vaultPath,
-  createCutFromImport,
-  getCutGroup,
-  updateGroupCutOrder,
+  addImportedCut,
 }: CropImageAddCutParams): Promise<CropImageAddCutResult> {
   const stagingFolder = await ensureVaultStagingFolderBridge(vaultPath);
   if (!stagingFolder) {
@@ -587,7 +566,7 @@ export async function cropImageAndAddCut({
     return { success: false, error: result.error || 'Failed to crop image.' };
   }
 
-  await createDerivedCutAndSyncGroup({
+  await addDerivedImportedCut({
     sceneId,
     sourceCutId,
     insertIndex,
@@ -600,9 +579,7 @@ export async function cropImageAndAddCut({
       preferredThumbnail,
     },
     vaultPath,
-    createCutFromImport,
-    getCutGroup,
-    updateGroupCutOrder,
+    addImportedCut,
   });
 
   return {
