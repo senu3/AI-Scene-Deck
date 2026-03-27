@@ -10,6 +10,7 @@
     "dev:main": "electron .",
     "build": "tsc && vite build",
     "build:electron": "tsc -p tsconfig.main.json",
+    "build-win": "npm run build && npm run build:electron && node scripts/build-win.cjs",
     "dist:app": "npm run build && npm run build:electron && node scripts/run-electron-builder.cjs --publish never",
     "dist:app:dir": "npm run build && npm run build:electron && node scripts/run-electron-builder.cjs --dir --publish never",
     "preview": "vite preview",

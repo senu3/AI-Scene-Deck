@@ -78,6 +78,7 @@ npm run dev:renderer   # Renderer プロセスの開発サーバー起動
 npm run dev:main       # Main プロセスの開発モード起動
 npm run build          # プロダクションビルド
 npm run build:electron # Electron Main/Preload のビルド
+npm run build-win      # Windows host 上で Windows 用 zip を作成
 npm run dist:app       # electron-builder で prototype 配布 zip を作成
 npm run dist:app:dir   # unpacked app を作成
 npm run preview        # ビルド結果のプレビュー
