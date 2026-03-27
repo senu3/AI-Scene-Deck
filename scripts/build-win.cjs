@@ -12,7 +12,7 @@ if (process.platform !== 'win32') {
 const runner = path.join(__dirname, 'run-electron-builder.cjs');
 const result = spawnSync(
   process.execPath,
-  [runner, '--win', '--x64', '--publish', 'never'],
+  [runner, '--win', 'nsis', '--x64', '--publish', 'never'],
   { stdio: 'inherit' },
 );
 
