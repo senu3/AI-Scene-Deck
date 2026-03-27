@@ -24,6 +24,7 @@ import {
 } from '../features/project/sourcePanelProvider';
 import { hasElectronBridge } from '../features/platform/electronGateway';
 import { getAssetThumbnail, getCachedAssetThumbnail } from '../features/thumbnails/api';
+import { resolveImportedCutAsset } from '../features/cut/importAddCut';
 import { getCuttableMediaType } from '../utils/mediaType';
 import { getFirstSceneId } from '../utils/sceneOrder';
 import { useHistoryStore } from '../store/historyStore';
@@ -468,6 +469,7 @@ function FileItemComponent({ item, depth, mediaType, loadThumbnail, thumbnailVer
         type: sourceType,
         preferredThumbnail: thumbnail || undefined,
       },
+      resolveImport: resolveImportedCutAsset,
     }))
       .catch(() => {})
       .finally(() => {

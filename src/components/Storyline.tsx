@@ -17,6 +17,7 @@ import {
 import { getScenesInOrder } from '../utils/sceneOrder';
 import { useHistoryStore } from '../store/historyStore';
 import { AddSceneCommand, ImportAddCutCommand, RemoveSceneCommand, RenameSceneCommand } from '../store/commands';
+import { resolveImportedCutAsset } from '../features/cut/importAddCut';
 import CutCard from './CutCard';
 import CutGroupCard, { ExpandedGroupContainer } from './CutGroupCard';
 import type { Asset, CutGroup, Cut } from '../types';
@@ -124,6 +125,7 @@ export default function Storyline({
     source,
     insertIndex,
     vaultPathOverride,
+    resolveImport: resolveImportedCutAsset,
   })), [executeCommand]);
 
   const {

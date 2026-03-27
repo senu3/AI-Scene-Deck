@@ -3,11 +3,6 @@ import type { Asset } from '../../types';
 import { ImportAddCutCommand } from '../commands';
 import { useHistoryStore } from '../historyStore';
 import { useStore } from '../useStore';
-import { buildAssetForCut } from '../../utils/cutImport';
-
-vi.mock('../../utils/cutImport', () => ({
-  buildAssetForCut: vi.fn(),
-}));
 
 const IMPORTED_ASSET: Asset = {
   id: 'asset-imported',
@@ -20,7 +15,6 @@ describe('ImportAddCutCommand', () => {
   const initialState = useStore.getState();
 
   beforeEach(() => {
-    vi.clearAllMocks();
     useHistoryStore.getState().clear();
     useStore.setState(initialState, true);
     useStore.getState().initializeProject({
@@ -31,7 +25,7 @@ describe('ImportAddCutCommand', () => {
   });
 
   it('adds imported cut and supports undo/redo without re-importing', async () => {
-    vi.mocked(buildAssetForCut).mockResolvedValue({
+    const resolveImport = vi.fn().mockResolvedValue({
       asset: IMPORTED_ASSET,
       displayTime: 3,
     });
@@ -44,6 +38,7 @@ describe('ImportAddCutCommand', () => {
         sourcePath: 'C:/source/imported.png',
         type: 'image',
       },
+      resolveImport,
     }));
 
     let scene = useStore.getState().scenes.find((entry) => entry.id === 'scene-1');
@@ -60,11 +55,11 @@ describe('ImportAddCutCommand', () => {
     expect(scene?.cuts).toHaveLength(1);
     expect(scene?.cuts[0]?.assetId).toBe(IMPORTED_ASSET.id);
     expect(scene?.cuts[0]?.displayTime).toBe(3);
-    expect(buildAssetForCut).toHaveBeenCalledTimes(1);
+    expect(resolveImport).toHaveBeenCalledTimes(1);
   });
 
   it('keeps group membership aligned when undoing imported derived cut', async () => {
-    vi.mocked(buildAssetForCut).mockResolvedValue({
+    const resolveImport = vi.fn().mockResolvedValue({
       asset: {
         ...IMPORTED_ASSET,
         id: 'asset-derived',
@@ -123,6 +118,7 @@ describe('ImportAddCutCommand', () => {
       },
       insertIndex: 1,
       syncGroupWithSourceCutId: 'cut-source',
+      resolveImport,
     }));
 
     let scene = useStore.getState().scenes.find((entry) => entry.id === 'scene-1');
@@ -145,6 +141,6 @@ describe('ImportAddCutCommand', () => {
     expect(groupAfterRedo?.cutIds).toHaveLength(3);
     expect(groupAfterRedo?.cutIds[0]).toBe('cut-source');
     expect(groupAfterRedo?.cutIds[2]).toBe('cut-other');
-    expect(buildAssetForCut).toHaveBeenCalledTimes(1);
+    expect(resolveImport).toHaveBeenCalledTimes(1);
   });
 });

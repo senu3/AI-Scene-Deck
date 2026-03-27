@@ -37,6 +37,7 @@ import {
   extractAudioAndRegisterAsset,
   finalizeClipFromContext,
 } from '../features/cut/actions';
+import { resolveImportedCutAsset } from '../features/cut/importAddCut';
 import { DEFAULT_EXPORT_RESOLUTION } from '../constants/export';
 import {
   AutoClipSimpleCommand,
@@ -371,6 +372,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden, cro
             insertIndex,
             vaultPathOverride,
             syncGroupWithSourceCutId,
+            resolveImport: resolveImportedCutAsset,
           })),
       });
 
@@ -495,6 +497,7 @@ export default function CutCard({ cut, sceneId, index, isDragging, isHidden, cro
             insertIndex,
             vaultPathOverride,
             syncGroupWithSourceCutId,
+            resolveImport: resolveImportedCutAsset,
           })),
       });
 

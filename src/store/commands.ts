@@ -15,8 +15,7 @@ import { generateVideoClipThumbnail } from '../features/cut/clipThumbnail';
 import { buildRegenThumbnailsEffect } from '../features/cut/thumbnailEffects';
 import { hydrateAssetWithCanonicalMetadata } from '../features/metadata/assetHydration';
 import { resolveCutAsset as resolveCutAssetById } from '../utils/assetResolve';
-import type { CutImportSource } from '../utils/cutImport';
-import { buildAssetForCut } from '../utils/cutImport';
+import type { CutImportResult, CutImportSource } from '../utils/cutImport';
 import type { ThumbnailProfile } from '../utils/thumbnailCache';
 import { normalizeGroupsInScenes } from '../utils/cutGroupOps';
 import { getAssetDisplayName } from '../utils/assetDisplayName';
@@ -61,9 +60,10 @@ function addCutFromReference(
 }
 
 function cloneCut(cut: Cut): Cut {
+  const assetSnapshot = cut['asset'];
   return {
     ...cut,
-    asset: cut.asset ? cloneAsset(cut.asset) : undefined,
+    asset: assetSnapshot ? cloneAsset(assetSnapshot) : undefined,
     audioBindings: cut.audioBindings?.map((binding) => ({ ...binding })) || [],
     framing: cut.framing ? { ...cut.framing } : undefined,
   };
@@ -106,6 +106,24 @@ function syncImportedCutIntoSourceGroup(
     groupId: latestGroup.id,
     previousCutIds: [...latestGroup.cutIds],
   };
+}
+
+export interface ResolveImportAddCutInput {
+  source: CutImportSource;
+  vaultPath: string | null | undefined;
+}
+
+export type ResolveImportAddCut = (
+  input: ResolveImportAddCutInput
+) => Promise<CutImportResult>;
+
+export interface ImportAddCutCommandParams {
+  sceneId: string;
+  source: CutImportSource;
+  insertIndex?: number;
+  vaultPathOverride?: string | null;
+  syncGroupWithSourceCutId?: string;
+  resolveImport: ResolveImportAddCut;
 }
 
 function replaceScene(sceneId: string, nextScene: Scene): void {
@@ -177,19 +195,14 @@ export class ImportAddCutCommand implements Command {
   private insertIndex?: number;
   private vaultPathOverride?: string | null;
   private syncGroupWithSourceCutId?: string;
+  private resolveImport: ResolveImportAddCut;
   private cutId?: string;
   private importedAsset?: Asset;
   private importedDisplayTime?: number;
   private syncedGroupId?: string;
   private previousGroupCutIds?: string[];
 
-  constructor(params: {
-    sceneId: string;
-    source: CutImportSource;
-    insertIndex?: number;
-    vaultPathOverride?: string | null;
-    syncGroupWithSourceCutId?: string;
-  }) {
+  constructor(params: ImportAddCutCommandParams) {
     this.sceneId = params.sceneId;
     this.source = {
       ...params.source,
@@ -198,6 +211,7 @@ export class ImportAddCutCommand implements Command {
     this.insertIndex = params.insertIndex;
     this.vaultPathOverride = params.vaultPathOverride;
     this.syncGroupWithSourceCutId = params.syncGroupWithSourceCutId;
+    this.resolveImport = params.resolveImport;
     this.description = `Import cut: ${params.source.name}`;
   }
 
@@ -232,7 +246,10 @@ export class ImportAddCutCommand implements Command {
 
     try {
       const vaultPath = this.vaultPathOverride ?? store.vaultPath;
-      const { asset, displayTime } = await buildAssetForCut(this.source, vaultPath);
+      const { asset, displayTime } = await this.resolveImport({
+        source: this.source,
+        vaultPath,
+      });
       this.importedAsset = asset;
       this.importedDisplayTime = displayTime;
       store.updateCutWithAsset(this.sceneId, this.cutId, asset, displayTime);

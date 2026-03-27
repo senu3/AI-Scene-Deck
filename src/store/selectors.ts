@@ -66,8 +66,6 @@ export const selectDetachAudioFromGroup = (s: AppState) => s.detachAudioFromGrou
 export const selectGetGroupAudioBinding = (s: AppState) => s.getGroupAudioBinding;
 export const selectGetAttachedAudioForGroup = (s: AppState) => s.getAttachedAudioForGroup;
 export const selectSetCutUseEmbeddedAudio = (s: AppState) => s.setCutUseEmbeddedAudio;
-export const selectRelinkCutAsset = (s: AppState) => s.relinkCutAsset;
-export const selectCreateStoreEventOperation = (s: AppState) => s.createStoreEventOperation;
 export const selectRunWithStoreEventContext = (s: AppState) => s.runWithStoreEventContext;
 export const selectRegisterStoreEventSubscriber = (s: AppState) => s.registerStoreEventSubscriber;
 export const selectEmitCutRelinked = (s: AppState) => s.emitCutRelinked;

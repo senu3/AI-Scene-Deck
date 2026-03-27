@@ -71,7 +71,7 @@ const gate6AllowedScenesSetRules = [
   { path: 'src/store/slices/projectSlice.ts', reason: 'project load/restore normalization path (ADR-0003 exception)' },
 ];
 const gate6AllowedCutImportUseFiles = new Set([
-  'src/store/commands.ts',
+  'src/features/cut/importAddCut.ts',
 ]);
 const gate6AllowedUseStoreSetStateFiles = new Set(gate6AllowedUseStoreSetStateRules.map((rule) => rule.path));
 const gate6AllowedScenesSetFiles = new Set(gate6AllowedScenesSetRules.map((rule) => rule.path));
@@ -279,7 +279,7 @@ for (const file of files) {
       gate: 'Gate6',
       file: r,
       line: lineOf(src, m.index),
-      message: 'buildAssetForCut import outside command boundary',
+      message: 'buildAssetForCut import outside imported-cut use case boundary',
     });
   }
 

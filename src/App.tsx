@@ -33,9 +33,9 @@ import {
 } from './store/selectors';
 import { useHistoryStore } from './store/historyStore';
 import {
-    AddCutCommand,
-    ImportAddCutCommand,
-    MoveCutBetweenScenesCommand,
+  AddCutCommand,
+  ImportAddCutCommand,
+  MoveCutBetweenScenesCommand,
   MoveCutsToSceneCommand,
   PasteCutsCommand,
   RemoveCutCommand,
@@ -52,6 +52,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Asset, Cut, PreviewableAsset } from './types';
 import { getAssetThumbnail } from './features/thumbnails/api';
 import { clearPreviewClipPoints, savePreviewClipPoints } from './features/cut/previewClipUpdate';
+import { resolveImportedCutAsset } from './features/cut/importAddCut';
 import { importFileToVault } from './utils/assetPath';
 import { getDragKind, isDndDebugEnabled, logDragDebug, queueExternalFilesToScene, setDndDebugEnabled } from './utils/dragDrop';
 import { isEnvironmentSettingsEnabled, isNotificationTestToolsEnabled } from './utils/featureFlags';
@@ -579,6 +580,7 @@ function App() {
           source,
           insertIndex,
           vaultPathOverride,
+          resolveImport: resolveImportedCutAsset,
         })),
     });
     logDragDebug('workspace.drop.externalQueued', e.dataTransfer, { targetSceneId });
