@@ -2,7 +2,6 @@ import type {
   Scene,
   Cut,
   Asset,
-  FileItem,
   FavoriteFolder,
   CutAudioBinding,
   PlaybackMode,
@@ -60,7 +59,6 @@ export interface AppState
   clipboard: ClipboardCut[];
 
   sourceFolders: SourceFolder[];
-  rootFolder: { path: string; name: string; structure: FileItem[] } | null;
   expandedFolders: Set<string>;
   favorites: FavoriteFolder[];
   sourceViewMode: SourceViewMode;

@@ -44,7 +44,6 @@ export interface ProjectSliceContract {
   clearProject: () => void;
   loadProject: (scenes: Scene[], sceneOrder?: string[]) => void;
 
-  setRootFolder: (folder: { path: string; name: string; structure: FileItem[] } | null) => void;
   addSourceFolder: (folder: SourceFolderContract) => void;
   removeSourceFolder: (path: string) => void;
   updateSourceFolder: (path: string, structure: FileItem[]) => void;

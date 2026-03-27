@@ -75,7 +75,6 @@ export default function StartupModal() {
   const { toast } = useToast();
   const {
     initializeProject,
-    setRootFolder,
     applySourcePanelState,
     loadMetadata,
     setLastPersistedSnapshot,
@@ -206,13 +205,6 @@ export default function StartupModal() {
 
         // Load metadata store (will be empty for new project)
         await loadMetadata(bootstrap.vaultPath);
-
-        // Set root folder to vault
-        setRootFolder({
-          path: bootstrap.vaultPath,
-          name: projectName,
-          structure: bootstrap.structure,
-        });
 
         // Initialize source panel with default vault assets folder
         applySourcePanelState(await resolveInitialSourcePanelState(undefined, bootstrap.vaultPath));

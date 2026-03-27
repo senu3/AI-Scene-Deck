@@ -50,7 +50,6 @@ export const useStore = create<AppState>((set, get) => ({
   clipboard: [],
 
   sourceFolders: [],
-  rootFolder: null,
   expandedFolders: new Set(),
   favorites: [],
   sourceViewMode: 'list',

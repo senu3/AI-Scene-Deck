@@ -115,7 +115,6 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSliceCo
         cutRuntimeById: {},
         lastSelectedCutId: null,
         selectionType: null,
-        rootFolder: null,
         sourceFolders: [],
         assetCache: new Map(),
         selectedGroupId: null,
@@ -134,17 +133,6 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSliceCo
       });
     },
 
-    setRootFolder: (folder) =>
-      set((state) => {
-        if (folder && !state.sourceFolders.some((f) => f.path === folder.path)) {
-          return {
-            rootFolder: folder,
-            sourceFolders: [...state.sourceFolders, folder],
-          };
-        }
-        return { rootFolder: folder };
-      }),
-
     addSourceFolder: (folder) =>
       set((state) => {
         if (state.sourceFolders.some((f) => f.path === folder.path)) {
@@ -156,7 +144,6 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSliceCo
     removeSourceFolder: (path) =>
       set((state) => ({
         sourceFolders: state.sourceFolders.filter((f) => f.path !== path),
-        rootFolder: state.rootFolder?.path === path ? null : state.rootFolder,
       })),
 
     updateSourceFolder: (path, structure) =>
