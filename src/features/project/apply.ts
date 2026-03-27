@@ -1,5 +1,5 @@
 import type { MissingAssetInfo, RecoveryDecision } from '../../components/MissingAssetRecoveryModal';
-import type { CutRuntimeState, Scene, SourcePanelState } from '../../types';
+import type { CutRuntimeState, Scene, SourceViewMode, FileItem } from '../../types';
 import type { StoreEventOperationContext } from '../../store/events';
 import {
   createSaveRecentProjectsEffect,
@@ -21,6 +21,7 @@ import {
 } from './session';
 import type { RecoveryAssessment } from './recoveryAssessment';
 import { upsertRecentProjectEntry } from './recentProjects';
+import { resolveInitialSourcePanelState } from './sourcePanelState';
 import type { ProjectUnregisteredAssetSyncResult } from './unregisteredAssets';
 
 export interface ProjectLoadApplyDeps {
@@ -34,7 +35,11 @@ export interface ProjectLoadApplyDeps {
   setCutRuntimeHold: (cutId: string, hold: NonNullable<CutRuntimeState['hold']>) => void;
   setProjectPath: (path: string | null) => void;
   loadMetadata: (vaultPath: string) => Promise<void>;
-  initializeSourcePanel: (state: SourcePanelState | undefined, vaultPath: string | null) => void | Promise<void>;
+  applySourcePanelState: (state: {
+    folders: Array<{ path: string; name: string; structure: FileItem[] }>;
+    expandedPaths: string[];
+    viewMode: SourceViewMode;
+  }) => void;
   createStoreEventOperation: (
     origin: StoreEventOperationContext['origin'],
     opId?: string
@@ -136,7 +141,7 @@ export async function applyPendingProjectToStore(
 
   deps.setProjectPath(project.projectPath);
   await deps.loadMetadata(project.vaultPath);
-  await deps.initializeSourcePanel(project.sourcePanelState, project.vaultPath);
+  deps.applySourcePanelState(await resolveInitialSourcePanelState(project.sourcePanelState, project.vaultPath));
 
   if (recoveryRelinks.length > 0) {
     const context = deps.createStoreEventOperation('recovery');

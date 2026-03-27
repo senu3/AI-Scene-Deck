@@ -4,12 +4,7 @@ import { clearThumbnailCache } from '../../utils/thumbnailCache';
 import { normalizeSceneOrder } from '../../utils/sceneOrder';
 import { resolveCutAssetId } from '../../utils/assetResolve';
 import { normalizeGroupsInScenes } from '../../utils/cutGroupOps';
-import {
-  checkPathExistsForSourcePanel,
-  readFolderContentsForSourcePanel,
-} from '../../features/project/sourcePanelProvider';
 import type { PersistedProjectSnapshot } from '../../features/project/persistedSnapshot';
-import type { SourceFolder } from '../stateTypes';
 import type { ProjectSliceContract } from '../contracts';
 import type { SliceGet, SliceSet } from './sliceTypes';
 
@@ -169,26 +164,6 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSliceCo
         sourceFolders: state.sourceFolders.map((f) => (f.path === path ? { ...f, structure } : f)),
       })),
 
-    refreshAllSourceFolders: async () => {
-      const state = get();
-
-      for (const folder of state.sourceFolders) {
-        try {
-          const structure = await readFolderContentsForSourcePanel(folder.path);
-          if (!structure) {
-            throw new Error('Folder read failed');
-          }
-          set((currentState) => ({
-            sourceFolders: currentState.sourceFolders.map((f) =>
-              f.path === folder.path ? { ...f, structure } : f
-            ),
-          }));
-        } catch (error) {
-          console.error('Failed to refresh folder:', folder.path, error);
-        }
-      }
-    },
-
     toggleFolderExpanded: (path) =>
       set((state) => {
         const newExpanded = new Set(state.expandedFolders);
@@ -214,48 +189,12 @@ export function createProjectSlice(set: SliceSet, get: SliceGet): ProjectSliceCo
 
     setSourceViewMode: (mode) => set({ sourceViewMode: mode }),
 
-    initializeSourcePanel: async (state, vaultPath) => {
-      const vaultAssetsPath = vaultPath ? `${vaultPath}/assets`.replace(/\\/g, '/') : null;
-
-      if (state) {
-        const folders: SourceFolder[] = [];
-        for (const folderState of state.folders) {
-          const normalizedPath = folderState.path.replace(/\\/g, '/');
-          if (vaultAssetsPath && normalizedPath === vaultAssetsPath) {
-            continue;
-          }
-
-          try {
-            const structure = await readFolderContentsForSourcePanel(folderState.path);
-            if (!structure) continue;
-            folders.push({
-              path: folderState.path,
-              name: folderState.name,
-              structure,
-            });
-          } catch {
-            // Folder may not exist anymore.
-          }
-        }
-        set({
-          sourceFolders: folders,
-          expandedFolders: new Set(state.expandedPaths),
-          sourceViewMode: state.viewMode || 'list',
-        });
-      } else if (vaultPath) {
-        set({
-          sourceFolders: [],
-          expandedFolders: new Set(),
-          sourceViewMode: 'list',
-        });
-        const assetsPath = `${vaultPath}/assets`.replace(/\\/g, '/');
-        try {
-          await checkPathExistsForSourcePanel(assetsPath);
-        } catch {
-          // Ignore errors.
-        }
-      }
-    },
+    applySourcePanelState: (state) =>
+      set({
+        sourceFolders: state.folders.map((folder) => ({ ...folder, structure: [...folder.structure] })),
+        expandedFolders: new Set(state.expandedPaths),
+        sourceViewMode: state.viewMode || 'list',
+      }),
 
     getSourcePanelState: () => {
       const state = get();

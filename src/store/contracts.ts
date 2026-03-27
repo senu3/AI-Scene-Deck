@@ -48,13 +48,16 @@ export interface ProjectSliceContract {
   addSourceFolder: (folder: SourceFolderContract) => void;
   removeSourceFolder: (path: string) => void;
   updateSourceFolder: (path: string, structure: FileItem[]) => void;
-  refreshAllSourceFolders: () => Promise<void>;
   toggleFolderExpanded: (path: string) => void;
   setExpandedFolders: (paths: string[]) => void;
   addFavorite: (folder: FavoriteFolder) => void;
   removeFavorite: (path: string) => void;
   setSourceViewMode: (mode: SourceViewMode) => void;
-  initializeSourcePanel: (state: SourcePanelState | undefined, vaultPath: string | null) => void;
+  applySourcePanelState: (state: {
+    folders: SourceFolderContract[];
+    expandedPaths: string[];
+    viewMode: SourceViewMode;
+  }) => void;
   getSourcePanelState: () => SourcePanelState;
 }
 

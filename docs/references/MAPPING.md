@@ -40,6 +40,6 @@
 | エクスポート音声計画 | `ExportAudioPlan` / `ExportAudioEvent`。 | `buildExportAudioPlan`（`useEmbeddedAudio` と `group-attach` を含む）。 | `App`、`PreviewModal` |
 | エクスポート実行境界 | `ExportSequenceOptions` / `ExportSequenceResult`（IPC payload, `audioPlan` 含む）。 | `window.electronAPI.exportSequence`。 | `App`、`PreviewModal` |
 | カット可能メディア判定 | `CuttableMediaType`（`image`/`video`）。 | `getCuttableMediaType`（新規） / `getTimelineMediaType`（互換エイリアス・移行中）。 | `Sidebar`、`StartupModal`、`dragDrop` |
-| ソースパネル状態 | `SourcePanelState` / `SourceViewMode`。 | `initializeSourcePanel` / `getSourcePanelState`（`Project.sourcePanel` に保存）。 | `Sidebar` |
+| ソースパネル状態 | `SourcePanelState` / `SourceViewMode`。 | `applySourcePanelState` / `getSourcePanelState`（`Project.sourcePanel` に保存）。初期解決は `resolveInitialSourcePanelState`。 | `Sidebar` |
 | ソース由来パス規約 | `ImportSourcePath` / `OriginPath`（docs規約）。 | `SourcePanel`（UI）とは別概念として記述。 | guides で適用 |
 | アプリメニュー（ネイティブ） | （専用TS型なし） | `electron/preload.ts`（IPC橋渡し） | `electron/main.ts`（Menu定義＋set）/ `App.tsx`（`onToggleSidebar` 購読） |

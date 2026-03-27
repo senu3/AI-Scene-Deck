@@ -65,7 +65,7 @@
 | **Asset Reference Graph** | `collectAssetRefs` が scenes + metadata から参照種別付きの asset 参照集合を構築。 | **含む:** `cut` / `cut-audio-binding` / `scene-audio` / `group-audio`。**含まない:** 物理ファイル一覧や未参照 generated asset。 | **利用:** usage算出 / 削除可否判定 / 保存前検証。 | `assetRefs.ts` |
 | **Asset Delete Policy** | `deleteAssetWithPolicy` は asset 削除責務の単一入口。 | **含む:** 参照チェック + trash移動 + index/metadata整合更新。 | **呼び出し:** `assetActions.runAssetDelete` から store 経由。 | `useStore.ts`, `features/asset/actions.ts` |
 | **Scene Metadata** | `.metadata.json` 内の `SceneMetadata`（scene notes/labels/attachAudio の永続化）。 | **含む:** シーン名・ノート・`attachAudio`・`groupAudioBindings`。 | **更新:** scene同期（`syncSceneMetadata`）+ Scene/Group Audio更新（`setSceneAudioBinding` / `setGroupAudioBinding`）。 | `SceneMetadata`、`metadataStore.ts` |
-| **ソースパネル状態** | `SourcePanelState` は source panel の folders/expanded/viewMode を保持。 | **含む:** ユーザが追加した外部フォルダ。 | **初期化/取得:** `initializeSourcePanel` / `getSourcePanelState`（`Project.sourcePanel` に保存）。 | `SourcePanelState`、`useStore.ts` |
+| **ソースパネル状態** | `SourcePanelState` は source panel の folders/expanded/viewMode を保持。 | **含む:** ユーザが追加した外部フォルダ。 | **適用/取得:** `applySourcePanelState` / `getSourcePanelState`（`Project.sourcePanel` に保存）。初期解決は feature 層の `resolveInitialSourcePanelState` が担う。 | `SourcePanelState`、`useStore.ts` |
 | **保管庫パス** | `vaultPath` はプロジェクトの保管庫ルート。 | **含む:** `vault/assets` の初期化。 | **選択/作成:** StartupModal で作成。 | `Project.vaultPath`、`StartupModal.tsx` |
 
 ## UI / Playback

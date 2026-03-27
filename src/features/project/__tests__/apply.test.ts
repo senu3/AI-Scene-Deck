@@ -55,7 +55,7 @@ function createDeps() {
     setCutRuntimeHold: vi.fn(),
     setProjectPath: vi.fn(),
     loadMetadata: vi.fn(async () => undefined),
-    initializeSourcePanel: vi.fn(async () => undefined),
+    applySourcePanelState: vi.fn(),
     createStoreEventOperation: vi.fn(() => ({ origin: 'recovery' as const, opId: 'op-1' })),
     runWithStoreEventContext: vi.fn(async (_context, run: () => void | Promise<void>) => {
       await run();

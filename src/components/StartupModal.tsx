@@ -18,6 +18,7 @@ import MissingAssetRecoveryModal, { MissingAssetInfo, RecoveryDecision } from '.
 import {
   finalizePendingProjectLoad,
 } from '../features/project/apply';
+import { resolveInitialSourcePanelState } from '../features/project/sourcePanelState';
 import {
   type PendingProject,
   type ProjectOpenRequestResult,
@@ -75,7 +76,7 @@ export default function StartupModal() {
   const {
     initializeProject,
     setRootFolder,
-    initializeSourcePanel,
+    applySourcePanelState,
     loadMetadata,
     setLastPersistedSnapshot,
     setProjectPath,
@@ -214,7 +215,7 @@ export default function StartupModal() {
         });
 
         // Initialize source panel with default vault assets folder
-        await initializeSourcePanel(undefined, bootstrap.vaultPath);
+        applySourcePanelState(await resolveInitialSourcePanelState(undefined, bootstrap.vaultPath));
         setLastPersistedSnapshot(buildPersistedSnapshot(useStore.getState()));
       } else {
         // Demo mode
@@ -263,7 +264,7 @@ export default function StartupModal() {
       setCutRuntimeHold,
       setProjectPath,
       loadMetadata,
-      initializeSourcePanel,
+      applySourcePanelState,
       createStoreEventOperation,
       runWithStoreEventContext,
       emitCutRelinked,
