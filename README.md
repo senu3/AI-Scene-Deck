@@ -6,6 +6,10 @@ SceneDeck は、画像・動画などの素材を **Scene と Cut 単位で整�
 
 動画編集を始める前の段階で、素材を並べ替えながら **ストーリー構造や構成の流れを確認する** ことを目的としています。
 
+[プロトタイプ v.0.1.0 (Windows11)](https://github.com/senu3/scene-deck-builder/releases)  
+  
+<img width="1386" height="893" alt="スクリーンショット 2026-03-16 235741" src="https://github.com/user-attachments/assets/fa857c98-a4ea-4691-b1cd-4f18e2988cde" />
+
 ## どんなツールか
 
 動画制作では、素材が増えるほど次の問題が起きます。
